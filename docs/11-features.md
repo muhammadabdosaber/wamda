@@ -122,7 +122,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
 | 6.5 | `pg_cron` schedule for sweep | 🟡 migration written and applied; **deliberately inert** — no Vault secrets, `cron.job` is empty | SB-001 |
 | 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
-| 6.6 | CI pipeline | ❌ → added in this change, unrun on a real runner | `.github/workflows/ci.yml` |
+| 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
@@ -143,10 +143,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 40 |
+| ✅ working | 41 |
 | 🟡 partial | 7 |
 | ⬜ built, unrun | 18 |
-| ❌ not built | 19 |
+| ❌ not built | 18 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API
 key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key

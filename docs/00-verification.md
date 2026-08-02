@@ -199,6 +199,43 @@ app name as valid UTF-8 (code points confirmed: 1575, 1604, 1583, 1605… =
 الدماغ). `dist/index.html` preserves `<html lang="ar" dir="rtl">`. Service
 worker and Workbox runtime emitted, 7 precache entries.
 
+### CI, on a real runner
+
+The workflow ran for the first time on 2026-08-02 and **caught a real bug on
+its first attempt**, which is the best argument for it existing.
+
+| Job | Result |
+|---|---|
+| web — typecheck · RTL guard · 21 tests · build | pass, 25 s |
+| functions — `deno check` | pass, 12 s (**failed first**, see below) |
+| database — migrations + 12 schema assertions | pass, 3 m 19 s |
+
+The database job applies every migration to a real Postgres on the runner and
+runs `verify.sql` against it: all 12 assertions printed `PASS` and the run
+ended with `ALL SCHEMA CHECKS PASSED`. That is the same evidence as the local
+run, reproduced on a machine nobody had configured.
+
+**What the first run caught.** `deno check` failed:
+
+```
+TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  cache_read_input_tokens: usage.cache_read_input_tokens,
+  at supabase/functions/_shared/pipeline.ts:324
+```
+
+`npm:@anthropic-ai/sdk` was imported with **no version** — there was a `TODO`
+on that line about pinning it. The runner resolved 0.115.0, where the usage
+counters are nullable, so local and CI were type-checking against different
+SDKs. Pinned to `0.115.0`, and `EnrichOutput.usage` widened to match the SDK —
+the one declaration still claiming those fields were merely optional, while
+`costUsd` and both `ai_jobs` writes already treated them as nullable.
+
+**Two faults in the workflow itself**, also first-run finds: `version: latest`
+for the Supabase CLI resolves through an unauthenticated GitHub API call and
+was **rate-limited**; and the `if: always()` stop step then ran a CLI that was
+never installed, reporting the same failure a second time as `command not
+found`. CLI pinned to 2.109.1; stop step made tolerant.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

@@ -70,7 +70,21 @@ with every note still reaching `ready`.
   notes, hybrid search, PWA over native, stage isolation.
 - `CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`.
 - `.github/workflows/ci.yml` — web verify, `deno check`, and `verify.sql`
-  against a real Postgres. **Never executed on a runner.**
+  against a real Postgres. All three jobs green on a real runner; the 12 schema
+  assertions reproduced there, ending in `ALL SCHEMA CHECKS PASSED`.
+
+### Fixed — what CI caught on its first run
+
+- **`npm:@anthropic-ai/sdk` was unpinned.** The runner resolved 0.115.0, where
+  the usage counters are `number | null`, and `deno check` failed on
+  `pipeline.ts:324` — code that passes locally. Pinned to `0.115.0`, and
+  `EnrichOutput.usage` widened to match the SDK; `costUsd` and both `ai_jobs`
+  writes already treated those fields as nullable, so this declaration was the
+  odd one out. No behaviour change: nothing outside `pipeline.ts` reads it.
+- **The CI workflow had two faults of its own.** `version: latest` for the
+  Supabase CLI resolves through an unauthenticated GitHub API call and was
+  rate-limited; the `if: always()` stop step then ran a CLI that was never
+  installed. CLI pinned to 2.109.1, stop step made tolerant.
 - `.github/` PR and issue templates.
 - `.claude/agents/second-brain-builder.md` and `second-brain-verifier.md` — the
   continuation agents.
