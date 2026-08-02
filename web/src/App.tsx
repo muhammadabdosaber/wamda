@@ -172,7 +172,9 @@ export function App() {
           />
         ) : (
           <>
-            {tab === "capture" && <Capture t={t} language={language} />}
+            {tab === "capture" && (
+              <Capture t={t} language={language} onSaved={() => setTab("notes")} />
+            )}
             {tab === "notes" && <Notes t={t} language={language} />}
             {tab === "search" && <Search t={t} language={language} />}
             {tab === "digest" && <Digest t={t} language={language} />}

@@ -14,12 +14,15 @@ export const en: Messages = {
   captureVoice: "Record",
   captureText: "Write",
   captureSave: "Save",
+  captureSaving: "Saving…",
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
 
   notesTitle: "My notes",
   notesEmpty: "No notes yet. Start with one thought.",
+  notesPendingSync: "Saved on your device",
+  notesVoiceNote: "Voice note",
 
   searchTitle: "Search",
   searchHint: "Search your notes",
@@ -48,6 +51,7 @@ export const en: Messages = {
 
   errorEmailRequired: "Enter a valid email address.",
   errorInvalidCode: "That code is wrong or has expired.",
+  errorCaptureFailed: "Couldn't save this note on your device. Try again.",
 
   categoryTask: "Task",
   categoryEvent: "Event",
