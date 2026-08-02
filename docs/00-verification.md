@@ -278,6 +278,21 @@ was **rate-limited**; and the `if: always()` stop step then ran a CLI that was
 never installed, reporting the same failure a second time as `command not
 found`. CLI pinned to 2.109.1; stop step made tolerant.
 
+**The sweep schedule's safe path is now proven on a machine that never had
+secrets.** Running CI over #5 applied `20260801000800_sweep_schedule.sql` to a
+fresh Postgres and logged:
+
+```
+NOTICE: sweep-worker cron job NOT scheduled: set the "sweep_function_url" and
+"sweep_service_role_key" Vault secrets, then re-run this migration.
+```
+
+followed by `ALL SCHEMA CHECKS PASSED`. That is the design claim — absent
+secrets degrade to a notice rather than failing the deploy — reproduced
+somewhere nobody had configured, instead of only on the machine where it was
+written. **It still proves nothing about sweeping**: no cron job has ever
+fired, and no note has ever been recovered without a client open.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

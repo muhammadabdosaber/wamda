@@ -40,20 +40,19 @@ blocked on.
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
 
-> **SB-001 is written and stranded.** Commit `40f0a14 "Schedule the sweep
-> worker via pg_cron + pg_net"` adds `20260801000800_sweep_schedule.sql`, is
-> pushed to `origin/claude/technical-next-steps-bc88a1`, is **applied to the
-> local database**, and has **no pull request**. Reviewed: it reads the
+> **SB-001 is on `main`** (#5). `20260801000800_sweep_schedule.sql` reads the
 > function URL and service role key from Vault at call time rather than
 > embedding either in a committed file, and when the secrets are absent it
 > raises a `NOTICE` and leaves the job unscheduled instead of failing the
 > deploy. `cron.schedule` replaces by name, so the file is re-runnable.
-> Confirmed inert here — `cron.job` and `vault.secrets` are both empty, which
-> is the documented behaviour, not a fault.
+> **Verified in CI on a clean Postgres:** the migration applies and takes the
+> `NOTICE` path, so deploying into an environment with no Vault secrets is
+> safe. Confirmed inert locally too — `cron.job` and `vault.secrets` are both
+> empty.
 >
-> **What remains:** open a PR for that branch, set the two Vault secrets in
-> whichever environment should actually sweep, re-run the migration, and prove
-> a stranded note recovers with no client open. Do not rebuild this.
+> **What remains is the only part that matters:** set the two Vault secrets
+> somewhere that should actually sweep, re-run the migration, and prove a
+> stranded note recovers **with no client open**. Nothing has ever swept.
 
 ---
 
