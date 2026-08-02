@@ -1,0 +1,109 @@
+import { openDB, type DBSchema, type IDBPDatabase } from "idb";
+
+/**
+ * Offline-first capture store.
+ *
+ * THE INVARIANT: a captured thought is durable before any network call is
+ * attempted. The UI renders from here and never blocks on connectivity. For
+ * the target user this is the difference between a tool they trust and one
+ * that occasionally eats a thought -- and one lost thought is enough to stop
+ * them using it.
+ *
+ * IndexedDB rather than localStorage for two reasons that both matter here:
+ * localStorage is synchronous (it blocks the main thread on every write, on
+ * the one code path that must never stutter), and it stores strings only --
+ * whereas IndexedDB stores a `Blob` natively, so a voice recording can sit in
+ * the outbox as-is instead of being base64-inflated by a third.
+ */
+
+export type NoteSource = "text" | "voice";
+
+export interface OutboxNote {
+  /** Minted locally, offline. The server's idempotency key. */
+  clientId: string;
+  source: NoteSource;
+  language: string;
+  text?: string;
+  audio?: Blob;
+  capturedAt: string;
+  serverId?: string;
+  attempts: number;
+}
+
+interface SecondBrainDB extends DBSchema {
+  outbox: {
+    key: string;
+    value: OutboxNote;
+    indexes: { byCaptured: string };
+  };
+}
+
+let dbPromise: Promise<IDBPDatabase<SecondBrainDB>> | null = null;
+
+function db(): Promise<IDBPDatabase<SecondBrainDB>> {
+  dbPromise ??= openDB<SecondBrainDB>("second-brain", 1, {
+    upgrade(database) {
+      const store = database.createObjectStore("outbox", { keyPath: "clientId" });
+      store.createIndex("byCaptured", "capturedAt");
+    },
+  });
+  return dbPromise;
+}
+
+export async function capture(input: {
+  source: NoteSource;
+  language: string;
+  text?: string;
+  audio?: Blob;
+}): Promise<OutboxNote> {
+  const note: OutboxNote = {
+    // The client_id is minted HERE, offline, and is what makes replay
+    // idempotent server-side. Letting the server assign the id would turn
+    // every retry of an unacknowledged request into a duplicate note.
+    clientId: crypto.randomUUID(),
+    source: input.source,
+    language: input.language,
+    capturedAt: new Date().toISOString(),
+    attempts: 0,
+    ...(input.text !== undefined ? { text: input.text } : {}),
+    ...(input.audio !== undefined ? { audio: input.audio } : {}),
+  };
+
+  await (await db()).put("outbox", note);
+  return note;
+}
+
+/**
+ * Unsynced notes, oldest first. Replaying in capture order keeps the
+ * server-side timeline coherent when a whole day syncs at once.
+ */
+export async function pending(limit = 50): Promise<OutboxNote[]> {
+  const all = await (await db()).getAllFromIndex("outbox", "byCaptured");
+  return all.filter((n) => !n.serverId).slice(0, limit);
+}
+
+export async function pendingCount(): Promise<number> {
+  return (await pending(Number.MAX_SAFE_INTEGER)).length;
+}
+
+export async function markSynced(clientId: string, serverId: string): Promise<void> {
+  const database = await db();
+  const note = await database.get("outbox", clientId);
+  if (!note) return;
+  // Audio is dropped once the server has it. Keeping a copy would grow the
+  // origin's storage quota without bound, and browsers evict the whole
+  // database when a quota is hit -- taking unsynced notes with it.
+  await database.put("outbox", { ...note, serverId, audio: undefined });
+}
+
+export async function markAttempted(clientId: string): Promise<void> {
+  const database = await db();
+  const note = await database.get("outbox", clientId);
+  if (!note) return;
+  await database.put("outbox", { ...note, attempts: note.attempts + 1 });
+}
+
+/** Test seam: lets a suite point at a fresh database. */
+export function __resetForTests(): void {
+  dbPromise = null;
+}

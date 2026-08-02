@@ -1,0 +1,296 @@
+# 0. What was actually verified
+
+An honest ledger. Nothing below is inferred from reading the code — it either
+ran on this machine or it did not.
+
+## Backend — ran, passed
+
+### Migrations apply to a real Postgres
+
+`supabase db reset` — all six migrations apply clean against Supabase local
+(Postgres + pgvector), no warnings beyond an idempotent `pgcrypto already
+exists` notice.
+
+### 12 schema checks against a live database
+
+```
+docker exec -i supabase_db_Second_Brain \
+  psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
+```
+
+```
+PASS: alef-hamza, tatweel, harakat all fold
+PASS: taa-marbuta folds to haa
+PASS: slugify converges (احمد)
+PASS: arabic tsvector = 'كبير':2 'مدرسه':1
+PASS: profiles auto-provisioned on signup
+PASS: capture_note is idempotent on client_id
+PASS: cross-user reads blocked on notes, note_tags, note_embeddings
+PASS: generated search_vector populated = 'مدرسه':1
+PASS: lexical search matches across spelling variants (1 hit(s))
+PASS: unenriched note is still findable (summary is null: t)
+PASS: tag variants collapsed to a single tag
+PASS: every public table has RLS enabled
+ALL SCHEMA CHECKS PASSED
+```
+
+The two that matter most: **cross-user isolation** (user B authenticated,
+querying user A's note id directly, gets zero rows — on `notes`, `note_tags`,
+and `note_embeddings` independently), and **Arabic search across spelling
+variants** (a note stored with a taa-marbuta ending is found by a query typed
+with a haa ending).
+
+### Edge Functions type-check
+
+`deno check` over all shared modules and all five functions — exit 0.
+
+More informative than it sounds: it validated the Anthropic call against the
+**real installed SDK typings**. `output_config.format`,
+`thinking: {type: "adaptive"}`, `betas: ["server-side-fallback-2026-07-01"]`,
+and `fallbacks: "default"` are current API surface, not plausible guesses.
+
+## Client — ran, passed
+
+The client is a React PWA (`web/`). Unlike the Flutter version it replaced,
+every layer of it is verifiable on this machine, and was.
+
+### Typecheck, tests, guard, build
+
+| Check | Result |
+|---|---|
+| `tsc --noEmit` | exit 0 |
+| `vitest run` | **21 tests passed** (2 files) |
+| `node tool/check-rtl.mjs` | passed |
+| `vite build` | 431 KB → **124 KB gzipped**; SW + manifest emitted |
+
+**The RTL guard was tested against a deliberate violation**, not just observed
+passing. A temporary file with `margin-left` and `text-align: left` made it
+exit 1 and report both offences; removing the file returned it to exit 0. A
+checker that has only ever passed is not known to work.
+
+### Live browser verification
+
+Dev server started, page driven directly:
+
+- `<html lang="ar" dir="rtl">`, computed direction `rtl`
+- UI renders Arabic: title, tabs (`اكتب` / `ملاحظاتي` / `البحث` / `مراجعة الأسبوع`),
+  placeholder `ما الذي يدور في بالك؟`
+- `text-align: start` resolves correctly
+
+**Logical properties genuinely mirror.** A probe element with
+`margin-inline-start: 40px` computed to:
+
+| | `dir=rtl` | `dir=ltr` |
+|---|---|---|
+| `margin-right` | **40px** | 0px |
+| `margin-left` | 0px | **40px** |
+
+**Offline capture works end-to-end with no server running.** Arabic text typed
+into the real textarea, real Save button clicked, then IndexedDB read directly:
+
+```json
+{ "storedCount": 1, "clientIdIsUuid": true, "source": "text",
+  "language": "ar", "unsynced": true, "textareaCleared": true,
+  "pendingIndicator": "ملاحظة واحدة بانتظار المزامنة" }
+```
+
+That is the durability invariant — the thing the whole product rests on —
+demonstrated rather than asserted.
+
+**All four Arabic plural forms render distinctly**, driven by real
+`Intl.PluralRules` against real note counts:
+
+| count | category | rendered |
+|---|---|---|
+| 1 | `one` | ملاحظة واحدة بانتظار المزامنة |
+| 2 | `two` | ملاحظتان بانتظار المزامنة |
+| 3 | `few` | 3 ملاحظات بانتظار المزامنة |
+| 11 | `many` | 11 ملاحظة بانتظار المزامنة |
+
+Test data was cleared and the dev server stopped afterwards.
+
+### Auth, end to end against a real Supabase
+
+The full sign-in loop was driven in the browser, with the code pulled from the
+local mail catcher — no mocks anywhere in the chain:
+
+1. A note captured **while signed out** → landed in the local outbox
+2. Notes tab → showed the sign-in gate with its reason, not a generic error
+3. Email entered → `signInWithOtp` → real email delivered to Mailpit
+4. Email confirmed to use the **custom Arabic RTL template**, carrying a
+   six-digit `{{ .Token }}`
+5. Code (`846776`) typed into the real form → `verifyOtp` → session established
+6. Header flipped to `تسجيل الخروج`; `sync()` fired on the session change
+7. **Both** queued notes — including the pre-auth one — present in Postgres
+   under `muhammad@example.test`, with the profile auto-provisioned by the
+   signup trigger
+
+The `attempts` counters incidentally proved the sync guard: the note captured
+before the guard existed shows `attempts: 1` (a wasted 401), the one captured
+after shows `attempts: 0`.
+
+### A stranded-state bug this run exposed
+
+The same run revealed that `enrich` set `status = 'enriching'` and then threw
+on the missing `ANTHROPIC_API_KEY` **without ever resetting it**. Two notes were
+left in a non-terminal state: invisible to the timeline (which filters
+`status = 'ready'`), with nothing to retry them.
+
+Not a missing-key artifact — any transient failure (network blip, 502, timeout)
+would do the same in production.
+
+Fixed and then re-verified by re-running the failing path:
+
+| | before | after |
+|---|---|---|
+| note status | stuck `enriching` | back to `queued` (retryable) |
+| telemetry | none | `ai_jobs`: `enrich / failed / missing_configuration` |
+
+Refusals resolve to `failed` instead, since re-running the same note against
+the same prompt would refuse again. The same class of bug was fixed in
+`transcribe`'s audio-download path.
+
+### The AI pipeline, run for real against Claude Opus 5
+
+With a live `ANTHROPIC_API_KEY`, two Arabic notes were enriched end to end and
+both reached `ready`. Actual model output:
+
+| | note 1 | note 2 |
+|---|---|---|
+| input | لازم أراجع عرض السعر مع أحمد قبل اجتماع الخميس | فكرة: نضيف تصدير الملاحظات إلى ملف واحد |
+| title | مراجعة عرض السعر مع أحمد | فكرة: تصدير الملاحظات إلى ملف واحد |
+| category | `task` | `idea` |
+| priority | `high` | `low` |
+| action | `create_task` | `review_later` |
+| due | **2026-08-06 05:00Z** | null |
+| tags | عمل · عروض-أسعار · متابعة · اجتماعات | تطوير-المنتج · تصدير-البيانات · ملاحظات |
+
+Three things this confirms that no amount of type-checking could:
+
+- **Relative date resolution works.** "الخميس" became `2026-08-06 05:00Z` —
+  the correct upcoming Thursday, at 09:00 in the user's `Asia/Dubai` timezone.
+- **`slugify` folds real model output.** The tag stored as `عروض-أسعار` (hamza)
+  slugged to `عروض-اسعار` (bare alef), so a later note spelling it either way
+  converges on one tag instead of fragmenting the graph.
+- **The enum/label split holds end to end.** The database holds `task` and
+  `low`; the UI rendered مهمة and لاحقًا from the catalogue, with the date
+  formatted by `Intl` as `1 أغسطس، 05:19 م`.
+
+### Prompt caching, measured rather than estimated
+
+| call | `input_tokens` | `cache_read_input_tokens` | cost |
+|---|---|---|---|
+| 1st (cache write) | 97 | **0** | — |
+| 2nd | 97 | **2169** | $0.0083 |
+| 3rd | 97 | **2169** | $0.0105 |
+
+The system prompt is ~2.2K tokens and is served from cache on every call after
+the first, at ~0.1× input price. `enrich` logs `prompt_cache_miss` when
+`cache_read_input_tokens` is 0 — that warning appeared on call 1 and never
+again, which is exactly the intended signal.
+
+Measured cost lands at **~$0.008–0.011 per note**, against the ~$0.015 the
+design estimated from published pricing. The estimate was conservative.
+
+### Build output
+
+`dist/manifest.webmanifest` carries `lang: "ar"`, `dir: "rtl"`, and the Arabic
+app name as valid UTF-8 (code points confirmed: 1575, 1604, 1583, 1605… =
+الدماغ). `dist/index.html` preserves `<html lang="ar" dir="rtl">`. Service
+worker and Workbox runtime emitted, 7 precache entries.
+
+## Seven real bugs this caught
+
+1. **Missing table grants.** RLS policies were correct, but `authenticated`
+   had no table-level privileges — every client query would have failed
+   `permission denied for table notes`. The schema was relying on Supabase's
+   implicit default privileges, which depend on which role ran the migration.
+2. **PostgREST type inference** through an embedded relation made every field
+   access on the timeline query a type error.
+3. **`Messages` derived from an `as const` object** required the English
+   catalogue to equal the Arabic *text*, not just its keys — 39 compile errors.
+   Fixed with a mapped type that widens values to `string`.
+4. **Dual Vite type identities.** vitest 2 bundles its own nested Vite 5
+   alongside Vite 6, so the PWA plugin was unassignable to `PluginOption`.
+   Fixed by matching majors (vitest 3), not by casting the error away.
+5. **Notes stranded in a non-terminal state** when enrichment failed — see the
+   section above. The most consequential of the six: it silently loses notes
+   from the user's view.
+6. **`sync()` burned retry attempts while signed out**, incrementing `attempts`
+   on every queued note against a guaranteed 401. A user capturing for a week
+   before signing in would accumulate a large attempt count on notes that were
+   never broken, poisoning the one signal meant to identify genuinely stuck
+   items.
+7. **An optional stage was treated as fatal.** A misconfigured *embedding* key
+   made the entire request throw, resetting the note to `queued` — even though
+   the expensive Anthropic call had already succeeded and been persisted. The
+   note could never reach `ready`, so it stayed invisible in the timeline while
+   its enrichment sat in the database, paid for and unused. Stages 4–5 are now
+   isolated: without embeddings a note still has a summary, category, tags, and
+   lexical search, and is only missing from *semantic* results. A missing
+   `note_embeddings` row is its own backfill marker.
+
+None were visible by reading the code. Number 7 in particular only appeared
+because a second vendor key was absent while the first was present — a
+combination no test suite was going to stumble into.
+
+## An operational gotcha worth knowing
+
+**The local Edge Runtime serves stale compiled code after a file edit**, and
+`docker restart supabase_edge_runtime_*` is *not* enough to clear it — the
+container demonstrably read the updated file (verified by `grep` inside it)
+while still executing the previous version. A full `supabase stop && supabase
+start` was required.
+
+Budget for this when iterating on functions: a fix that "doesn't work" may
+simply not be running. Confirm by adding a distinctive log line rather than by
+re-reading the code.
+
+## Did NOT run
+
+### Anything requiring a vendor API key
+
+No `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, or `COHERE_API_KEY` was
+available, so none of these executed against a real service:
+
+- **Transcription.** Scribe's response shape — particularly the per-word
+  probability field used for confidence — is written from documentation and has
+  not been observed. Expect to adjust `ScribeASR.transcribe`.
+- **Embeddings and semantic search.** `COHERE_API_KEY` was never supplied, so
+  the semantic arm has never run. Search was exercised lexically only, with
+  `p_embedding => null`, and `note_embeddings` is empty. Cross-lingual
+  retrieval — the phase-2 claim that an Arabic query finds an English note —
+  therefore remains entirely untested.
+- **Relation detection.** `relate_note()` needs an embedding, so it has never
+  produced a row either.
+- **Weekly digest.** Batch submission and collection never executed.
+- **Cross-lingual retrieval.** The phase-2 claim that an Arabic query finds an
+  English note is a property of the chosen model, untested here.
+
+### Client-side gaps
+
+- **Voice capture never ran.** `MediaRecorder` needs a microphone and a user
+  gesture. The feature-detection branch was not exercised on iOS Safari, which
+  is the browser where it actually matters.
+- **Only Chromium.** No Safari or Firefox testing. iOS install flow untested.
+- **No visual screenshot.** Verification was done through the DOM and computed
+  styles, which is stronger for layout assertions but says nothing about
+  whether the design looks good.
+- **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
+  Noto Sans Arabic first, but neither is shipped — rendering currently falls
+  back to a system face.
+
+## What to run first
+
+```bash
+# backend — should reproduce the 12 passes above
+supabase start && supabase db reset
+docker exec -i supabase_db_Second_Brain psql -U postgres -d postgres \
+  -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
+
+# client — should reproduce typecheck + 21 tests + guard + build
+cd web && npm install && npm run verify
+```
+
+Then phase 2 with a real `ANTHROPIC_API_KEY`, watching for
+`prompt_cache_miss` in the function logs.

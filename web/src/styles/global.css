@@ -1,0 +1,256 @@
+/*
+ * RTL CORRECTNESS LIVES HERE.
+ *
+ * This stylesheet contains no `left`, `right`, `margin-left`, `padding-right`,
+ * or `text-align: left`. Every directional value is a LOGICAL property:
+ *
+ *     margin-left      ->  margin-inline-start
+ *     padding-right    ->  padding-inline-end
+ *     left: 0          ->  inset-inline-start: 0
+ *     text-align: left ->  text-align: start
+ *     border-left      ->  border-inline-start
+ *
+ * Logical properties resolve against the document's `dir`, so the entire UI
+ * mirrors when `dir` flips -- with no RTL stylesheet, no `[dir=rtl]` override
+ * blocks, and no per-component work. Physical properties are the single most
+ * common RTL bug: they look correct while you develop in English and pin
+ * things to the wrong side in Arabic, with nothing thrown and no visual cue in
+ * a screenshot review.
+ *
+ * `tool/check-rtl.mjs` fails CI on any physical property here.
+ */
+
+:root {
+  --bg: #faf8f5;
+  --surface: #ffffff;
+  --text: #1f2421;
+  --muted: #6b7280;
+  --accent: #3e6b5c;
+  --accent-soft: #e6efe9;
+  --danger: #b3261e;
+  --radius: 16px;
+
+  /* Arabic glyphs carry ascenders, descenders, and diacritics that clip at
+     the ~1.2 line height Latin-first defaults assume. */
+  --line-height: 1.65;
+
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171a;
+    --surface: #1d2125;
+    --text: #e8eaed;
+    --muted: #9aa0a6;
+    --accent: #7fb3a0;
+    --accent-soft: #23302b;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  line-height: var(--line-height);
+
+  /* An Arabic-first product cannot rely on a Latin-first stack. The Arabic
+     faces are listed BEFORE the generic families so the browser picks a face
+     designed for Arabic rather than falling back to whatever it finds. */
+  font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI",
+    system-ui, -apple-system, sans-serif;
+
+  /* Prevents iOS Safari zooming the page when a text field is focused --
+     which on a capture screen means the input jumps under the user's thumb
+     mid-thought. */
+  -webkit-text-size-adjust: 100%;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  max-inline-size: 720px;
+  margin-inline: auto;
+}
+
+.main {
+  flex: 1;
+  overflow-y: auto;
+  padding-inline: 20px;
+  padding-block: 16px;
+  /* Respects the home-indicator inset on installed iOS/Android PWAs. */
+  padding-block-end: calc(16px + env(safe-area-inset-bottom));
+}
+
+/* ---- header ---- */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-inline: 20px;
+  padding-block: 14px;
+  border-block-end: 1px solid var(--accent-soft);
+}
+
+.header h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+
+/* ---- tabs ---- */
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding-inline: 12px;
+  padding-block: 8px;
+  padding-block-end: calc(8px + env(safe-area-inset-bottom));
+  border-block-start: 1px solid var(--accent-soft);
+  background: var(--surface);
+}
+
+.tab {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.82rem;
+  padding-block: 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+
+/* ---- capture ---- */
+.capture-input {
+  inline-size: 100%;
+  min-block-size: 140px;
+  padding: 16px;
+  font: inherit;
+  line-height: var(--line-height);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius);
+  resize: vertical;
+  /* text-align: start, never left -- follows dir automatically. */
+  text-align: start;
+}
+
+.capture-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.row { display: flex; gap: 12px; margin-block-start: 12px; }
+
+.btn {
+  flex: 1;
+  font: inherit;
+  font-weight: 600;
+  padding-block: 14px;
+  padding-inline: 18px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+}
+
+.btn:disabled { opacity: 0.45; cursor: default; }
+.btn.secondary { background: var(--accent-soft); color: var(--accent); }
+.btn.recording { background: var(--danger); color: #fff; }
+
+/* ---- notes ---- */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-block-end: 12px;
+}
+
+.card h3 { margin: 0 0 6px; font-size: 1rem; }
+.card p { margin: 0; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 12px; }
+
+.chip {
+  font-size: 0.78rem;
+  padding-inline: 10px;
+  padding-block: 4px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.chip.urgent { background: #fdecea; color: var(--danger); }
+
+.linkbtn {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  padding: 0;
+  cursor: pointer;
+}
+
+.muted { color: var(--muted); font-size: 0.85rem; }
+.center { text-align: center; padding-block: 48px; color: var(--muted); }
+
+.banner {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-radius: 12px;
+  padding-inline: 14px;
+  padding-block: 10px;
+  font-size: 0.85rem;
+  margin-block-end: 12px;
+}
+
+.search-input {
+  inline-size: 100%;
+  padding-block: 14px;
+  padding-inline: 16px;
+  font: inherit;
+  text-align: start;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius);
+  margin-block-end: 16px;
+}
+
+/* ---- auth ---- */
+.row-inline { display: flex; align-items: center; gap: 12px; }
+
+.field { display: block; margin-block: 16px 12px; }
+.field > span { display: block; margin-block-end: 6px; font-size: 0.85rem; }
+
+/* Monospace + wide tracking so a six-digit code is scannable while typing.
+   `dir="ltr"` is set on the element itself, not here — digits are LTR even
+   inside an Arabic UI. */
+.code-input {
+  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-size: 1.4rem;
+  letter-spacing: 0.4em;
+  text-align: center;
+}
+
+.error-text {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin-block-start: 12px;
+}
+
+.select {
+  font: inherit;
+  padding-block: 6px;
+  padding-inline: 10px;
+  border-radius: 10px;
+  border: 1px solid var(--accent-soft);
+  background: var(--surface);
+  color: var(--text);
+}

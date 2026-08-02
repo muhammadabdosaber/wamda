@@ -1,0 +1,17 @@
+# Normalize line endings in the repository to LF.
+#
+# Without this, a Windows checkout stores CRLF and every file looks modified to
+# a collaborator on macOS or Linux — and diffs become unreadable. It also
+# matters concretely here: the SQL migrations and the Deno functions are read
+# by Linux containers, and `supabase/templates/magic_link.html` is parsed by
+# GoTrue.
+* text=auto eol=lf
+
+# Binary — never touch these.
+*.png binary
+*.jpg binary
+*.woff2 binary
+*.ttf binary
+
+# Generated; keep it out of diff review noise but still version it.
+web/package-lock.json linguist-generated=true -diff

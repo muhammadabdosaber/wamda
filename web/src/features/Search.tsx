@@ -1,0 +1,68 @@
+import { useEffect, useState } from "react";
+
+import { categoryLabel, type Translator } from "../i18n";
+import { directionOfContent } from "../core/language";
+import { search } from "../data/api";
+
+interface Hit {
+  note_id: string;
+  title: string | null;
+  summary: string | null;
+  category: string | null;
+  language: string | null;
+}
+
+export function Search({ t, language }: { t: Translator; language: string }) {
+  const [query, setQuery] = useState("");
+  const [hits, setHits] = useState<Hit[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!trimmed) {
+      setHits(null);
+      return;
+    }
+
+    // Debounced 350 ms. Every hybrid search costs an embedding call, so
+    // firing per keystroke would bill an API request per character typed.
+    const timer = setTimeout(() => {
+      setBusy(true);
+      search(trimmed, language)
+        .then((r) => setHits(r as unknown as Hit[]))
+        .catch(() => setHits([]))
+        .finally(() => setBusy(false));
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [query, language]);
+
+  return (
+    <>
+      <input
+        className="search-input"
+        type="search"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder={t.t("searchHint")}
+        aria-label={t.t("searchHint")}
+      />
+
+      {busy && <p className="muted">…</p>}
+
+      {hits?.length === 0 && !busy && <p className="center">{t.t("searchNoResults")}</p>}
+
+      {hits?.map((hit) => (
+        <div key={hit.note_id} className="card" dir={directionOfContent(hit.language)}>
+          {hit.title && <h3>{hit.title}</h3>}
+          <p>{hit.summary ?? ""}</p>
+          {hit.category && (
+            <div className="chips">
+              <span className="chip">{categoryLabel(t, hit.category)}</span>
+            </div>
+          )}
+        </div>
+      ))}
+    </>
+  );
+}

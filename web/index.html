@@ -1,0 +1,24 @@
+<!doctype html>
+<!--
+  lang and dir are Arabic-first in the served HTML, not applied by JavaScript
+  after hydration.
+
+  If the document started as `dir="ltr"` and React flipped it on mount, every
+  first paint would render left-to-right and then visibly jump. On a slow
+  connection that flash is the first thing the user sees. Setting it here means
+  the very first frame is already correct; `applyDirection()` only changes it
+  if the user later picks a different language.
+-->
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3e6b5c" />
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <title>الدماغ الثاني</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

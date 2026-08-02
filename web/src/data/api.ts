@@ -1,0 +1,195 @@
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+
+import type { OutboxNote } from "./outbox";
+import { markAttempted, markSynced, pending } from "./outbox";
+
+/**
+ * The anon key is public by design and safe to ship in a bundle. It is safe
+ * ONLY because every table has a Row Level Security policy -- RLS is the
+ * authorization layer, not a second line of defence. No service-role key ever
+ * reaches this code.
+ */
+const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
+
+/** False when the build was made without Supabase env vars. */
+export const isConfigured = Boolean(url && anonKey);
+
+/**
+ * Placeholders when unconfigured, rather than empty strings.
+ *
+ * `createClient("", "")` THROWS at module scope, which in a bundled app means
+ * the whole module graph fails to evaluate and the user gets a blank white
+ * page with an error only visible in the console. Falling back to a
+ * syntactically valid local URL keeps the shell rendering, so the app can show
+ * an actionable "not configured" banner instead of nothing at all.
+ */
+export const supabase: SupabaseClient = createClient(
+  url || "http://127.0.0.1:54421",
+  anonKey || "anon-key-not-configured",
+);
+
+export class ApiError extends Error {
+  constructor(readonly code: string) {
+    super(code);
+  }
+}
+
+/**
+ * Every call carries the resolved language explicitly. The server applies the
+ * same precedence, but sending it makes intent unambiguous and keeps
+ * optimistic local rendering consistent with what comes back.
+ */
+async function invoke<T>(
+  fn: string,
+  body: Record<string, unknown>,
+  language: string,
+): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(fn, {
+    body: { ...body, lang: language },
+    headers: { "Accept-Language": language },
+  });
+
+  if (error) {
+    const details = (error as { context?: { error?: { code?: string } } }).context;
+    throw new ApiError(details?.error?.code ?? "internal_error");
+  }
+  if (data && typeof data === "object" && "error" in data) {
+    const code = (data as { error?: { code?: string } }).error?.code;
+    throw new ApiError(code ?? "internal_error");
+  }
+  return data as T;
+}
+
+export interface Enrichment {
+  title: string | null;
+  summary: string;
+  category: string;
+  priority: string;
+  suggested_action: string;
+  action_due_at: string | null;
+  language: string;
+}
+
+export interface TimelineNote {
+  id: string;
+  client_id: string;
+  source: string;
+  status: string;
+  input_language: string;
+  detected_language: string | null;
+  client_created_at: string;
+  note_enrichments: Enrichment[];
+}
+
+export async function captureNote(note: OutboxNote): Promise<string> {
+  const res = await invoke<{ note_id: string }>(
+    "notes",
+    {
+      client_id: note.clientId,
+      source: note.source,
+      text: note.text ?? null,
+      client_created_at: note.capturedAt,
+    },
+    note.language,
+  );
+  return res.note_id;
+}
+
+export async function requestAudioUrl(
+  noteId: string,
+  language: string,
+): Promise<{ path: string; upload: { signedUrl: string; token: string; path: string } }> {
+  return invoke("notes/audio-url", { note_id: noteId, ext: "webm" }, language);
+}
+
+export async function transcribe(noteId: string, language: string) {
+  return invoke<{ text: string; needs_review: boolean }>(
+    "transcribe",
+    { note_id: noteId },
+    language,
+  );
+}
+
+export async function enrich(noteId: string, language: string) {
+  return invoke<{ enrichment: Enrichment }>("enrich", { note_id: noteId }, language);
+}
+
+export async function search(
+  q: string,
+  language: string,
+  mode: "hybrid" | "semantic" | "lexical" = "hybrid",
+) {
+  const res = await invoke<{ results: Array<Record<string, unknown>> }>(
+    "search",
+    { q, mode },
+    language,
+  );
+  return res.results;
+}
+
+export async function timeline(language: string, cursor?: string) {
+  const params = new URLSearchParams({ lang: language });
+  if (cursor) params.set("cursor", cursor);
+
+  const { data, error } = await supabase.functions.invoke(
+    `notes?${params.toString()}`,
+    { method: "GET", headers: { "Accept-Language": language } },
+  );
+  if (error) throw new ApiError("internal_error");
+  return data as { notes: TimelineNote[]; next_cursor: string | null };
+}
+
+/**
+ * Replays the outbox oldest-first, sequentially.
+ *
+ * Sequential rather than parallel: a burst after a long offline stretch is
+ * exactly the traffic shape that trips per-user rate limits, and there is no
+ * user waiting on the Nth note.
+ */
+export async function sync(): Promise<number> {
+  if (!navigator.onLine) return 0;
+
+  // Bail before touching the outbox when there is no session.
+  //
+  // Without this, every sync attempt while signed out would 401 and increment
+  // `attempts` on each queued note. A user who captures for a week before
+  // signing in would accumulate a large attempt count on notes that were never
+  // actually broken — poisoning the one signal that is supposed to identify
+  // genuinely stuck items.
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return 0;
+
+  let synced = 0;
+  for (const note of await pending()) {
+    try {
+      const serverId = await captureNote(note);
+
+      if (note.source === "voice" && note.audio) {
+        const { path, upload } = await requestAudioUrl(serverId, note.language);
+        // Direct to Storage under a signed URL. Routing audio through an Edge
+        // Function would burn its memory budget and cap recording length at
+        // the request size limit.
+        //
+        // uploadToSignedUrl takes (path, token, body) -- the path, not the
+        // signed URL itself, which the SDK reconstructs from it.
+        await supabase.storage
+          .from("audio")
+          .uploadToSignedUrl(path, upload.token, note.audio);
+        await transcribe(serverId, note.language);
+      }
+
+      await enrich(serverId, note.language).catch(() => {
+        // Enrichment failing must not fail the sync. The note is durable on
+        // both sides by this point; a background sweep can pick up anything
+        // still unenriched.
+      });
+
+      await markSynced(note.clientId, serverId);
+      synced += 1;
+    } catch {
+      await markAttempted(note.clientId);
+    }
+  }
+  return synced;
+}
