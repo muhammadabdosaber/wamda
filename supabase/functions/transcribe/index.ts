@@ -2,21 +2,16 @@
  * POST /functions/v1/transcribe
  * Body: { note_id: string, lang?: string }
  *
- * Stage 1 of the pipeline: audio -> Arabic text.
+ * Stage 1 of the pipeline: audio -> text. The pipeline itself lives in
+ * `_shared/pipeline.ts`, shared with the `sweep` worker. This handler's job
+ * is just: authenticate, verify the note belongs to the caller, resolve
+ * language, and shape the response.
  */
 
 import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
-import { authenticate, recordJob, serviceClient, userClient } from "../_shared/supabase.ts";
-import { detectLanguage, resolveLanguage, SUPPORTED } from "../_shared/language.ts";
-import { asrProvider } from "../_shared/providers.ts";
-
-/**
- * Below this, the transcript is flagged for review instead of being fed
- * downstream. Enriching a garbled transcript is worse than not enriching it:
- * it produces a confident, wrong summary, and the user has no way to tell it
- * apart from a correct one -- so the note is quietly lost.
- */
-const REVIEW_THRESHOLD = 0.6;
+import { authenticate, serviceClient, userClient } from "../_shared/supabase.ts";
+import { resolveLanguage, SUPPORTED } from "../_shared/language.ts";
+import { runTranscription } from "../_shared/pipeline.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -45,102 +40,30 @@ Deno.serve(async (req) => {
     // to nothing here, before any audio is fetched.
     const { data: note } = await supabase
       .from("notes")
-      .select("id, audio_path, raw_text, status")
+      .select("id, audio_path")
       .eq("id", noteId)
       .maybeSingle();
 
     if (!note) throw new HttpError(404, "note_not_found");
     if (!note.audio_path) throw new HttpError(409, "note_has_no_audio");
 
-    // Already transcribed: transcription is billable and slow, so a retry
-    // must not re-run it.
-    if (note.raw_text?.trim()) {
-      return json(
-        { note_id: noteId, text: note.raw_text, cached: true },
-        { language, direction: resolved.direction },
-      );
-    }
-
     const admin = serviceClient();
-    await admin.from("notes").update({ status: "transcribing" }).eq("id", noteId);
-
-    const { data: audio, error: dlErr } = await admin.storage
-      .from("audio")
-      .download(note.audio_path);
-
-    if (dlErr || !audio) {
-      // Same trap as `enrich`: the note is already marked `transcribing`, and
-      // leaving it there makes it invisible to the timeline with nothing to
-      // retry it. Back to `draft` — the audio may simply not have finished
-      // uploading yet, which is a retry, not a failure.
-      await admin.from("notes").update({ status: "draft" }).eq("id", noteId);
-      throw new HttpError(404, "audio_not_found");
-    }
-
-    const asr = asrProvider();
-    const started = Date.now();
-
-    let result;
-    try {
-      result = await asr.transcribe(audio, language);
-    } catch (e) {
-      await admin.from("notes").update({ status: "failed" }).eq("id", noteId);
-      await recordJob(
-        admin,
-        {
-          userId: user.id,
-          noteId,
-          stage: "transcribe",
-          language,
-          provider: asr.name,
-          errorCode: e instanceof HttpError ? e.code : "unknown",
-        },
-        "failed",
-      );
-      throw e;
-    }
-
-    const latencyMs = Date.now() - started;
-    const needsReview = result.confidence < REVIEW_THRESHOLD || !result.text;
-
-    const detected = detectLanguage(result.text);
-
-    await admin
-      .from("notes")
-      .update({
-        raw_text: result.text,
-        transcript_confidence: result.confidence,
-        detected_language: detected?.language ?? result.detectedLanguage,
-        language_confidence: detected?.confidence ?? null,
-        // A low-confidence transcript stops here as `draft` so the user is
-        // asked to confirm it, rather than being enriched into a plausible
-        // summary of something they never said.
-        status: needsReview ? "draft" : "queued",
-      })
-      .eq("id", noteId);
-
-    await recordJob(
+    const result = await runTranscription({
       admin,
-      {
-        userId: user.id,
-        noteId,
-        stage: "transcribe",
-        language,
-        provider: result.provider,
-        model: result.model,
-        latencyMs,
-      },
-      "succeeded",
-    );
+      userId: user.id,
+      noteId,
+      audioPath: note.audio_path,
+      language,
+    });
 
     return json(
       {
         note_id: noteId,
         text: result.text,
         confidence: result.confidence,
-        needs_review: needsReview,
-        detected,
-        cached: false,
+        needs_review: result.needsReview,
+        detected: result.detected,
+        cached: result.cached,
       },
       { language, direction: SUPPORTED[language]?.direction ?? "rtl" },
     );
