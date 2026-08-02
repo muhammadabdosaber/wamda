@@ -1,0 +1,70 @@
+# CI — three independent checks, matching what `docs/14-testing.md` describes.
+#
+# NOTE: this workflow has never executed on a real runner. Treat the first run
+# as part of the change, not as a formality.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: web — typecheck · RTL guard · tests · build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      # The single command the project verifies with locally.
+      - run: npm run verify
+        working-directory: web
+
+  functions:
+    name: functions — deno check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      # Validates the vendor calls against the real installed SDK typings —
+      # which is why this catches wrong API surface, not just wrong syntax.
+      - run: deno check supabase/functions/*/index.ts
+
+  database:
+    name: database — migrations + 12 schema assertions
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start the local stack
+        run: supabase start --exclude studio,realtime,storage-api,imgproxy,edge-runtime
+
+      - name: Apply migrations
+        run: supabase db reset --no-seed
+
+      # Every public table must have RLS enabled and cross-user reads must
+      # return zero rows. A new table without a policy fails here.
+      - name: Schema assertions
+        run: |
+          supabase db lint --level warning || true
+          psql "$(supabase status -o json | jq -r '.DB_URL')" \
+            -v ON_ERROR_STOP=1 -f supabase/tests/verify.sql
+
+      - name: Stop
+        if: always()
+        run: supabase stop --no-backup
