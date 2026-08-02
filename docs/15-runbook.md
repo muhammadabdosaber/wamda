@@ -38,7 +38,7 @@ cd web && npm install && npm run verify && npm run dev
 | Postgres | `127.0.0.1:54422` |
 | Studio | `http://127.0.0.1:54423` |
 | Mailpit (OTP codes) | `http://127.0.0.1:54424` |
-| Web dev server | `http://127.0.0.1:5173` |
+| Web dev server | `http://127.0.0.1:5174` (`.claude/launch.json`) |
 
 **Ports are remapped to 54421–54429** in `supabase/config.toml` because 54322
 was taken by another Supabase project on the build machine. If you are not in

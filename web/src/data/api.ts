@@ -79,6 +79,7 @@ export interface TimelineNote {
   input_language: string;
   detected_language: string | null;
   client_created_at: string;
+  action_dismissed_at: string | null;
   note_enrichments: Enrichment[];
 }
 
@@ -141,11 +142,48 @@ export async function timeline(language: string, cursor?: string) {
 }
 
 /**
+ * Archives a note -- hides it from the timeline and from search for good.
+ * Goes straight through PostgREST, not an Edge Function: `notes` is fully
+ * client-writable under RLS (see 04_rls), so there is no vendor call or
+ * server-side logic between the button and the row.
+ */
+export async function archiveNote(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw new ApiError("archive_failed");
+}
+
+/**
+ * Records that the user responded to a note's suggested-action chip
+ * (accepted or ignored) so it stops being offered again. Writes to `notes`,
+ * never to `note_enrichments` -- that table is pipeline-output-only, and this
+ * column exists precisely so the client has somewhere writable to record its
+ * own response without touching AI output.
+ */
+export async function dismissNoteAction(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ action_dismissed_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw new ApiError("dismiss_failed");
+}
+
+/** Fired on `window` after a sync that actually moved at least one note. */
+export const SYNCED_EVENT = "sb:synced";
+
+/**
  * Replays the outbox oldest-first, sequentially.
  *
  * Sequential rather than parallel: a burst after a long offline stretch is
  * exactly the traffic shape that trips per-user rate limits, and there is no
  * user waiting on the Nth note.
+ *
+ * NOTHING IN THE CAPTURE PATH MAY AWAIT THIS. It walks the whole outbox, and
+ * every note in it costs a round trip plus an enrichment call -- after a week
+ * offline that is minutes. Capture waits on the IndexedDB write only; this
+ * runs behind it and announces itself when it lands.
  */
 export async function sync(): Promise<number> {
   if (!navigator.onLine) return 0;
@@ -191,5 +229,11 @@ export async function sync(): Promise<number> {
       await markAttempted(note.clientId);
     }
   }
+
+  // Anything rendering outbox rows -- the notes timeline -- needs to learn
+  // that some of them are now real, enriched, server-side notes. Since no
+  // caller awaits this function, an event is the only way back.
+  if (synced > 0) window.dispatchEvent(new Event(SYNCED_EVENT));
+
   return synced;
 }

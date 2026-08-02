@@ -367,7 +367,12 @@ Two of these exist in the local database right now (`status = 'failed'`).
 - **Pre-existing**, not caused by SB-025; but SB-025 makes it more visible,
   since the note is now on screen right up until it disappears.
 
-### SB-030 · Revert the committed dev-server port · `todo` · S
+### SB-030 · Revert the committed dev-server port · `done` · S
+
+> **Done** by settling on one number rather than reverting. `main` carries
+> 5174, so `docs/15-runbook.md` now says 5174 and names the file that decides
+> it. One number, one place.
+
 
 PR #3 changed `.claude/launch.json` from 5173 to 5174 because another checkout
 held 5173 during testing. That file is committed deliberately — "it defines how
