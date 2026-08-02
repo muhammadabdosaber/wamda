@@ -25,7 +25,9 @@ from day one, so enabling it is a config flag, not a migration.
 ## Layout
 
 ```
-docs/          design documents — start with 00-verification.md
+docs/          design + planning docs — start with 09-status-handoff.md
+  adr/         decision log
+.claude/agents/ the agents that continue this work
 supabase/
   migrations/  schema, RLS, RPCs
   functions/   notes · transcribe · enrich · search · digest
@@ -77,10 +79,21 @@ before trusting any claim here.
 
 ## Docs
 
+**Product and plan**
+
 | | |
 |---|---|
 | [09 — Status & handoff](docs/09-status-handoff.md) | **start here**: where things stand and what's blocking |
 | [00 — Verification](docs/00-verification.md) | what actually ran, and what didn't |
+| [10 — Product spec](docs/10-product-spec.md) | the problem, the principles, the metrics |
+| [11 — Features](docs/11-features.md) | every feature, with an honest state |
+| [12 — Roadmap](docs/12-roadmap.md) | milestones M0–M7 and their exit criteria |
+| [13 — Tasks](docs/13-tasks.md) | the backlog — take work from here |
+
+**Design**
+
+| | |
+|---|---|
 | [01 — Architecture](docs/01-architecture.md) | shape, and the three decisions behind it |
 | [02 — Database schema](docs/02-database-schema.md) | tables, Arabic normalization, indexes |
 | [03 — API](docs/03-api.md) | endpoints, language resolution, idempotency |
@@ -89,6 +102,28 @@ before trusting any claim here.
 | [06 — Integration plan](docs/06-integration-plan.md) | phase order, setup, known risks |
 | [07 — Performance](docs/07-performance.md) | budgets and the reasoning behind them |
 | [08 — Security](docs/08-security.md) | RLS as the authorization layer |
+| [ADRs](docs/adr/) | seven decisions, and what each one costs |
+
+**Working on it**
+
+| | |
+|---|---|
+| [14 — Testing](docs/14-testing.md) | the four layers, and what isn't automated |
+| [15 — Runbook](docs/15-runbook.md) | local stack, deploy, and failures that happened |
+| [16 — Glossary](docs/16-glossary.md) | domain terms, enum keys, Arabic normalization |
+| [CLAUDE.md](CLAUDE.md) · [CONTRIBUTING.md](CONTRIBUTING.md) · [SECURITY.md](SECURITY.md) | conventions, workflow, policy |
+
+## Continuing the work
+
+Two agents are defined in `.claude/agents/`:
+
+| | |
+|---|---|
+| `second-brain-builder` | takes the next task from `docs/13-tasks.md`, builds it, runs it, records it |
+| `second-brain-verifier` | audits claims against reality by running them; may only write to the ledger |
+
+Both read `CLAUDE.md` first. Neither will start against the product assumptions
+in `docs/09-status-handoff.md` before the pending design change is described.
 
 ## The one idea worth carrying
 

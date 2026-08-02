@@ -13,8 +13,13 @@
  * responsible for having already verified the note belongs to that user.
  */
 
-// TODO: pin this once `deno cache` has resolved a known-good version.
-import Anthropic from "npm:@anthropic-ai/sdk";
+// Pinned. Unpinned, this resolved to whatever was newest at build time, which
+// meant the local machine and CI type-checked against different SDK versions
+// -- and they disagreed: CI pulled 0.115.0 and rejected code that passed
+// locally. A vendor type is part of this build's correctness (see
+// docs/00-verification.md on what `deno check` is actually for), so it gets a
+// version like any other dependency. Bump deliberately, with a check.
+import Anthropic from "npm:@anthropic-ai/sdk@0.115.0";
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2";
 
 import { HttpError, requireEnv } from "./http.ts";
@@ -75,9 +80,13 @@ export interface EnrichOutput {
   enrichment: Enrichment;
   detected: { language: string; confidence: number } | null;
   usage?: {
-    input_tokens?: number;
-    output_tokens?: number;
-    cache_read_input_tokens?: number;
+    // Nullable, not merely optional -- the SDK reports these as `number | null`
+    // and this shape is filled straight from it. `costUsd` above already says
+    // so, and the `ai_jobs` writes already coalesce with `?? null`; this
+    // declaration was the one place still claiming otherwise.
+    input_tokens?: number | null;
+    output_tokens?: number | null;
+    cache_read_input_tokens?: number | null;
     cost_usd: number;
   };
   cached: boolean;
