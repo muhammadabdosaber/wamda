@@ -170,12 +170,20 @@ export async function dismissNoteAction(noteId: string): Promise<void> {
   if (error) throw new ApiError("dismiss_failed");
 }
 
+/** Fired on `window` after a sync that actually moved at least one note. */
+export const SYNCED_EVENT = "sb:synced";
+
 /**
  * Replays the outbox oldest-first, sequentially.
  *
  * Sequential rather than parallel: a burst after a long offline stretch is
  * exactly the traffic shape that trips per-user rate limits, and there is no
  * user waiting on the Nth note.
+ *
+ * NOTHING IN THE CAPTURE PATH MAY AWAIT THIS. It walks the whole outbox, and
+ * every note in it costs a round trip plus an enrichment call -- after a week
+ * offline that is minutes. Capture waits on the IndexedDB write only; this
+ * runs behind it and announces itself when it lands.
  */
 export async function sync(): Promise<number> {
   if (!navigator.onLine) return 0;
@@ -221,5 +229,11 @@ export async function sync(): Promise<number> {
       await markAttempted(note.clientId);
     }
   }
+
+  // Anything rendering outbox rows -- the notes timeline -- needs to learn
+  // that some of them are now real, enriched, server-side notes. Since no
+  // caller awaits this function, an event is the only way back.
+  if (synced > 0) window.dispatchEvent(new Event(SYNCED_EVENT));
+
   return synced;
 }

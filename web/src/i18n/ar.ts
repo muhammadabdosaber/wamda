@@ -20,6 +20,11 @@ export const ar = {
 
   notesTitle: "ملاحظاتي",
   notesEmpty: "لا توجد ملاحظات بعد. ابدأ بفكرة واحدة.",
+  // On a note that is durable on this device but has not reached the server
+  // yet. Deliberately calm: being offline is not the user's mistake, and the
+  // note is not at risk.
+  notesPendingSync: "محفوظة على جهازك",
+  notesVoiceNote: "ملاحظة صوتية",
 
   searchTitle: "البحث",
   searchHint: "ابحث في ملاحظاتك",
@@ -50,6 +55,9 @@ export const ar = {
 
   errorEmailRequired: "أدخل بريدًا إلكترونيًا صحيحًا.",
   errorInvalidCode: "الرمز غير صحيح أو منتهي الصلاحية.",
+  // The local write failing is the only capture failure worth alarming about:
+  // it is the one case where the thought is not stored anywhere.
+  errorCaptureFailed: "تعذّر حفظ الملاحظة على جهازك. حاول مرة أخرى.",
 
   categoryTask: "مهمة",
   categoryEvent: "موعد",

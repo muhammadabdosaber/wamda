@@ -199,6 +199,48 @@ app name as valid UTF-8 (code points confirmed: 1575, 1604, 1583, 1605… =
 الدماغ). `dist/index.html` preserves `<html lang="ar" dir="rtl">`. Service
 worker and Workbox runtime emitted, 7 precache entries.
 
+### Capture latency and note actions, against the live local stack
+
+Run against Supabase local with a working `ANTHROPIC_API_KEY` and no Cohere
+key, signed in as `muhammad@example.test` through the real OTP flow. Driven in
+a browser, measured rather than reasoned about.
+
+**Capture no longer waits for the outbox.** With 20 backlog notes seeded into
+IndexedDB and a real server accepting them:
+
+| | measured |
+|---|---|
+| Save click → note visible on the notes screen | **95 ms** |
+| Notes still queued at that moment | **8** |
+| Outbox drain rate, same run | **6 640 ms per note** |
+
+The drain figure is the one that matters: each note costs a capture round trip
+plus a real Opus enrichment call. `await sync()` in the capture path — the
+shape this run was checking — would have held the composer shut for roughly
+**two minutes** on a 21-note backlog, on localhost, before the user could type
+the next thought. It now releases on the IndexedDB write alone.
+
+**Unsynced notes are visible.** `navigator.onLine` forced false, note captured,
+notes tab opened: the note rendered from the outbox with "محفوظة على جهازك" and
+its capture time, with no server round trip. Back online, it became a single
+enriched card — title, Arabic summary, category فكرة, action راجعها لاحقًا — with
+no duplicate row. After a full page reload: 23 cards, zero stale local
+placeholders, so the client-id dedupe holds across a cold start.
+
+**Archive works end to end.** `20260802000100_note_action_state.sql` was applied
+to the running database first — the column was **missing** until this run, so
+the timeline query PR #3 shipped would have failed against it. After applying:
+clicking أرشفة removed the card, set `archived_at` on exactly one row, and the
+note was **still absent after a reload** — the server filter, not just optimism.
+
+**Embeddings failed 42 times in the same run, as designed.** `ai_jobs` shows
+`enrich/succeeded 42` beside `embed/failed 42`, and all 42 notes still reached
+`ready`. That is ADR-0007 holding under real conditions: the optional stage
+degraded the note instead of failing it.
+
+Not covered by this run: a throttled or lossy network (localhost only), voice
+capture, and Safari. `dismissNoteAction` was not exercised — only archive.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
