@@ -84,10 +84,24 @@ Everything else below is smaller than these two.
 
 Ordered by consequence, not effort.
 
-- [ ] **No sweep worker.** Nothing retries notes stuck in `queued`, and nothing
-      backfills notes missing a `note_embeddings` row. Both states are produced
-      by design (see the degradation logic in `enrich`), but nothing consumes
-      them yet. This is the biggest structural gap in the pipeline.
+- [x] **Sweep worker.** `supabase/functions/sweep` unsticks notes stranded in
+      `transcribing`/`enriching` (process died before its own catch ran),
+      retries stale `queued` notes, and backfills `note_embeddings` for
+      `ready` notes whose embedding stage degraded — via
+      `notes_missing_embeddings()` (migration `20260801000700_sweep.sql`).
+      Retries are capped at 5 failed attempts per (note, stage), read from
+      `ai_jobs`, then the note is marked `failed` rather than retried
+      forever. The pipeline logic that both `enrich`/`transcribe` and `sweep`
+      call now lives in `_shared/pipeline.ts` — one place, not two copies.
+      Verified locally end to end (stuck-note unstick, queued retry with
+      grace period, retry-cap-to-`failed`, embedding backfill) against a
+      fresh `supabase db reset`; enrichment/embedding calls themselves only
+      exercised the failure path, since this worktree has no vendor keys.
+      **Still open: nothing schedules it.** No `pg_cron` job exists anywhere
+      in the migrations (digest has the same gap — written, never wired).
+      Wiring one needs the project's Vault-stored service role key and a
+      `pg_net.http_post` call to the deployed function URL, which is
+      environment-specific and wasn't done here.
 - [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Unbounded today —
       a runaway client loop is a runaway bill.
 - [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the
