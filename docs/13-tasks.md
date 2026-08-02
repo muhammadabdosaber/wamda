@@ -40,11 +40,20 @@ blocked on.
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
 
-> **SB-001 may already be done.** A commit `40f0a14 "Schedule the sweep worker
-> via pg_cron + pg_net"` adds `20260801000800_sweep_schedule.sql`, is pushed to
-> `origin/claude/technical-next-steps-bc88a1`, is **applied to the local
-> database**, and has **no open pull request**. Confirm and merge it before
-> anyone rebuilds it.
+> **SB-001 is written and stranded.** Commit `40f0a14 "Schedule the sweep
+> worker via pg_cron + pg_net"` adds `20260801000800_sweep_schedule.sql`, is
+> pushed to `origin/claude/technical-next-steps-bc88a1`, is **applied to the
+> local database**, and has **no pull request**. Reviewed: it reads the
+> function URL and service role key from Vault at call time rather than
+> embedding either in a committed file, and when the secrets are absent it
+> raises a `NOTICE` and leaves the job unscheduled instead of failing the
+> deploy. `cron.schedule` replaces by name, so the file is re-runnable.
+> Confirmed inert here — `cron.job` and `vault.secrets` are both empty, which
+> is the documented behaviour, not a fault.
+>
+> **What remains:** open a PR for that branch, set the two Vault secrets in
+> whichever environment should actually sweep, re-run the migration, and prove
+> a stranded note recovers with no client open. Do not rebuild this.
 
 ---
 
@@ -92,6 +101,12 @@ The highest-value unknown in the project, and it is one afternoon of work.
   and the observed response shape is recorded in `docs/04-ai-pipeline.md`.
 
 ### SB-012 · Voice capture on a real phone · `blocked` · M
+
+**Partly answered already.** The local database holds two `source = 'voice'`
+notes and the `audio` bucket holds their recordings — 173 KB and 8 KB of
+`audio/webm`. So on the desktop browser used, `MediaRecorder` produced real
+audio and the signed-URL upload to Storage worked. Both notes then failed at
+`transcribe`. What is left is the part that actually needed a phone.
 
 - **Blocked on:** SB-007.
 - **Do:** record → upload → transcribe → enrich on a real iPhone **and** a real

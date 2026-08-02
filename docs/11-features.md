@@ -28,8 +28,8 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 1.4 | Outbox replay on reconnect / sign-in | ✅ | `outbox.ts` `sync()` |
 | 1.5 | Pre-auth capture, attached to whoever signs in | ✅ | verified end to end |
 | 1.6 | Retry-attempt accounting, not burned while signed out | ✅ | `outbox.ts` |
-| 1.7 | Voice capture via `MediaRecorder` | ⬜ | `Capture.tsx` |
-| 1.8 | Direct audio upload to Storage under a signed URL | ⬜ | `functions/notes` |
+| 1.7 | Voice capture via `MediaRecorder` | ✅ two real WebM recordings exist; **Chromium only** | `Capture.tsx` |
+| 1.8 | Direct audio upload to Storage under a signed URL | ✅ 173 KB + 8 KB in the `audio` bucket | `functions/notes` |
 | 1.9 | Honest degradation when recording is unavailable | ⬜ | `Capture.tsx` |
 | 1.10 | Background sync while the app is closed | ❌ | out of scope for PWA — ADR-0006 |
 | 1.11 | Saving state, released on the local write | ✅ **95 ms** to on-screen with 8 notes queued | `Capture.tsx` |
@@ -50,7 +50,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 2.7 | Stage isolation — embedding failure ≠ enrichment failure | ✅ | `_shared/pipeline.ts` |
 | 2.8 | Non-terminal state always resolved on failure | ✅ | `pipeline.ts` |
 | 2.9 | Refusals resolve to `failed`, not retried forever | ✅ | `pipeline.ts` |
-| 2.10 | Transcription via ElevenLabs Scribe | ⬜ **blocked** — no key | `providers.ts` `ScribeASR` |
+| 2.10 | Transcription via ElevenLabs Scribe | ⬜ **blocked** — stage ran twice, resolved `failed` / `transcription_failed` | `providers.ts` `ScribeASR` |
 | 2.11 | Per-word confidence from ASR | ⬜ response shape from docs, never observed | `ScribeASR` |
 | 2.12 | Embeddings, Cohere multilingual v3 | ⬜ **blocked** — no key | `providers.ts` |
 | 2.13 | `ai_jobs` telemetry per stage | ✅ | migration `…000200` |
@@ -120,7 +120,8 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
 | 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 verified locally; **nothing schedules it** | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
-| 6.5 | `pg_cron` schedules for sweep and digest | ❌ no cron job exists in any migration | SB-001 |
+| 6.5 | `pg_cron` schedule for sweep | 🟡 migration written and applied; **deliberately inert** — no Vault secrets, `cron.job` is empty | SB-001 |
+| 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
 | 6.6 | CI pipeline | ❌ → added in this change, unrun on a real runner | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
@@ -142,9 +143,9 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 38 |
-| 🟡 partial | 6 |
-| ⬜ built, unrun | 20 |
+| ✅ working | 40 |
+| 🟡 partial | 7 |
+| ⬜ built, unrun | 18 |
 | ❌ not built | 19 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API

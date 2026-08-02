@@ -269,9 +269,19 @@ available, so none of these executed against a real service:
 
 ### Client-side gaps
 
-- **Voice capture never ran.** `MediaRecorder` needs a microphone and a user
-  gesture. The feature-detection branch was not exercised on iOS Safari, which
-  is the browser where it actually matters.
+- ~~**Voice capture never ran.**~~ **Superseded — it ran.** Found in the local
+  database on 2026-08-02: two notes with `source = 'voice'` and two matching
+  objects in the private `audio` bucket, **173 210 bytes** and **8 024 bytes**,
+  both `audio/webm`, both under the capturing user's own prefix.
+  So `MediaRecorder` produced real Opus/WebM audio, and the direct
+  client → Storage upload under a signed URL worked — the step that exists so
+  25 MB of audio never routes through an Edge Function.
+  Both notes then resolved to `failed` at the `transcribe` stage with
+  `error_code = transcription_failed`, attempt 1. That is the expected outcome
+  with no ElevenLabs key; whether the call actually reached ElevenLabs is not
+  determinable from the job row alone.
+  Still untested: iOS Safari, where `MediaRecorder` availability is the open
+  question, and transcription itself.
 - **Only Chromium.** No Safari or Firefox testing. iOS install flow untested.
 - **No visual screenshot.** Verification was done through the DOM and computed
   styles, which is stronger for layout assertions but says nothing about
