@@ -97,11 +97,37 @@ Ordered by consequence, not effort.
       grace period, retry-cap-to-`failed`, embedding backfill) against a
       fresh `supabase db reset`; enrichment/embedding calls themselves only
       exercised the failure path, since this worktree has no vendor keys.
-      **Still open: nothing schedules it.** No `pg_cron` job exists anywhere
-      in the migrations (digest has the same gap — written, never wired).
-      Wiring one needs the project's Vault-stored service role key and a
-      `pg_net.http_post` call to the deployed function URL, which is
-      environment-specific and wasn't done here.
+
+      **Scheduled**, as of migration `20260801000800_sweep_schedule.sql`: a
+      `pg_cron` job (`sweep-worker`, `*/5 * * * *`) calls it via `pg_net`.
+      Neither the project's Edge Functions URL nor the service role key is a
+      literal in that file — both are read from Supabase Vault at call time,
+      via two secrets set once per environment, **outside any migration**:
+
+      ```sql
+      select vault.create_secret(
+        'https://<project-ref>.supabase.co/functions/v1/sweep', 'sweep_function_url');
+      select vault.create_secret(
+        '<service role key, from Project Settings > API>', 'sweep_service_role_key');
+      ```
+
+      Run that once against this project (SQL editor, or `psql` against the
+      pooler connection string), then re-apply `20260801000800` (or just the
+      `do $$ ... $$` block inside it) to pick the secrets up — `cron.schedule`
+      replaces a job of the same name rather than duplicating it, so this is
+      safe to run more than once. Until those two secrets exist, the
+      migration raises a NOTICE and leaves the job unscheduled instead of
+      failing the deploy — the same "written, not yet turned on" state the
+      vendor keys and `digest` are already in. `digest` still has no
+      schedule at all; the same two-secret pattern (with its own URL secret)
+      would wire it the same way.
+
+      Verified locally: extensions install, the conditional correctly
+      no-ops without secrets, and — with Vault secrets pointed at a local
+      `supabase functions serve` reachable via `host.docker.internal` —
+      `cron.schedule` registered the job and manually firing its exact
+      command returned a real `200` from `sweep`. The test job and secrets
+      were removed afterward; nothing from that test is left scheduled.
 - [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Unbounded today —
       a runaway client loop is a runaway bill.
 - [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the
