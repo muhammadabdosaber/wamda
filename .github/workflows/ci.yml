@@ -47,11 +47,18 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      # Pinned, not `latest`: resolving `latest` costs an unauthenticated
+      # GitHub API call, and that call was rate-limited on the first real run
+      # of this workflow. 2.109.1 is the version this project is developed
+      # against locally.
       - uses: supabase/setup-cli@v1
         with:
-          version: latest
+          version: 2.109.1
 
       - name: Start the local stack
+        # Only Postgres is needed to apply migrations and run assertions
+        # against them; Studio, Realtime and the Edge Runtime are start-up
+        # time this job never uses.
         run: supabase start --exclude studio,realtime,storage-api,imgproxy,edge-runtime
 
       - name: Apply migrations
@@ -66,5 +73,8 @@ jobs:
             -v ON_ERROR_STOP=1 -f supabase/tests/verify.sql
 
       - name: Stop
+        # Runs even when an earlier step failed, so it must tolerate the stack
+        # never having started -- otherwise a setup failure is reported twice,
+        # the second time as a misleading `supabase: command not found`.
         if: always()
-        run: supabase stop --no-backup
+        run: supabase stop --no-backup || true
