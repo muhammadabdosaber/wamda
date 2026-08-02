@@ -26,9 +26,22 @@
   --text: #1f2421;
   --muted: #6b7280;
   --accent: #3e6b5c;
+  --accent-strong: #2f5346;
   --accent-soft: #e6efe9;
   --danger: #b3261e;
+  --danger-soft: #fdecea;
+  --radius-sm: 10px;
   --radius: 16px;
+  --radius-lg: 22px;
+
+  /* Warm-tinted, not pure black -- a neutral gray shadow on a cream
+     background reads as dirt; tinting it toward the accent keeps the whole
+     surface feeling like one calm palette instead of "content + a generic
+     UI kit shadow". */
+  --shadow-sm: 0 1px 2px rgba(62, 107, 92, 0.08);
+  --shadow-md: 0 8px 24px rgba(62, 107, 92, 0.12);
+
+  --ease: 160ms ease;
 
   /* Arabic glyphs carry ascenders, descenders, and diacritics that clip at
      the ~1.2 line height Latin-first defaults assume. */
@@ -44,7 +57,24 @@
     --text: #e8eaed;
     --muted: #9aa0a6;
     --accent: #7fb3a0;
+    --accent-strong: #9cc7b6;
     --accent-soft: #23302b;
+    --danger-soft: #3a2323;
+
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+  }
+}
+
+/* One user for this product has ADHD; motion that exists purely as flair is
+   a cost, not a feature, for anyone sensitive to it. Every transform/opacity
+   transition below is decorative, so it is safe to strip entirely here. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
 
@@ -82,9 +112,9 @@ body {
   flex: 1;
   overflow-y: auto;
   padding-inline: 20px;
-  padding-block: 16px;
+  padding-block: 20px;
   /* Respects the home-indicator inset on installed iOS/Android PWAs. */
-  padding-block-end: calc(16px + env(safe-area-inset-bottom));
+  padding-block-end: calc(20px + env(safe-area-inset-bottom));
 }
 
 /* ---- header ---- */
@@ -95,58 +125,88 @@ body {
   gap: 12px;
   padding-inline: 20px;
   padding-block: 14px;
-  border-block-end: 1px solid var(--accent-soft);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  z-index: 1;
 }
 
-.header h1 { font-size: 1.1rem; margin: 0; font-weight: 600; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand-mark { display: block; border-radius: 9px; }
+
+.header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
 /* ---- tabs ---- */
 .tabs {
   display: flex;
   gap: 4px;
-  padding-inline: 12px;
+  padding-inline: 10px;
   padding-block: 8px;
   padding-block-end: calc(8px + env(safe-area-inset-bottom));
-  border-block-start: 1px solid var(--accent-soft);
   background: var(--surface);
+  box-shadow: 0 -1px 2px rgba(62, 107, 92, 0.06);
+  position: relative;
+  z-index: 1;
 }
 
 .tab {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
   border: 0;
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.82rem;
-  padding-block: 10px;
-  border-radius: 12px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  padding-block: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  transition: background var(--ease), color var(--ease);
 }
 
-.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+.tab svg { transition: transform var(--ease); }
+.tab:active svg { transform: scale(0.9); }
+
+.tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* ---- capture ---- */
 .capture-input {
   inline-size: 100%;
-  min-block-size: 140px;
-  padding: 16px;
+  min-block-size: 160px;
+  padding: 18px;
   font: inherit;
+  font-size: 1.02rem;
   line-height: var(--line-height);
   color: var(--text);
   background: var(--surface);
   border: 1px solid var(--accent-soft);
-  border-radius: var(--radius);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   resize: vertical;
+  transition: box-shadow var(--ease), border-color var(--ease);
   /* text-align: start, never left -- follows dir automatically. */
   text-align: start;
 }
 
-.capture-input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.capture-input::placeholder { color: var(--muted); }
 
-.row { display: flex; gap: 12px; margin-block-start: 12px; }
+.capture-input:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm), 0 0 0 3px var(--accent-soft);
+}
+
+.row { display: flex; align-items: stretch; gap: 12px; margin-block-start: 14px; }
 
 .btn {
   flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   font: inherit;
   font-weight: 600;
   padding-block: 14px;
@@ -156,11 +216,65 @@ body {
   background: var(--accent);
   color: #fff;
   cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
 }
 
-.btn:disabled { opacity: 0.45; cursor: default; }
+.btn:hover:not(:disabled) { background: var(--accent-strong); box-shadow: var(--shadow-md); }
+.btn:active:not(:disabled) { transform: scale(0.98); }
+.btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 .btn.secondary { background: var(--accent-soft); color: var(--accent); }
+.btn.secondary:hover:not(:disabled) { background: var(--accent-soft); filter: brightness(0.97); }
 .btn.recording { background: var(--danger); color: #fff; }
+.btn.recording:hover:not(:disabled) { background: var(--danger); filter: brightness(0.93); }
+
+/* Compact circular button for the mic toggle, sitting beside Save rather
+   than stacked below it -- one row to scan instead of two. */
+.btn-icon {
+  flex: 0 0 auto;
+  inline-size: 52px;
+  block-size: 52px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  transition: background var(--ease), color var(--ease), transform var(--ease);
+}
+
+.btn-icon:hover { filter: brightness(0.97); }
+.btn-icon:active { transform: scale(0.94); }
+.btn-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.btn-icon.recording { background: var(--danger); color: #fff; }
+
+.recording-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-start: 14px;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.recording-dot {
+  inline-size: 8px;
+  block-size: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+  animation: pulse 1.4s ease-in-out infinite;
+  flex: 0 0 auto;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
 
 /* ---- notes ---- */
 .card {
@@ -169,6 +283,7 @@ body {
   border-radius: var(--radius);
   padding: 16px;
   margin-block-end: 12px;
+  box-shadow: var(--shadow-sm);
 }
 
 .card h3 { margin: 0 0 6px; font-size: 1rem; }
@@ -204,10 +319,12 @@ body {
   background: var(--accent-soft);
   color: var(--accent);
   border-radius: 12px;
+  border-inline-start: 3px solid var(--accent);
   padding-inline: 14px;
   padding-block: 10px;
   font-size: 0.85rem;
-  margin-block-end: 12px;
+  line-height: 1.5;
+  margin-block-end: 16px;
 }
 
 .search-input {

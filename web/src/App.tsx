@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { applyDirection, enabledTags, resolveLanguage, SUPPORTED } from "./core/language";
 import { useSession } from "./core/session";
@@ -12,6 +12,43 @@ import { Digest } from "./features/Digest";
 
 const STORAGE_KEY = "ui_locale";
 type Tab = "capture" | "notes" | "search" | "digest";
+
+/** Inline so no icon library is added just for four tab glyphs. */
+const TAB_ICONS: Record<Tab, ReactNode> = {
+  capture: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  notes: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M6 4.5h9l3 3V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M8.5 10.5h7M8.5 14h7M8.5 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  search: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="10.5" cy="10.5" r="6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m19 19-4-4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  digest: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M4.5 12a7.5 7.5 0 1 1 3 6"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+      <path d="M4.5 16v-4h4M11 8v4.5l3 1.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
 
 /**
  * Capture is deliberately absent from this set.
@@ -68,7 +105,10 @@ export function App() {
   return (
     <div className="app">
       <header className="header">
-        <h1>{t.t("appTitle")}</h1>
+        <div className="brand">
+          <img src="/icon.svg" alt="" width={28} height={28} className="brand-mark" />
+          <h1>{t.t("appTitle")}</h1>
+        </div>
 
         <div className="row-inline">
           {available.length > 1 && (
@@ -154,6 +194,7 @@ export function App() {
               setAuthOpen(false);
             }}
           >
+            {TAB_ICONS[item.id]}
             {item.label}
           </button>
         ))}

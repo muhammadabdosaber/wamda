@@ -15,6 +15,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#3e6b5c" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
+    <!--
+      IBM Plex Sans Arabic is listed first in the font stack (see global.css)
+      but isn't installed on most devices -- without loading it, every user
+      silently falls back to Noto Sans Arabic or the OS default. If the
+      network is unavailable (this is an offline-first PWA), the fallback
+      stack in global.css still applies, so this is a progressive enhancement
+      only, never a blocker for capture.
+    -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+    />
+
     <title>الدماغ الثاني</title>
   </head>
   <body>
