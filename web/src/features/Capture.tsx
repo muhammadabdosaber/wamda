@@ -4,6 +4,33 @@ import type { Translator } from "../i18n";
 import { capture, pendingCount } from "../data/outbox";
 import { sync } from "../data/api";
 
+/** Inline so no icon library is added just for two glyphs. */
+function MicIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 15a3.5 3.5 0 0 0 3.5-3.5V6a3.5 3.5 0 0 0-7 0v5.5A3.5 3.5 0 0 0 12 15Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+      />
+      <path
+        d="M6.5 11.5a5.5 5.5 0 0 0 11 0M12 17v3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function StopIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="6" y="6" width="12" height="12" rx="2.5" fill="currentColor" />
+    </svg>
+  );
+}
+
 /**
  * The capture surface. One job: get a thought out of the user's head and into
  * durable storage with as little ceremony as possible.
@@ -113,22 +140,37 @@ export function Capture({ t, language }: { t: Translator; language: string }) {
         <button className="btn" onClick={() => void saveText()} disabled={!text.trim()}>
           {t.t("captureSave")}
         </button>
-      </div>
 
-      <div className="row">
-        {canRecord ? (
+        {canRecord && (
+          // Compact and icon-only, sitting beside Save rather than stacked
+          // in its own full-width row below -- one row to scan, not two.
           <button
-            className={recording ? "btn recording" : "btn secondary"}
+            className={recording ? "btn-icon recording" : "btn-icon"}
             onClick={() => (recording ? stopRecording() : void startRecording())}
+            aria-label={recording ? t.t("captureStop") : t.t("captureVoice")}
+            title={recording ? t.t("captureStop") : t.t("captureVoice")}
           >
-            {recording ? t.t("captureStop") : t.t("captureVoice")}
+            {recording ? <StopIcon /> : <MicIcon />}
           </button>
-        ) : (
-          // Honest degradation rather than a button that does nothing.
-          // MediaRecorder is still absent or partial on some iOS versions.
-          <p className="muted">{t.t("captureUnsupported")}</p>
         )}
       </div>
+
+      {!canRecord && (
+        // Honest degradation rather than a button that does nothing.
+        // MediaRecorder is still absent or partial on some iOS versions.
+        <p className="muted" style={{ marginBlockStart: 12 }}>
+          {t.t("captureUnsupported")}
+        </p>
+      )}
+
+      {recording && (
+        // Explicit confirmation that recording is live -- the icon-only
+        // button alone isn't enough feedback for a state this important.
+        <p className="recording-status">
+          <span className="recording-dot" aria-hidden="true" />
+          {t.t("captureRecording")}
+        </p>
+      )}
 
       {pending > 0 && (
         // Quiet, non-alarming. Never a red badge -- a badge turns "your phone
