@@ -199,6 +199,85 @@ app name as valid UTF-8 (code points confirmed: 1575, 1604, 1583, 1605… =
 الدماغ). `dist/index.html` preserves `<html lang="ar" dir="rtl">`. Service
 worker and Workbox runtime emitted, 7 precache entries.
 
+### Capture latency and note actions, against the live local stack
+
+Run against Supabase local with a working `ANTHROPIC_API_KEY` and no Cohere
+key, signed in as `muhammad@example.test` through the real OTP flow. Driven in
+a browser, measured rather than reasoned about.
+
+**Capture no longer waits for the outbox.** With 20 backlog notes seeded into
+IndexedDB and a real server accepting them:
+
+| | measured |
+|---|---|
+| Save click → note visible on the notes screen | **95 ms** |
+| Notes still queued at that moment | **8** |
+| Outbox drain rate, same run | **6 640 ms per note** |
+
+The drain figure is the one that matters: each note costs a capture round trip
+plus a real Opus enrichment call. `await sync()` in the capture path — the
+shape this run was checking — would have held the composer shut for roughly
+**two minutes** on a 21-note backlog, on localhost, before the user could type
+the next thought. It now releases on the IndexedDB write alone.
+
+**Unsynced notes are visible.** `navigator.onLine` forced false, note captured,
+notes tab opened: the note rendered from the outbox with "محفوظة على جهازك" and
+its capture time, with no server round trip. Back online, it became a single
+enriched card — title, Arabic summary, category فكرة, action راجعها لاحقًا — with
+no duplicate row. After a full page reload: 23 cards, zero stale local
+placeholders, so the client-id dedupe holds across a cold start.
+
+**Archive works end to end.** `20260802000100_note_action_state.sql` was applied
+to the running database first — the column was **missing** until this run, so
+the timeline query PR #3 shipped would have failed against it. After applying:
+clicking أرشفة removed the card, set `archived_at` on exactly one row, and the
+note was **still absent after a reload** — the server filter, not just optimism.
+
+**Embeddings failed 42 times in the same run, as designed.** `ai_jobs` shows
+`enrich/succeeded 42` beside `embed/failed 42`, and all 42 notes still reached
+`ready`. That is ADR-0007 holding under real conditions: the optional stage
+degraded the note instead of failing it.
+
+Not covered by this run: a throttled or lossy network (localhost only), voice
+capture, and Safari. `dismissNoteAction` was not exercised — only archive.
+
+### CI, on a real runner
+
+The workflow ran for the first time on 2026-08-02 and **caught a real bug on
+its first attempt**, which is the best argument for it existing.
+
+| Job | Result |
+|---|---|
+| web — typecheck · RTL guard · 21 tests · build | pass, 25 s |
+| functions — `deno check` | pass, 12 s (**failed first**, see below) |
+| database — migrations + 12 schema assertions | pass, 3 m 19 s |
+
+The database job applies every migration to a real Postgres on the runner and
+runs `verify.sql` against it: all 12 assertions printed `PASS` and the run
+ended with `ALL SCHEMA CHECKS PASSED`. That is the same evidence as the local
+run, reproduced on a machine nobody had configured.
+
+**What the first run caught.** `deno check` failed:
+
+```
+TS2322: Type 'number | null' is not assignable to type 'number | undefined'.
+  cache_read_input_tokens: usage.cache_read_input_tokens,
+  at supabase/functions/_shared/pipeline.ts:324
+```
+
+`npm:@anthropic-ai/sdk` was imported with **no version** — there was a `TODO`
+on that line about pinning it. The runner resolved 0.115.0, where the usage
+counters are nullable, so local and CI were type-checking against different
+SDKs. Pinned to `0.115.0`, and `EnrichOutput.usage` widened to match the SDK —
+the one declaration still claiming those fields were merely optional, while
+`costUsd` and both `ai_jobs` writes already treated them as nullable.
+
+**Two faults in the workflow itself**, also first-run finds: `version: latest`
+for the Supabase CLI resolves through an unauthenticated GitHub API call and
+was **rate-limited**; and the `if: always()` stop step then ran a CLI that was
+never installed, reporting the same failure a second time as `command not
+found`. CLI pinned to 2.109.1; stop step made tolerant.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
@@ -269,9 +348,19 @@ available, so none of these executed against a real service:
 
 ### Client-side gaps
 
-- **Voice capture never ran.** `MediaRecorder` needs a microphone and a user
-  gesture. The feature-detection branch was not exercised on iOS Safari, which
-  is the browser where it actually matters.
+- ~~**Voice capture never ran.**~~ **Superseded — it ran.** Found in the local
+  database on 2026-08-02: two notes with `source = 'voice'` and two matching
+  objects in the private `audio` bucket, **173 210 bytes** and **8 024 bytes**,
+  both `audio/webm`, both under the capturing user's own prefix.
+  So `MediaRecorder` produced real Opus/WebM audio, and the direct
+  client → Storage upload under a signed URL worked — the step that exists so
+  25 MB of audio never routes through an Edge Function.
+  Both notes then resolved to `failed` at the `transcribe` stage with
+  `error_code = transcription_failed`, attempt 1. That is the expected outcome
+  with no ElevenLabs key; whether the call actually reached ElevenLabs is not
+  determinable from the job row alone.
+  Still untested: iOS Safari, where `MediaRecorder` availability is the open
+  question, and transcription itself.
 - **Only Chromium.** No Safari or Firefox testing. iOS install flow untested.
 - **No visual screenshot.** Verification was done through the DOM and computed
   styles, which is stronger for layout assertions but says nothing about
