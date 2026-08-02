@@ -120,7 +120,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
 | 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 verified locally; **nothing schedules it** | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
-| 6.5 | `pg_cron` schedule for sweep | 🟡 migration written and applied; **deliberately inert** — no Vault secrets, `cron.job` is empty | SB-001 |
+| 6.5 | `pg_cron` schedule for sweep | 🟡 on `main`; applies cleanly in CI and takes its `NOTICE` path. **Nothing has ever swept** — needs Vault secrets | SB-001 |
 | 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |

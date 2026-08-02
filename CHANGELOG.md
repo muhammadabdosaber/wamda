@@ -94,6 +94,25 @@ enum tables were corrected against
 `supabase/migrations/20260801000200_enums_and_tables.sql` and
 `web/src/i18n/ar.ts` after an initial draft got them wrong.
 
+### Added — a schedule for the sweep worker
+
+- `supabase/migrations/20260801000800_sweep_schedule.sql` — a `pg_cron` job
+  that POSTs to the deployed `sweep` function every 5 minutes through
+  `pg_net`. The function URL and service role key are read from **Vault at
+  call time**, never embedded in the committed file; with either secret
+  absent the migration raises a `NOTICE` and leaves the job unscheduled
+  rather than failing the deploy. `cron.schedule` replaces by name, so it is
+  re-runnable once the secrets exist.
+
+Verified in CI: the migration applies to a fresh Postgres, logs the
+`sweep-worker cron job NOT scheduled` notice, and the run still ends in
+`ALL SCHEMA CHECKS PASSED` — the safe path reproduced on a machine that never
+had secrets.
+
+**Not verified: sweeping.** No cron job has ever fired and no note has ever
+been recovered with no client open. That needs the two Vault secrets in an
+environment that should really sweep (SB-001).
+
 ### Added — sweep worker
 
 - `supabase/functions/sweep` — unsticks notes stranded in
