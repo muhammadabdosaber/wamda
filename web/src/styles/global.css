@@ -312,6 +312,8 @@ body {
   cursor: pointer;
 }
 
+.linkbtn:disabled { opacity: 0.5; cursor: default; }
+
 .muted { color: var(--muted); font-size: 0.85rem; }
 .center { text-align: center; padding-block: 48px; color: var(--muted); }
 

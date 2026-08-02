@@ -36,16 +36,29 @@ function StopIcon() {
  * durable storage with as little ceremony as possible.
  *
  * Rules enforced here:
- *   * Saving NEVER awaits the network. The note is written to IndexedDB, the
- *     textarea clears immediately, and sync happens behind it.
+ *   * The local write NEVER awaits the network -- capture() durably lands in
+ *     IndexedDB first, unconditionally, so a dropped connection never loses a
+ *     thought. Only AFTER that does this component wait on `sync()`, purely
+ *     so the UI can show a real "saved" state and hand off to the notes list
+ *     with the note actually in it, rather than lying about being done.
  *   * The textarea is autofocused, so the default path is "open, type".
  *   * There is no category, tag, or folder picker. Filing is the AI's job --
  *     asking the user to file is what makes every other notes app fail this
  *     user.
  */
-export function Capture({ t, language }: { t: Translator; language: string }) {
+export function Capture({
+  t,
+  language,
+  onSaved,
+}: {
+  t: Translator;
+  language: string;
+  /** Called once a note has landed durably and sync has been attempted. */
+  onSaved?: () => void;
+}) {
   const [text, setText] = useState("");
   const [recording, setRecording] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -75,17 +88,29 @@ export function Capture({ t, language }: { t: Translator; language: string }) {
 
   async function saveText() {
     const value = text.trim();
-    if (!value) return;
+    if (!value || saving) return;
 
-    // Durable first, clear the field second, sync third. If the tab is closed
-    // between the write and the sync, the note is still in IndexedDB and the
-    // outbox picks it up on next launch.
-    await capture({ source: "text", language, text: value });
-    setText("");
-    textarea.current?.focus();
-    await refresh();
+    setSaving(true);
+    try {
+      // Durable first, clear the field second. If the tab is closed between
+      // the write and the sync below, the note is still in IndexedDB and the
+      // outbox picks it up on next launch -- nothing here weakens that.
+      await capture({ source: "text", language, text: value });
+      setText("");
+      await refresh();
 
-    void sync().then(refresh);
+      // Awaited (unlike the outbox write above) so the caller can hand off to
+      // a screen that actually shows the note, and so the textarea stays
+      // locked for the one moment where typing a second note could race the
+      // first one's save.
+      await sync();
+      await refresh();
+    } finally {
+      setSaving(false);
+      textarea.current?.focus();
+    }
+
+    onSaved?.();
   }
 
   async function startRecording() {
@@ -103,9 +128,17 @@ export function Capture({ t, language }: { t: Translator; language: string }) {
     mr.onstop = async () => {
       stream.getTracks().forEach((track) => track.stop());
       const blob = new Blob(chunks.current, { type: mr.mimeType });
-      await capture({ source: "voice", language, audio: blob });
-      await refresh();
-      void sync().then(refresh);
+
+      setSaving(true);
+      try {
+        await capture({ source: "voice", language, audio: blob });
+        await refresh();
+        await sync();
+        await refresh();
+      } finally {
+        setSaving(false);
+      }
+      onSaved?.();
     };
 
     mr.start();
@@ -134,11 +167,15 @@ export function Capture({ t, language }: { t: Translator; language: string }) {
         // in their own language. Rendered note BODIES elsewhere set their own
         // dir from the language the pipeline detected.
         aria-label={t.t("captureHint")}
+        // Locked while the previous note is being registered -- otherwise a
+        // second thought typed mid-save could get folded into or race the
+        // first one.
+        disabled={saving}
       />
 
       <div className="row">
-        <button className="btn" onClick={() => void saveText()} disabled={!text.trim()}>
-          {t.t("captureSave")}
+        <button className="btn" onClick={() => void saveText()} disabled={saving || !text.trim()}>
+          {saving ? t.t("captureSaving") : t.t("captureSave")}
         </button>
 
         {canRecord && (
@@ -149,11 +186,21 @@ export function Capture({ t, language }: { t: Translator; language: string }) {
             onClick={() => (recording ? stopRecording() : void startRecording())}
             aria-label={recording ? t.t("captureStop") : t.t("captureVoice")}
             title={recording ? t.t("captureStop") : t.t("captureVoice")}
+            disabled={saving}
           >
             {recording ? <StopIcon /> : <MicIcon />}
           </button>
         )}
       </div>
+
+      {saving && (
+        // The one moment capture is NOT instant end-to-end: local write plus
+        // the sync attempt that gets the note onto the server so the notes
+        // list the user is about to land on actually shows it.
+        <p className="muted" style={{ marginBlockStart: 14, textAlign: "center" }}>
+          {t.t("captureSaving")}
+        </p>
+      )}
 
       {!canRecord && (
         // Honest degradation rather than a button that does nothing.

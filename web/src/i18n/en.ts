@@ -14,6 +14,7 @@ export const en: Messages = {
   captureVoice: "Record",
   captureText: "Write",
   captureSave: "Save",
+  captureSaving: "Saving…",
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",

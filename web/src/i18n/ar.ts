@@ -13,6 +13,7 @@ export const ar = {
   captureVoice: "سجّل صوتيًا",
   captureText: "اكتب",
   captureSave: "احفظ",
+  captureSaving: "جارٍ الحفظ…",
   captureRecording: "جارٍ التسجيل…",
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",

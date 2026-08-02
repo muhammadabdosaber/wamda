@@ -79,6 +79,7 @@ export interface TimelineNote {
   input_language: string;
   detected_language: string | null;
   client_created_at: string;
+  action_dismissed_at: string | null;
   note_enrichments: Enrichment[];
 }
 
@@ -138,6 +139,35 @@ export async function timeline(language: string, cursor?: string) {
   );
   if (error) throw new ApiError("internal_error");
   return data as { notes: TimelineNote[]; next_cursor: string | null };
+}
+
+/**
+ * Archives a note -- hides it from the timeline and from search for good.
+ * Goes straight through PostgREST, not an Edge Function: `notes` is fully
+ * client-writable under RLS (see 04_rls), so there is no vendor call or
+ * server-side logic between the button and the row.
+ */
+export async function archiveNote(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ archived_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw new ApiError("archive_failed");
+}
+
+/**
+ * Records that the user responded to a note's suggested-action chip
+ * (accepted or ignored) so it stops being offered again. Writes to `notes`,
+ * never to `note_enrichments` -- that table is pipeline-output-only, and this
+ * column exists precisely so the client has somewhere writable to record its
+ * own response without touching AI output.
+ */
+export async function dismissNoteAction(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ action_dismissed_at: new Date().toISOString() })
+    .eq("id", noteId);
+  if (error) throw new ApiError("dismiss_failed");
 }
 
 /**

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 
 import { actionLabel, categoryLabel, priorityLabel, type Translator } from "../i18n";
 import { directionOfContent } from "../core/language";
-import { timeline, type TimelineNote } from "../data/api";
+import { archiveNote, dismissNoteAction, timeline, type TimelineNote } from "../data/api";
 
 export function Notes({ t, language }: { t: Translator; language: string }) {
   const [notes, setNotes] = useState<TimelineNote[] | null>(null);
@@ -25,13 +25,41 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
   return (
     <>
       {notes.map((note) => (
-        <NoteCard key={note.id} note={note} t={t} />
+        <NoteCard
+          key={note.id}
+          note={note}
+          t={t}
+          // Archiving removes the row outright; dismissing just marks this
+          // note's card so the suggestion stops being offered.
+          onArchived={() => setNotes((prev) => prev?.filter((n) => n.id !== note.id) ?? prev)}
+          onDismissed={() =>
+            setNotes(
+              (prev) =>
+                prev?.map((n) =>
+                  n.id === note.id ? { ...n, action_dismissed_at: new Date().toISOString() } : n,
+                ) ?? prev,
+            )
+          }
+        />
       ))}
     </>
   );
 }
 
-function NoteCard({ note, t }: { note: TimelineNote; t: Translator }) {
+function NoteCard({
+  note,
+  t,
+  onArchived,
+  onDismissed,
+}: {
+  note: TimelineNote;
+  t: Translator;
+  onArchived: () => void;
+  onDismissed: () => void;
+}) {
+  const [busy, setBusy] = useState<"accept" | "dismiss" | null>(null);
+  const [failed, setFailed] = useState(false);
+
   const enrichment = note.note_enrichments[0];
 
   if (!enrichment) {
@@ -45,7 +73,42 @@ function NoteCard({ note, t }: { note: TimelineNote; t: Translator }) {
     );
   }
 
-  const action = actionLabel(t, enrichment.suggested_action);
+  const action = note.action_dismissed_at ? null : actionLabel(t, enrichment.suggested_action);
+
+  // The action button's own effect depends on what it is suggesting: for
+  // "archive" it performs the real archive; every other suggestion (create a
+  // task, create an event, review later) has no destination system yet, so
+  // accepting it just records that the user responded, same as dismissing.
+  async function handleAccept() {
+    setFailed(false);
+    setBusy("accept");
+    try {
+      if (enrichment!.suggested_action === "archive") {
+        await archiveNote(note.id);
+        onArchived();
+      } else {
+        await dismissNoteAction(note.id);
+        onDismissed();
+      }
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleDismiss() {
+    setFailed(false);
+    setBusy("dismiss");
+    try {
+      await dismissNoteAction(note.id);
+      onDismissed();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   return (
     <div
@@ -75,10 +138,20 @@ function NoteCard({ note, t }: { note: TimelineNote; t: Translator }) {
         // Auto-filing that guesses wrong destroys trust in everything else the
         // AI produced.
         <div className="chips">
-          <button className="linkbtn">{action}</button>
-          <button className="linkbtn muted">{t.t("actionDismiss")}</button>
+          <button className="linkbtn" onClick={() => void handleAccept()} disabled={busy !== null}>
+            {busy === "accept" ? "…" : action}
+          </button>
+          <button
+            className="linkbtn muted"
+            onClick={() => void handleDismiss()}
+            disabled={busy !== null}
+          >
+            {busy === "dismiss" ? "…" : t.t("actionDismiss")}
+          </button>
         </div>
       )}
+
+      {failed && <p className="error-text">{t.t("errorGeneric")}</p>}
     </div>
   );
 }
