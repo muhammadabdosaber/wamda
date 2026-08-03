@@ -100,6 +100,47 @@ never literal in a migration — a migration is a committed file.
 
 Ordered by how often it has actually happened here.
 
+### Everything AI-ish stops working at once
+
+Symptom: notes never leave "محفوظة على جهازك", nothing gets classified, no
+action chips appear, search returns nothing, and the notes screen reports it
+cannot reach the server — all together. That combination is one fault, not
+five: **the Edge Runtime is down**, and capture-to-server, enrichment, search
+and the timeline all run through it.
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:54421/functions/v1/notes
+```
+
+`401` is healthy — the endpoint is up and refusing an unauthenticated call.
+`503` means the container is gone; check it directly:
+
+```bash
+docker ps -a --format "{{.Names}}\t{{.Status}}" | grep edge_runtime
+```
+
+**The mount is the usual culprit.** The container binds its functions
+directory from wherever `supabase start` was run. If the stack was started
+from inside a git worktree and that worktree is later deleted, the mount
+source disappears and the container dies with **exit 255** — and it will not
+come back, because `supabase start` sees a running stack and skips it, while
+`docker start` fails with `error while creating mount source path`. That
+happened here.
+
+```bash
+supabase stop && supabase start   # from the project root, not a worktree
+```
+
+Data survives this: `supabase stop` backs up to a docker volume, and only
+`--no-backup` deletes it. Afterwards, confirm the mount is where you expect:
+
+```bash
+docker inspect supabase_edge_runtime_Second_Brain --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}'
+```
+
+**Start the stack from the project root.** A stack started from a worktree
+outlives the reason it was started there.
+
 ### A function fix "doesn't work"
 
 **The local Edge Runtime serves stale compiled code after an edit.**

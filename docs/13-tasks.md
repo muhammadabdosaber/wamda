@@ -270,21 +270,31 @@ sees an empty notes list even though their notes are safe on the device.**
 - **Accept:** capture a note offline, open the notes tab, see it; reconnect and
   watch it become one enriched card, not two rows.
 
-### SB-029 · Verify dismiss for real · `todo` · S
+### SB-029 · Verify dismiss for real · `done` · S
 
-Half done. The column was **missing from the running local database** until it
-was applied by hand mid-verification — confirming the risk was real, since the
-timeline query selects it. Archive is now proven end to end: the card goes,
-`archived_at` is set on exactly one row, and it is still absent after a full
-reload. `dismissNoteAction` was **not** exercised.
+> **Done**, by the owner on his own notes. `action_dismissed_at` was set on 6
+> notes and the chips were gone after a reload; archive re-confirmed alongside
+> it. What the test also produced is SB-033: it worked and he could not tell.
 
-- **Accept:** a dismissed note stops offering its chip **after a reload**, and
-  `action_dismissed_at` is set on exactly that row.
-- **Also:** the column reached the local database through a manual
-  `alter table` plus a `schema_migrations` insert, because `supabase migration
-  up` refused — the database has `20260801000800_sweep_schedule` applied, which
-  exists on no branch in this worktree. Reconcile that before the next
-  migration (see the SB-001 note at the top).
+### SB-033 · An answered suggestion must show that it was answered · `todo` · S
+
+The owner clicked تجاهل and reported *"ماحصل أي شي"*. The write had succeeded
+every time. All that happens on screen is two small links disappearing —
+no confirmation, no movement, nothing to undo. Archive only felt real because
+the card left the list.
+
+This is not cosmetic. The chips are the one place the user answers the AI, and
+an action that gives no feedback teaches them the app ignores them — on the
+screen where trust in the AI is either earned or lost.
+
+- **Start at:** `web/src/features/Notes.tsx` `handleAccept` / `handleDismiss`.
+- **Do:** give the card a visible resolved state. An undo window is worth
+  considering, since the action is currently irreversible from the UI.
+- **Accept:** a person who has never seen the app can tell, without being
+  told, that their click did something.
+- **Related:** SB-027 — for every suggestion except archive there is also
+  nothing behind the button. Fixing the feedback without fixing the
+  destination makes the app *look* like it filed something it did not.
 
 ### SB-023 · Column-scoped update grant on `notes` · `todo` · S
 
