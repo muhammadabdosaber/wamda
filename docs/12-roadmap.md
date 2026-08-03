@@ -130,13 +130,40 @@ The point of the language seams. Three flags, no migration.
 **This milestone is gated on a fact nobody has checked.** Test cross-lingual
 retrieval the day the Cohere key arrives, in M2 — long before M7 starts.
 
-## Incoming: a UI redesign
+## Incoming: a UI redesign, then a destination
 
 A new design is being produced in Google Stitch (SB-031). It is not specified
 yet, so nothing is planned against it — but it lands on the screens M2–M4 touch,
 so **do not invest in visual polish before it arrives**. Structural work
 (SB-024, SB-025) is safe: it changes what the screens must show, which the
 design has to accommodate regardless.
+
+### M8 — Somewhere for a note to go ⬜
+
+**Agreed with the owner, and deliberately sequenced after the redesign.**
+
+The AI already decides a note is a task, gives it a priority, and resolves
+"الخميس" into a real timestamp. Then the user clicks "أضفها كمهمة" and nothing
+is created anywhere — the promise the product is built on stops one step short
+of being kept. This milestone builds the destination: tasks and calendar
+entries that live inside the product (SB-027), with the visible result an
+answered suggestion currently lacks (SB-033).
+
+- [ ] The redesign lands first (SB-031) — what a task *looks* like decides
+      what it *is*
+- [ ] Accepting and dismissing become distinct recorded states, not one
+      nullable timestamp
+- [ ] `create_task` and `create_event` produce something the user can open
+- [ ] `action_due_at` drives a calendar view, using dates the pipeline already
+      resolves correctly
+
+**Exit:** the owner captures "لازم أراجع العرض مع أحمد قبل اجتماع الخميس",
+accepts the suggestion, and finds it waiting for him on Thursday without
+having typed a date, a title, or a list name.
+
+**The constraint that must survive it:** ADR-0004. A task is a *view over a
+note*, never a container a note moves into. If the design implies folders,
+supersede the ADR on purpose rather than drifting into hierarchy by accident.
 
 ## Cross-cutting, no milestone
 

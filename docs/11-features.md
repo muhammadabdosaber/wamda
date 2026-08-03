@@ -87,9 +87,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.11 | Bundled Arabic font | ❌ named in CSS, not shipped — falls back to system face | SB-011 |
 | 4.12 | Safari / Firefox support | ⬜ only Chromium tested | — |
 | 4.13 | Note detail: raw text next to the AI version | 🟡 verify against `Notes.tsx` before claiming | SB-021 |
-| 4.14 | Suggested-action chips do something (accept / dismiss) | 🟡 archive exercised for real; **dismiss still never run** | `Notes.tsx` |
+| 4.14 | Suggested-action chips do something (accept / dismiss) | ✅ both paths verified against a real database — but see 4.17 | `Notes.tsx` |
 | 4.15 | Archive a note for real | ✅ card gone, `archived_at` set, still gone after a reload | `api.ts` `archiveNote` |
 | 4.16 | Accepting "أضفها كمهمة" creates a task | ❌ **no destination exists** — the chip only records that you responded | SB-027 |
+| 4.17 | A visible result when a suggestion is answered | ❌ two small links vanish, nothing else; **the owner read it as broken** | SB-033 |
 
 ## 5. Auth, data, security
 
@@ -143,10 +144,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 41 |
-| 🟡 partial | 7 |
+| ✅ working | 42 |
+| 🟡 partial | 6 |
 | ⬜ built, unrun | 18 |
-| ❌ not built | 18 |
+| ❌ not built | 19 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API
 key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key

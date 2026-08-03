@@ -293,6 +293,41 @@ somewhere nobody had configured, instead of only on the machine where it was
 written. **It still proves nothing about sweeping**: no cron job has ever
 fired, and no note has ever been recovered without a client open.
 
+### The owner's own test session
+
+The first time the product was driven by the person it is for, rather than by
+whoever built it. Everything below was observed on his machine, in his browser,
+against his own notes.
+
+**Suggested actions work, and read as broken.** Both paths were exercised for
+the first time:
+
+| | result |
+|---|---|
+| أرشفة | card disappeared; `archived_at` set; still gone after a reload |
+| تجاهل | `action_dismissed_at` set on 6 notes; chips gone after a reload |
+
+The database confirms both. But the report was *"دوست عليه وماحصل أي شي"* — and
+that is an accurate description of what is on screen. Answering a suggestion
+makes two small links vanish and changes nothing else: no confirmation, no
+movement, and for "راجعها لاحقًا" no destination either, since none exists
+(SB-027). Archive only felt like it worked because the card left the screen.
+Recorded as SB-033.
+
+**The environment broke in a way worth writing down.** The local stack had been
+started from inside a git worktree, so the Edge Runtime container's functions
+mount pointed into that directory. Deleting that worktree during cleanup killed
+the container with exit 255, and every symptom that followed — notes never
+syncing, no classification, no action chips, empty search, and an error on the
+notes screen — was that one container being down, since all four paths run
+through Edge Functions. `supabase start` did **not** fix it; only a full
+`supabase stop && supabase start` from the project root recreated the mount.
+
+**A note that never syncs still shows.** While the functions were down every
+capture stayed local and every card read "محفوظة على جهازك" — which is exactly
+what should happen, and is only true because of SB-025. Before that change the
+same failure would have produced an empty list under an error message.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

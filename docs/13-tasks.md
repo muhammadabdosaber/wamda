@@ -270,21 +270,31 @@ sees an empty notes list even though their notes are safe on the device.**
 - **Accept:** capture a note offline, open the notes tab, see it; reconnect and
   watch it become one enriched card, not two rows.
 
-### SB-029 · Verify dismiss for real · `todo` · S
+### SB-029 · Verify dismiss for real · `done` · S
 
-Half done. The column was **missing from the running local database** until it
-was applied by hand mid-verification — confirming the risk was real, since the
-timeline query selects it. Archive is now proven end to end: the card goes,
-`archived_at` is set on exactly one row, and it is still absent after a full
-reload. `dismissNoteAction` was **not** exercised.
+> **Done**, by the owner on his own notes. `action_dismissed_at` was set on 6
+> notes and the chips were gone after a reload; archive re-confirmed alongside
+> it. What the test also produced is SB-033: it worked and he could not tell.
 
-- **Accept:** a dismissed note stops offering its chip **after a reload**, and
-  `action_dismissed_at` is set on exactly that row.
-- **Also:** the column reached the local database through a manual
-  `alter table` plus a `schema_migrations` insert, because `supabase migration
-  up` refused — the database has `20260801000800_sweep_schedule` applied, which
-  exists on no branch in this worktree. Reconcile that before the next
-  migration (see the SB-001 note at the top).
+### SB-033 · An answered suggestion must show that it was answered · `todo` · S
+
+The owner clicked تجاهل and reported *"ماحصل أي شي"*. The write had succeeded
+every time. All that happens on screen is two small links disappearing —
+no confirmation, no movement, nothing to undo. Archive only felt real because
+the card left the list.
+
+This is not cosmetic. The chips are the one place the user answers the AI, and
+an action that gives no feedback teaches them the app ignores them — on the
+screen where trust in the AI is either earned or lost.
+
+- **Start at:** `web/src/features/Notes.tsx` `handleAccept` / `handleDismiss`.
+- **Do:** give the card a visible resolved state. An undo window is worth
+  considering, since the action is currently irreversible from the UI.
+- **Accept:** a person who has never seen the app can tell, without being
+  told, that their click did something.
+- **Related:** SB-027 — for every suggestion except archive there is also
+  nothing behind the button. Fixing the feedback without fixing the
+  destination makes the app *look* like it filed something it did not.
 
 ### SB-023 · Column-scoped update grant on `notes` · `todo` · S
 
@@ -318,23 +328,42 @@ the local path.
 - **Accept:** with IndexedDB writes forced to fail, the text stays in the
   textarea and an error appears. Test covers it.
 
-### SB-027 · A destination for accepted suggestions · `todo` · L
+### SB-027 · A destination for accepted suggestions · `agreed, blocked on the design` · L
+
+**Decided by the owner: build the real thing — a tasks/calendar destination
+inside the product. Sequenced after the new design lands, not before.**
 
 Today, clicking **"أضفها كمهمة"** creates no task — it records
 `action_dismissed_at`, exactly like "تجاهل". The label promises something the
 system does not do, and trust in AI output is the product (principle 5:
-degrade honestly).
+degrade honestly). The owner hit this himself: he clicked, nothing happened
+anywhere, and he was right.
 
-Two ways out, and this is a **product decision, not an implementation one**:
+- **Blocked on:** the Stitch redesign (SB-031). What a task *is* on screen —
+  a separate tab, a state on the note, a list that empties — is a design
+  question, and building the model first would freeze an answer the design has
+  not given yet.
+- **Do not do the cheap relabel** unless the design slips badly. Renaming the
+  chip to "تمّت المعالجة" is honest, but it retires the product's most
+  valuable promise (the AI files things *for* you) to avoid a week of work.
 
-- **Cheap:** relabel the chip to what it does ("تمّت المعالجة" / "خلصتها")
-  until a destination exists.
-- **Real:** a tasks/events model — which is exactly the kind of thing the
-  pending design change might introduce. Do not build it speculatively.
+When it happens, the parts that are already known:
 
-Also worth splitting when it happens: one nullable timestamp cannot distinguish
-"I acted on it" from "I ignored it", and that distinction is the only signal
-for the >70% unedited-category metric in `docs/10-product-spec.md`.
+- `notes.action_dismissed_at` cannot distinguish "I acted on it" from "I
+  ignored it". Accepting and dismissing need to become different recorded
+  states — that distinction is also the only available signal for the >70%
+  unedited-category metric in `docs/10-product-spec.md`.
+- `note_enrichments.action_due_at` already holds a resolved timestamp, proven
+  on real model output ("الخميس" → the correct Thursday in `Asia/Dubai`). A
+  calendar view has its date source already.
+- The `suggested_action` enum already carries `create_task` and
+  `create_event`; a destination gives them meaning rather than needing new
+  keys.
+- **ADR-0004 stays intact.** Tasks are a *view over notes*, not a folder tree
+  — a note becomes a task, it does not move into one. Anything that reads as
+  hierarchy needs a superseding ADR first.
+- Pairs with SB-033: feedback without a destination makes the app look like it
+  filed something it did not.
 
 ### SB-028 · Queue archive/dismiss while offline · `todo` · S
 
@@ -389,9 +418,17 @@ machine-local collision is now everyone's default, and it contradicts
 `global.css` names IBM Plex Sans Arabic / Noto Sans Arabic; neither ships, so
 Arabic renders in a system fallback.
 
-- **Accept:** woff2 files in `web/public/fonts/`, an `@font-face` block, correct
+**Half of this is already sitting on disk, untracked:** `web/public/fonts/`
+contains `amiri-400.woff2` and `amiri-700.woff2`. Nothing references them —
+there is no `@font-face` anywhere — so they are inert bytes. Someone fetched
+them and stopped. Amiri is a different choice from the two the CSS names, so
+this needs a decision rather than a copy-paste.
+
+- **Accept:** woff2 files committed, an `@font-face` block, correct
   `unicode-range`, and a recorded bundle-size delta. If the delta is
   unacceptable, record that decision instead of shipping the font.
+- **Note:** hold until the redesign (SB-031) picks a typeface — shipping a font
+  the design then replaces is wasted bytes twice.
 
 ### SB-019 · Structured logging and alerting · `todo` · M
 
@@ -431,6 +468,38 @@ When it arrives, the constraints it must survive:
 
 Pre-work that pays off either way: SB-025 (unsynced notes visible) and SB-024,
 since both change what the capture and notes screens must show.
+
+### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `todo` · M
+
+There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
+`40f0a14`, kept from a worktree that was about to be deleted), whose message
+reads *"switch enrichment to Haiku 4.5"*. Someone tried this and it never
+reached `main`, with no record of why.
+
+The stake is the only recurring cost the product has: **$0.008–0.011 per note
+measured on Opus 5**, and enrichment runs on every note ever captured. Haiku is
+roughly an order of magnitude cheaper.
+
+- **Do:** run the same 20 real Arabic notes through both models and compare
+  category, priority, tags, and — the one most likely to break — relative date
+  resolution ("الخميس" → the correct Thursday in the user's timezone).
+- **Accept:** a table in `docs/04-ai-pipeline.md` with measured cost and
+  measured disagreement rate per field, and a decision recorded either way.
+- **Do not switch on price alone.** A wrong category is the failure mode that
+  makes the user file things himself, which is the product failing.
+
+### SB-035 · One end-to-end test · `todo` · M
+
+`docs/14-testing.md` names this as the strategy's biggest gap and no task
+existed for it. The capture → sync → enrich → search loop is verified only by
+hand, and this session showed how expensive that is: a broken Edge Runtime
+presented as five unrelated symptoms and took most of a session to identify.
+
+- **Do:** drive a real browser against the local stack — capture offline,
+  reconnect, assert the note reaches `ready`, assert it is findable.
+- **Accept:** it fails when the Edge Runtime is down, and says so in one line.
+- **Note:** this is the one place a browser-automation dependency is worth it;
+  everything else here is deliberately dependency-light.
 
 ### SB-022 · Safari and Firefox · `todo` · S
 

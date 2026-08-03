@@ -23,6 +23,7 @@ export const en: Messages = {
   notesEmpty: "No notes yet. Start with one thought.",
   notesPendingSync: "Saved on your device",
   notesVoiceNote: "Voice note",
+  notesOffline: "Couldn't reach the server — these are the notes saved on your device.",
 
   searchTitle: "Search",
   searchHint: "Search your notes",
