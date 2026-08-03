@@ -25,6 +25,10 @@ export const ar = {
   // note is not at risk.
   notesPendingSync: "محفوظة على جهازك",
   notesVoiceNote: "ملاحظة صوتية",
+  // Shown when the server did not answer. States the situation and what the
+  // user is looking at instead -- it is not a warning, because nothing is
+  // wrong and nothing needs doing.
+  notesOffline: "تعذّر الوصول للخادم — هذه ملاحظاتك المحفوظة على جهازك.",
 
   searchTitle: "البحث",
   searchHint: "ابحث في ملاحظاتك",
