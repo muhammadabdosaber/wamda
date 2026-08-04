@@ -19,8 +19,8 @@ export default defineConfig({
         // and splash screen left-to-right regardless of the page's own dir.
         lang: "ar",
         dir: "rtl",
-        theme_color: "#3e6b5c",
-        background_color: "#faf8f5",
+        theme_color: "#1b3022",
+        background_color: "#f9faf8",
         display: "standalone",
         start_url: "/",
         icons: [

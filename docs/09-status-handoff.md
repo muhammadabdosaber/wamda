@@ -18,8 +18,9 @@
 عبر اللغات، وده أساس المرحلة التانية) و **ElevenLabs** (يعني التسجيل الصوتي
 متجربش خالص). كل الكود موجود ومتحقَّق من أنواعه، بس المسارات دي محصلتش ولا مرة.
 
-**حاجة معلّقة:** فيه تعديل مهم في التصميم لسه متحدَّدش — **متبدأش تنفيذ قبل
-ما تسأل عنه**، لأنه ممكن يغيّر قرارات أساسية مكتوبة تحت.
+**التصميم وصل** (٣ أغسطس ٢٠٢٦) وبقى في `docs/design/`. القاعدة: **الثيم بس** —
+أي حاجة في التصميم بتتعارض مع سلوك اتبنى واتجرّب، السلوك المبني هو اللي يكسب.
+اقرا `docs/design/README.md` قبل أي شغل واجهة. مفيش قرار أساسي اتحرك.
 
 ---
 
@@ -139,12 +140,17 @@ Ordered by consequence, not effort.
 - [ ] **`ALLOWED_ORIGIN`** defaults to `*`.
 - [ ] **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
       Noto Sans Arabic first, but neither ships — currently falling back to a
-      system face.
+      system face. `web/public/fonts/` now holds `amiri-400/700.woff2`, but
+      **nothing references them** — there is still no `@font-face`. SB-011 was
+      held pending the redesign's typeface choice; the redesign has landed and
+      chose Plus Jakarta Sans, Inter, and JetBrains Mono, **none of which carry
+      Arabic glyphs**. So it answered nothing here, and the hold can lift.
 - [ ] **Digest never run**, and its Batch-API-plus-structured-outputs
       combination is unverified.
-- [ ] **Screenshot never captured.** The Browser pane would not composite
-      across many attempts; the app itself renders correctly (verified through
-      DOM and computed styles).
+- [x] **Screenshot captured**, for the capture screen at 375×812 in both colour
+      schemes — which is how the dark-mode contrast bug in the theme port was
+      found at all. Notes, search, digest, and auth have still never been
+      looked at.
 
 ## Operational gotchas
 
@@ -176,20 +182,42 @@ npm run dev
 
 Read `docs/00-verification.md` before trusting any claim about what works.
 
-## Pending: an unspecified design change
+## Resolved: the design change
 
-The user has flagged **a significant design change** plus further integration
-work, to be discussed in a new session. It has not been described yet.
+**This is no longer blocking.** The design arrived on 2026-08-03 as three
+screens exported from Google Stitch, and is committed under `docs/design/`.
+Read `docs/design/README.md` before any UI work — it is the contract.
 
-**Do not begin implementation against the assumptions in these docs until that
-change is understood** — several decisions recorded here are deliberately
-load-bearing and would need revisiting if the shape of the product moves:
+**The decision: theme only.** Colours, type scale, spacing, radii. Where the
+export contradicts behaviour that is already built and tested, the built
+behaviour wins.
 
-- notes as flat, independent objects (no hierarchy, projects, or notebooks)
-- one enrichment pass per note, at capture time
-- Arabic-only in phase 1, English as a pure config flip
-- local-first capture with an outbox as the sync model
-- PWA rather than native — which caps background sync and iOS voice capture
+None of the load-bearing decisions moved. Specifically:
 
-Ask what the change is first. Some of the above are cheap to revisit; the
-storage and language-seam decisions are not.
+| Decision | Status after the design |
+|---|---|
+| Notes flat, no hierarchy (ADR-0004) | **Holds.** The Tasks screen is a *filter over notes*, not a container. Tapping a task opens the source note |
+| Local-first capture via the outbox | Untouched |
+| Arabic-first, English a config flip | Untouched. The design's own Arabic literals go to `i18n/`; the existing wording is better and stays |
+| One enrichment pass at capture | Untouched |
+| PWA, not native | Untouched — the export's Tailwind CDN and Google Fonts were dropped precisely because they break offline |
+
+**The one thing that was nearly lost:** the export's capture screen replaces the
+autofocused textarea with a button, costing a tap on every capture. Rejected.
+Capture stays the fastest path in the app; that is the product's reason to
+exist.
+
+Two things the design does *not* answer, and that no amount of re-reading it
+will fix — they need a decision, not a lookup:
+
+- **What a note whose enrichment failed looks like.** The export supplies the
+  muted-card visual language, but its muted card still has a title and a
+  summary — exactly what a failed enrichment lacks. See SB-032.
+- **How a save is confirmed if capture stays in place.** The export draws no
+  confirmation state at all. Today the confirmation is the note itself
+  appearing in the timeline, which is strong. Do not remove that without a
+  replacement that is as convincing. See SB-037.
+
+Progress: **SB-031a (theme port) is done and verified.** SB-036 (Tasks screen),
+SB-037 (open the note from a task), and SB-038 (`completed_at`) are open in
+`docs/13-tasks.md` with their scope already worked out.

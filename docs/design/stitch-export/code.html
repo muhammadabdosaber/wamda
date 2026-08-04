@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Refined animation for executive feel */
+        @keyframes executive-pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(180, 205, 184, 0.2); }
+            70% { transform: scale(1.015); box-shadow: 0 0 0 15px rgba(180, 205, 184, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(180, 205, 184, 0); }
+        }
+        .pulse-effect {
+            animation: executive-pulse 4s infinite ease-in-out;
+        }
+        /* Custom gold gradient for executive style */
+        .gold-gradient {
+            background: linear-gradient(135deg, #b4cdb8 0%, #d0e9d4 100%);
+        }
+        .text-gold {
+            color: #b4cdb8;
+        }
+        .border-gold {
+            border-color: #b4cdb8;
+        }
+    </style>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-bright": "#f9faf8",
+                "on-tertiary-fixed-variant": "#3c4b34",
+                "tertiary-fixed-dim": "#bbccae",
+                "primary-fixed-dim": "#b4cdb8",
+                "error-container": "#ffdad6",
+                "on-error-container": "#93000a",
+                "primary": "#061b0e",
+                "on-secondary": "#ffffff",
+                "error": "#ba1a1a",
+                "surface-container-high": "#e7e8e6",
+                "surface-container": "#edeeec",
+                "inverse-primary": "#b4cdb8",
+                "surface-dim": "#d9dad8",
+                "primary-container": "#1b3022",
+                "primary-fixed": "#d0e9d4",
+                "background": "#f9faf8",
+                "outline": "#737973",
+                "tertiary": "#0d1a08",
+                "secondary-container": "#d6e7a1",
+                "on-primary": "#ffffff",
+                "secondary": "#56642b",
+                "on-error": "#ffffff",
+                "tertiary-fixed": "#d6e8c9",
+                "surface-container-lowest": "#ffffff",
+                "surface-container-highest": "#e1e3e1",
+                "inverse-on-surface": "#f0f1ef",
+                "on-primary-fixed-variant": "#364c3c",
+                "surface-tint": "#4d6453",
+                "outline-variant": "#c3c8c1",
+                "on-secondary-fixed-variant": "#3e4c16",
+                "on-tertiary": "#ffffff",
+                "on-secondary-container": "#5a682f",
+                "on-tertiary-fixed": "#121f0c",
+                "surface-variant": "#e1e3e1",
+                "on-primary-fixed": "#0b2013",
+                "on-tertiary-container": "#87987c",
+                "on-secondary-fixed": "#161f00",
+                "on-primary-container": "#819986",
+                "tertiary-container": "#212f1a",
+                "secondary-fixed-dim": "#bdce89",
+                "surface-container-low": "#f3f4f2",
+                "inverse-surface": "#2e3130",
+                "on-surface-variant": "#434843",
+                "on-surface": "#191c1b",
+                "on-background": "#191c1b",
+                "surface": "#f9faf8",
+                "secondary-fixed": "#d9eaa3"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "margin-desktop": "40px",
+                "container-max": "1200px",
+                "stack-lg": "48px",
+                "margin-mobile": "16px",
+                "stack-md": "24px",
+                "gutter": "24px",
+                "unit": "8px",
+                "stack-sm": "12px"
+        },
+        "fontFamily": {
+                "headline-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "headline-lg-mobile": [
+                        "Plus Jakarta Sans"
+                ],
+                "display-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "headline-md": [
+                        "Plus Jakarta Sans"
+                ],
+                "label-sm": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "label-md": [
+                        "JetBrains Mono"
+                ]
+        },
+        "fontSize": {
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "28px",
+                        {
+                                "lineHeight": "36px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0.02em",
+                                "fontWeight": "500"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopAppBar: Executive Dark with Gold Border -->
+<header class="bg-primary flex justify-between items-center w-full px-gutter h-16 rtl:flex-row-reverse sticky top-0 z-50 border-b-2 border-primary-fixed-dim">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-primary-fixed-dim/30">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuABmUpKYu3l7EtgIzo5ZOtV3WJTdwx6xDenERLDrwuY0aA4ERrYwcNmFdRwWPoX9XX5ZsyfvXjGHIM2fIgS1CvxwfMuvithYDN7Fuuh_GY32hDJ5e03eyvKBQeCMSfYOwa8NCbuX2UdwUrUokaWc-i_cIYVjUoRZDnTttNzgvzByFKRPklIBK0nk4krtTBxkYNHgKqle-dLg0imHkMz2b7td-OBDVlMEcd7flyPPC0kcojmFPYu-kSNmA"/>
+</div>
+<h1 class="font-headline-md text-headline-md text-primary-fixed tracking-tight">Second Brain</h1>
+</div>
+<button class="transition-colors duration-200 active:scale-95 text-primary-fixed font-bold px-4 py-1.5 rounded border border-primary-fixed-dim/50 hover:bg-primary-fixed-dim/10 text-sm">
+            EN
+        </button>
+</header>
+<!-- Main Content: Canvas -->
+<main class="flex-1 flex flex-col items-center justify-center px-gutter relative">
+<!-- Subtle Professional Background -->
+<div class="absolute inset-0 overflow-hidden pointer-events-none opacity-40">
+<div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-fixed-dim/10 rounded-full blur-[120px]"></div>
+<div class="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[150px]"></div>
+</div>
+<!-- Central Capture Interaction: High Focus for ADHD -->
+<div class="flex flex-col items-center gap-14 w-full max-w-sm z-10">
+<div class="text-center">
+<p class="font-body-lg text-body-lg text-on-surface-variant/80 italic mb-1">ما الذي يدور في ذهنك الآن؟</p>
+</div>
+<!-- Large Capture Button: Executive Gold & Dark -->
+<div class="relative">
+<!-- Outer Ring Decoration -->
+<div class="absolute -inset-4 border border-primary-fixed-dim/20 rounded-full"></div>
+<button class="w-60 h-60 rounded-full bg-primary-container text-primary-fixed shadow-[0px_10px_40px_rgba(0,0,0,0.1)] flex flex-col items-center justify-center gap-5 transition-all duration-300 active:scale-95 pulse-effect group border-[3px] border-primary-fixed-dim">
+<span class="material-symbols-outlined text-6xl" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-headline-md text-headline-md tracking-wide uppercase text-sm">اسجل / اكتب</span>
+</button>
+</div>
+<!-- Quick Action Chips: Professional Minimalist -->
+<div class="flex gap-6 w-full justify-center">
+<button class="flex flex-col items-center gap-1.5 px-8 py-3 bg-white border border-outline-variant/30 rounded-xl text-on-surface-variant hover:border-primary-container/50 transition-all hover:bg-surface-container shadow-sm group">
+<span class="material-symbols-outlined text-primary-container transition-transform group-hover:scale-110">mic</span>
+<span class="font-label-sm text-label-sm opacity-70 uppercase">صوت</span>
+</button>
+<button class="flex flex-col items-center gap-1.5 px-8 py-3 bg-white border border-outline-variant/30 rounded-xl text-on-surface-variant hover:border-primary-container/50 transition-all hover:bg-surface-container shadow-sm group">
+<span class="material-symbols-outlined text-primary-container transition-transform group-hover:scale-110">edit_note</span>
+<span class="font-label-sm text-label-sm opacity-70 uppercase">نص</span>
+</button>
+</div>
+</div>
+</main>
+<!-- BottomNavBar: Professional & Refined -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-end px-gutter pb-6 pt-3 rtl:flex-row-reverse bg-white shadow-[0px_-8px_30px_rgba(0,0,0,0.05)] border-t border-outline-variant/20">
+<!-- Capture (Active) -->
+<a class="flex flex-col items-center justify-center text-primary relative transition-all duration-300 ease-in-out active:scale-90" href="#">
+<span class="material-symbols-outlined active-nav-icon text-primary-container">add_circle</span>
+<span class="font-label-sm text-[10px] mt-1 font-bold">CAPTURE</span>
+<div class="absolute -bottom-1.5 w-1 h-1 bg-primary-container rounded-full"></div>
+</a>
+<!-- Notes -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 transition-all duration-300 ease-in-out active:scale-90 hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">description</span>
+<span class="font-label-sm text-[10px] mt-1">NOTES</span>
+</a>
+<!-- Tasks -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 transition-all duration-300 ease-in-out active:scale-90 hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">check_circle</span>
+<span class="font-label-sm text-[10px] mt-1">TASKS</span>
+</a>
+<!-- Review -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 transition-all duration-300 ease-in-out active:scale-90 hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-label-sm text-[10px] mt-1">REVIEW</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant/60 transition-all duration-300 ease-in-out active:scale-90 hover:text-primary p-2" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-[10px] mt-1">SETTINGS</span>
+</a>
+</nav>
+<!-- Spacer for fixed nav -->
+<div class="h-24"></div>
+<script>
+        // Simple micro-interaction for the record button
+        const recordBtn = document.querySelector('.pulse-effect');
+        const mainIcon = recordBtn.querySelector('.material-symbols-outlined');
+        const labelText = recordBtn.querySelector('span:last-child');
+        let isRecording = false;
+
+        recordBtn.addEventListener('click', () => {
+            isRecording = !isRecording;
+            if (isRecording) {
+                recordBtn.style.backgroundColor = '#ba1a1a'; // error
+                recordBtn.style.borderColor = '#ffdad6'; // error-container
+                recordBtn.classList.remove('pulse-effect'); // Stop standard pulse for high-focus recording state
+                mainIcon.textContent = 'stop_circle';
+                labelText.textContent = 'جاري التسجيل...';
+                labelText.classList.add('animate-pulse');
+            } else {
+                recordBtn.style.backgroundColor = '#1b3022'; // primary-container
+                recordBtn.style.borderColor = '#b4cdb8'; // primary-fixed-dim
+                recordBtn.classList.add('pulse-effect');
+                mainIcon.textContent = 'add_circle';
+                labelText.textContent = 'اسجل / اكتب';
+                labelText.classList.remove('animate-pulse');
+            }
+        });
+    </script>
+</body></html>

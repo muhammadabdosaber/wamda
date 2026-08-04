@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain - ملاحظاتي</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;family=Plus+Jakarta+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', 'Plus Jakarta Sans', sans-serif;
+            background-color: #f9faf8;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .note-card-shadow {
+            box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.05);
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #d9dad8;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-bright": "#f9faf8",
+                        "on-tertiary-fixed-variant": "#3c4b34",
+                        "tertiary-fixed-dim": "#bbccae",
+                        "primary-fixed-dim": "#b4cdb8",
+                        "error-container": "#ffdad6",
+                        "on-error-container": "#93000a",
+                        "primary": "#061b0e",
+                        "on-secondary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-high": "#e7e8e6",
+                        "surface-container": "#edeeec",
+                        "inverse-primary": "#b4cdb8",
+                        "surface-dim": "#d9dad8",
+                        "primary-container": "#1b3022",
+                        "primary-fixed": "#d0e9d4",
+                        "background": "#f9faf8",
+                        "outline": "#737973",
+                        "tertiary": "#0d1a08",
+                        "secondary-container": "#d6e7a1",
+                        "on-primary": "#ffffff",
+                        "secondary": "#56642b",
+                        "on-error": "#ffffff",
+                        "tertiary-fixed": "#d6e8c9",
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-highest": "#e1e3e1",
+                        "inverse-on-surface": "#f0f1ef",
+                        "on-primary-fixed-variant": "#364c3c",
+                        "surface-tint": "#4d6453",
+                        "outline-variant": "#c3c8c1",
+                        "on-secondary-fixed-variant": "#3e4c16",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#5a682f",
+                        "on-tertiary-fixed": "#121f0c",
+                        "surface-variant": "#e1e3e1",
+                        "on-primary-fixed": "#0b2013",
+                        "on-tertiary-container": "#87987c",
+                        "on-secondary-fixed": "#161f00",
+                        "on-primary-container": "#819986",
+                        "tertiary-container": "#212f1a",
+                        "secondary-fixed-dim": "#bdce89",
+                        "surface-container-low": "#f3f4f2",
+                        "inverse-surface": "#2e3130",
+                        "on-surface-variant": "#434843",
+                        "on-surface": "#191c1b",
+                        "on-background": "#191c1b",
+                        "surface": "#f9faf8",
+                        "secondary-fixed": "#d9eaa3"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "40px",
+                        "container-max": "1200px",
+                        "stack-lg": "48px",
+                        "margin-mobile": "16px",
+                        "stack-md": "24px",
+                        "gutter": "24px",
+                        "unit": "8px",
+                        "stack-sm": "12px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Plus Jakarta Sans"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "label-sm": ["JetBrains Mono"],
+                        "body-md": ["Inter"],
+                        "label-md": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "600"}],
+                        "display-lg": ["48px", {"lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "label-sm": ["12px", {"lineHeight": "16px", "fontWeight": "500"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.02em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+        .executive-border {
+            border-bottom: 2px solid #1b3022;
+        }
+        .executive-card {
+            border: 1px solid #e1e3e1;
+            background: #ffffff;
+            transition: all 0.2s ease;
+            border-radius: 0.5rem;
+        }
+        .executive-card:hover {
+            border-color: #56642b;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- Header: Deep Forest #1b3022 -->
+<header class="bg-primary-container fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 rtl:flex-row-reverse border-b-4 border-secondary">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center overflow-hidden border border-white/20">
+<img class="w-full h-full object-cover" data-alt="A soft-focus lifestyle portrait of a young professional with a warm smile, captured in a bright minimalist office with soft natural lighting and pastel accent colors. The aesthetic is clean, calming, and high-end, matching a premium digital second brain application's supportive brand identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCRGi-k69aiVt6cwprJpVfHakbj_vjcOpqY8G10y0ywvR5if3kEZQe6R_DKDqchkDA6hK3mX9jA5U4f1g0uAtoAopp0uu3QUVzGqPWxgWm3EdFLw9WIwDqDN29A5dHHLMCVkYW2LTtjO7drQFdQ9Vm2uNPQcXTWxLa-Vocmw84JxpfiU0tAK4iUxhI5JS8oJjwVTY8USyKZ_wooU2ls5Mmi8lsy1TyZybU3ijleNyRjgqRR9ziAmuo1Rw"/>
+</div>
+<h1 class="font-headline-md text-white tracking-tight uppercase text-lg">Second Brain</h1>
+</div>
+<button class="text-secondary-fixed font-bold hover:bg-white/5 transition-colors duration-200 active:scale-95 px-3 py-1 rounded">
+            AR/EN
+        </button>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-24 px-gutter md:max-w-4xl md:mx-auto">
+<!-- Search and Filter -->
+<section class="mb-10">
+<div class="relative group">
+<span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 text-on-surface-variant group-focus-within:text-secondary transition-colors">search</span>
+<input class="w-full h-12 pr-12 pl-4 bg-surface-container-lowest border border-outline-variant focus:border-secondary outline-none transition-all font-body-md text-body-md rounded-lg shadow-sm" placeholder="ابحث في ملاحظاتك..." type="text"/>
+</div>
+</section>
+<!-- Section: Today -->
+<section class="mb-stack-lg">
+<div class="flex items-center justify-between mb-6 pb-2 border-b border-surface-variant">
+<h2 class="font-headline-md text-on-surface uppercase tracking-wider text-sm font-bold">اليوم</h2>
+<span class="font-label-sm text-on-surface-variant text-[10px] bg-surface-container px-2 py-0.5 border border-outline-variant rounded">3 ملاحظات</span>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<!-- Card: Work -->
+<div class="executive-card p-5 cursor-pointer relative shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary rounded-full"></span>
+<span class="font-label-sm text-secondary uppercase">عمل</span>
+</div>
+<span class="font-label-sm text-on-surface-variant opacity-80">١٠:٣٠ ص</span>
+</div>
+<h3 class="font-headline-md text-lg text-on-surface mb-2 leading-tight">تحديثات مشروع تطبيق "هوية"</h3>
+<div class="w-8 h-[2px] bg-secondary mb-3 rounded-full"></div>
+<p class="font-body-md text-on-surface-variant line-clamp-3 leading-relaxed">تحتاج الواجهة البرمجية لتحديث في نقاط الوصول الخاصة بالمستخدمين. يجب مراجعة التصاميم مع الفريق غداً صباحاً.</p>
+</div>
+<!-- Card: Personal -->
+<div class="executive-card p-5 cursor-pointer relative shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary rounded-full"></span>
+<span class="font-label-sm text-secondary uppercase">شخصي</span>
+</div>
+<span class="font-label-sm text-on-surface-variant opacity-80">٠٩:١٥ ص</span>
+</div>
+<h3 class="font-headline-md text-lg text-on-surface mb-2 leading-tight">قائمة مشتريات عطلة نهاية الأسبوع</h3>
+<div class="w-8 h-[2px] bg-secondary mb-3 rounded-full"></div>
+<p class="font-body-md text-on-surface-variant line-clamp-3 leading-relaxed">فواكه موسمية، قهوة مختصة، لوازم الحديقة، ومنظفات صديقة للبيئة للمطبخ الجديد.</p>
+</div>
+<!-- Card: Ideas -->
+<div class="executive-card p-5 cursor-pointer relative md:col-span-2 shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-secondary rounded-full"></span>
+<span class="font-label-sm text-secondary uppercase">أفكار</span>
+</div>
+<span class="font-label-sm text-on-surface-variant opacity-80">٠٨:٠٠ ص</span>
+</div>
+<h3 class="font-headline-md text-lg text-on-surface mb-2 leading-tight">تطبيق لتنظيم النباتات المنزلية</h3>
+<div class="w-8 h-[2px] bg-secondary mb-3 rounded-full"></div>
+<p class="font-body-md text-on-surface-variant line-clamp-3 leading-relaxed">فكرة: تطبيق يرسل تنبيهات ذكية بناءً على نوع النبتة وحالة الطقس الحالية في المدينة.</p>
+</div>
+</div>
+</section>
+<!-- Section: Yesterday -->
+<section class="mb-stack-lg">
+<div class="flex items-center justify-between mb-6 pb-2 border-b border-surface-variant">
+<h2 class="font-headline-md text-on-surface uppercase tracking-wider text-sm font-bold">أمس</h2>
+<span class="font-label-sm text-on-surface-variant text-[10px] bg-surface-container px-2 py-0.5 border border-outline-variant rounded">ملاحظة واحدة</span>
+</div>
+<div class="executive-card p-5 cursor-pointer relative opacity-80 bg-surface-container-low shadow-sm">
+<div class="flex justify-between items-start mb-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 bg-outline rounded-full"></span>
+<span class="font-label-sm text-on-surface-variant uppercase">مسودة</span>
+</div>
+<span class="font-label-sm text-on-surface-variant opacity-80">٠٥:٤٥ م</span>
+</div>
+<h3 class="font-headline-md text-lg text-on-surface mb-2 leading-tight">ملخص اجتماع الربع الثالث</h3>
+<div class="w-8 h-[2px] bg-outline-variant mb-3 rounded-full"></div>
+<p class="font-body-md text-on-surface-variant line-clamp-3 leading-relaxed">تم الاتفاق على زيادة الميزانية الخاصة بتطوير الذكاء الاصطناعي بنسبة ١٥٪ وبدء التوظيف في شهر أكتوبر.</p>
+</div>
+</section>
+<!-- Empty state -->
+<div class="flex flex-col items-center justify-center pt-8 pb-12 opacity-60">
+<div class="w-16 h-16 border border-outline-variant flex items-center justify-center mb-4 rounded-lg">
+<span class="material-symbols-outlined text-outline text-2xl">inventory_2</span>
+</div>
+<p class="font-label-sm text-on-surface-variant tracking-widest text-[10px] uppercase">لا توجد ملاحظات أقدم للعرض</p>
+</div>
+</main>
+<!-- FAB: Secondary -->
+<button class="fixed bottom-24 left-8 w-14 h-14 bg-secondary text-on-secondary shadow-lg rounded-xl flex items-center justify-center active:scale-95 transition-transform z-40 hover:brightness-110">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<!-- Bottom Navigation: Deep Forest & Sage -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-gutter py-3 rtl:flex-row-reverse bg-surface-container-lowest border-t border-surface-variant shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<!-- Capture -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-all hover:text-secondary px-3" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="add_circle">add_circle</span>
+<span class="font-label-sm text-[10px] mt-1 uppercase">Capture</span>
+</a>
+<!-- Notes (ACTIVE) -->
+<a class="flex flex-col items-center justify-center text-secondary px-3 relative" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="description" style="font-variation-settings: 'FILL' 1;">description</span>
+<span class="font-label-sm text-[10px] mt-1 uppercase font-semibold">Notes</span>
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-[3px] bg-secondary rounded-b-full"></div>
+</a>
+<!-- Tasks -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-all hover:text-secondary px-3" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="check_circle">check_circle</span>
+<span class="font-label-sm text-[10px] mt-1 uppercase">Tasks</span>
+</a>
+<!-- Review -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-all hover:text-secondary px-3" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="analytics">analytics</span>
+<span class="font-label-sm text-[10px] mt-1 uppercase">Review</span>
+</a>
+<!-- Settings -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant transition-all hover:text-secondary px-3" href="#">
+<span class="material-symbols-outlined text-xl" data-icon="settings">settings</span>
+<span class="font-label-sm text-[10px] mt-1 uppercase">Settings</span>
+</a>
+</nav>
+<script>
+        document.querySelectorAll('.executive-card').forEach(card => {
+            card.addEventListener('click', function() {
+                this.classList.add('opacity-70');
+                setTimeout(() => {
+                    this.classList.remove('opacity-70');
+                }, 100);
+            });
+        });
+    </script>
+</body></html>

@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+
+<html class="light" dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@500&amp;family=Plus+Jakarta+Sans:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        "colors": {
+                "surface-bright": "#f9faf8",
+                "on-tertiary-fixed-variant": "#3c4b34",
+                "tertiary-fixed-dim": "#bbccae",
+                "primary-fixed-dim": "#b4cdb8",
+                "error-container": "#ffdad6",
+                "on-error-container": "#93000a",
+                "primary": "#061b0e",
+                "on-secondary": "#ffffff",
+                "error": "#ba1a1a",
+                "surface-container-high": "#e7e8e6",
+                "surface-container": "#edeeec",
+                "inverse-primary": "#b4cdb8",
+                "surface-dim": "#d9dad8",
+                "primary-container": "#1b3022",
+                "primary-fixed": "#d0e9d4",
+                "background": "#f9faf8",
+                "outline": "#737973",
+                "tertiary": "#0d1a08",
+                "secondary-container": "#d6e7a1",
+                "on-primary": "#ffffff",
+                "secondary": "#56642b",
+                "on-error": "#ffffff",
+                "tertiary-fixed": "#d6e8c9",
+                "surface-container-lowest": "#ffffff",
+                "surface-container-highest": "#e1e3e1",
+                "inverse-on-surface": "#f0f1ef",
+                "on-primary-fixed-variant": "#364c3c",
+                "surface-tint": "#4d6453",
+                "outline-variant": "#c3c8c1",
+                "on-secondary-fixed-variant": "#3e4c16",
+                "on-tertiary": "#ffffff",
+                "on-secondary-container": "#5a682f",
+                "on-tertiary-fixed": "#121f0c",
+                "surface-variant": "#e1e3e1",
+                "on-primary-fixed": "#0b2013",
+                "on-tertiary-container": "#87987c",
+                "on-secondary-fixed": "#161f00",
+                "on-primary-container": "#819986",
+                "tertiary-container": "#212f1a",
+                "secondary-fixed-dim": "#bdce89",
+                "surface-container-low": "#f3f4f2",
+                "inverse-surface": "#2e3130",
+                "on-surface-variant": "#434843",
+                "on-surface": "#191c1b",
+                "on-background": "#191c1b",
+                "surface": "#f9faf8",
+                "secondary-fixed": "#d9eaa3"
+        },
+        "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+        },
+        "spacing": {
+                "margin-desktop": "40px",
+                "container-max": "1200px",
+                "stack-lg": "48px",
+                "margin-mobile": "16px",
+                "stack-md": "24px",
+                "gutter": "24px",
+                "unit": "8px",
+                "stack-sm": "12px"
+        },
+        "fontFamily": {
+                "headline-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "body-lg": [
+                        "Inter"
+                ],
+                "headline-lg-mobile": [
+                        "Plus Jakarta Sans"
+                ],
+                "display-lg": [
+                        "Plus Jakarta Sans"
+                ],
+                "headline-md": [
+                        "Plus Jakarta Sans"
+                ],
+                "label-sm": [
+                        "JetBrains Mono"
+                ],
+                "body-md": [
+                        "Inter"
+                ],
+                "label-md": [
+                        "JetBrains Mono"
+                ]
+        },
+        "fontSize": {
+                "headline-lg": [
+                        "32px",
+                        {
+                                "lineHeight": "40px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "body-lg": [
+                        "18px",
+                        {
+                                "lineHeight": "28px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "headline-lg-mobile": [
+                        "28px",
+                        {
+                                "lineHeight": "36px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "display-lg": [
+                        "48px",
+                        {
+                                "lineHeight": "56px",
+                                "letterSpacing": "-0.02em",
+                                "fontWeight": "700"
+                        }
+                ],
+                "headline-md": [
+                        "24px",
+                        {
+                                "lineHeight": "32px",
+                                "fontWeight": "600"
+                        }
+                ],
+                "label-sm": [
+                        "12px",
+                        {
+                                "lineHeight": "16px",
+                                "fontWeight": "500"
+                        }
+                ],
+                "body-md": [
+                        "16px",
+                        {
+                                "lineHeight": "24px",
+                                "fontWeight": "400"
+                        }
+                ],
+                "label-md": [
+                        "14px",
+                        {
+                                "lineHeight": "20px",
+                                "letterSpacing": "0.02em",
+                                "fontWeight": "500"
+                        }
+                ]
+        }
+},
+    },
+  }
+</script>
+<style>
+        body {
+            background-color: #f9faf8; /* background */
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        .task-checkbox:checked + .checkbox-custom {
+            background-color: #1b3022; /* primary-container */
+            border-color: #1b3022;
+        }
+        .task-checkbox:checked + .checkbox-custom .check-icon {
+            display: block;
+            color: #ffffff;
+        }
+        .task-card {
+            transition: all 0.2s ease;
+            border: 1px solid #c3c8c1; /* outline-variant */
+        }
+        .task-card:active {
+            transform: translateY(1px);
+            background-color: #f3f4f2; /* surface-container-low */
+        }
+        .accent-line {
+            height: 2px;
+            background: linear-gradient(90deg, #1b3022 0%, transparent 100%);
+        }
+        header {
+            border-top: 4px solid #1b3022;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-on-surface">
+<!-- Executive Header -->
+<header class="bg-surface-container-lowest fixed top-0 w-full z-50 flex justify-between items-center px-gutter h-16 rtl:flex-row-reverse shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-9 h-9 rounded-full border border-primary-container overflow-hidden">
+<img alt="Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCP9RIxupoSxajJv_UNAoObSfW5z3U4b0hLUePqqodWvMkSuy_WRQOM9d9-IbgdcjLP_kEkxuRtykVmaEyGclL1prxchXTcT76_jhoAfXG8CATbsXhmzlh9X7njyMIloOU9QnLkBKvBLQ0nnQKuBbAL67hc4z9Xa8aWE7dd0qsHY-f9000r84TMJycdG6RboYktp_x6Gak-AmgBIrCtqVmeQudpGNRN_i0g8puFJG4Z7d3YrFFSd93kwQ"/>
+</div>
+</div>
+<div class="flex flex-col items-center">
+<h1 class="font-headline-md text-headline-md text-on-surface tracking-wider">SECOND BRAIN</h1>
+<div class="w-12 h-0.5 bg-primary-container mt-0.5"></div>
+</div>
+<button class="font-label-sm text-label-sm text-primary-container border border-primary-container/30 px-3 py-1 rounded">AR/EN</button>
+</header>
+<main class="pt-24 pb-32 px-gutter max-w-2xl mx-auto">
+<!-- Today Section -->
+<section class="mb-stack-md">
+<div class="flex flex-col mb-6">
+<div class="flex items-center justify-between mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface flex items-center gap-3">
+                    اليوم
+                </h2>
+<span class="font-label-sm text-label-sm text-on-surface-variant border border-outline-variant px-2 py-0.5 rounded uppercase">3 TASKS</span>
+</div>
+<div class="accent-line w-32"></div>
+</div>
+<div class="space-y-3">
+<!-- Task Card 1 -->
+<div class="task-card bg-surface-container-lowest p-4 rounded flex items-center gap-4 shadow-sm">
+<label class="relative flex items-center cursor-pointer">
+<input class="sr-only task-checkbox" type="checkbox"/>
+<div class="checkbox-custom w-5 h-5 border border-outline rounded flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined check-icon hidden text-white text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<div class="flex-1">
+<p class="font-body-md text-body-md text-on-surface">مراجعة تقرير المشروع النهائي</p>
+</div>
+<div class="w-1.5 h-6 bg-error rounded-full"></div>
+</div>
+<!-- Task Card 2 -->
+<div class="task-card bg-surface-container-lowest p-4 rounded flex items-center gap-4 shadow-sm">
+<label class="relative flex items-center cursor-pointer">
+<input class="sr-only task-checkbox" type="checkbox"/>
+<div class="checkbox-custom w-5 h-5 border border-outline rounded flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined check-icon hidden text-white text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<div class="flex-1">
+<p class="font-body-md text-body-md text-on-surface">جدولة اجتماع الفريق الأسبوعي</p>
+</div>
+<div class="w-1.5 h-6 bg-primary-container rounded-full"></div>
+</div>
+<!-- Task Card 3 -->
+<div class="task-card bg-surface-container-lowest p-4 rounded flex items-center gap-4 shadow-sm">
+<label class="relative flex items-center cursor-pointer">
+<input class="sr-only task-checkbox" type="checkbox"/>
+<div class="checkbox-custom w-5 h-5 border border-outline rounded flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined check-icon hidden text-white text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<div class="flex-1">
+<p class="font-body-md text-body-md text-on-surface">شراء مستلزمات المكتب</p>
+</div>
+<div class="w-1.5 h-6 bg-outline rounded-full"></div>
+</div>
+</div>
+</section>
+<!-- This Week Section -->
+<section class="mb-stack-md">
+<div class="flex flex-col mb-6">
+<div class="flex items-center justify-between mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">هذا الأسبوع</h2>
+</div>
+<div class="accent-line w-24"></div>
+</div>
+<div class="task-card bg-surface-container-lowest p-4 rounded flex items-center gap-4 shadow-sm">
+<label class="relative flex items-center cursor-pointer">
+<input class="sr-only task-checkbox" type="checkbox"/>
+<div class="checkbox-custom w-5 h-5 border border-outline rounded flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined check-icon hidden text-white text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<div class="flex-1">
+<p class="font-body-md text-body-md text-on-surface">تحديث الملف الشخصي على لينكد إن</p>
+</div>
+<div class="w-1.5 h-6 bg-tertiary-fixed-dim rounded-full"></div>
+</div>
+</section>
+<!-- Later Section -->
+<section>
+<div class="flex flex-col mb-6">
+<div class="flex items-center justify-between mb-2">
+<h2 class="font-headline-md text-headline-md text-on-surface">لاحقاً</h2>
+</div>
+<div class="accent-line w-16"></div>
+</div>
+<div class="task-card bg-surface-container-lowest p-4 rounded flex items-center gap-4 opacity-70 shadow-sm">
+<label class="relative flex items-center cursor-pointer">
+<input class="sr-only task-checkbox" type="checkbox"/>
+<div class="checkbox-custom w-5 h-5 border border-outline rounded flex items-center justify-center transition-colors">
+<span class="material-symbols-outlined check-icon hidden text-white text-[16px]" style="font-variation-settings: 'wght' 700;">check</span>
+</div>
+</label>
+<div class="flex-1">
+<p class="font-body-md text-body-md text-on-surface">قراءة كتاب "العادات الذرية"</p>
+</div>
+<div class="w-1.5 h-6 bg-outline-variant rounded-full"></div>
+</div>
+</section>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-24 left-6 w-14 h-14 rounded-full bg-primary-container text-white shadow-xl flex items-center justify-center transition-transform active:scale-95 z-40 border-2 border-white/20">
+<span class="material-symbols-outlined text-[32px]">add</span>
+</button>
+<!-- Executive Bottom Navigation -->
+<nav class="fixed bottom-0 w-full z-50 flex justify-around items-center px-gutter h-20 rtl:flex-row-reverse bg-surface-container-lowest border-t border-outline-variant shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">add_circle</span>
+<span class="font-label-sm text-label-sm mt-1 uppercase">Capture</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">description</span>
+<span class="font-label-sm text-label-sm mt-1 uppercase">Notes</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary-container group" href="#">
+<div class="mb-1 relative">
+<span class="material-symbols-outlined text-[28px]" style="font-variation-settings: 'FILL' 1;">check_circle</span>
+<div class="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 bg-primary-container rounded-full"></div>
+</div>
+<span class="font-label-sm text-label-sm uppercase font-bold">Tasks</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">analytics</span>
+<span class="font-label-sm text-label-sm mt-1 uppercase">Review</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-primary-container transition-colors" href="#">
+<span class="material-symbols-outlined text-[24px]">settings</span>
+<span class="font-label-sm text-label-sm mt-1 uppercase">Settings</span>
+</a>
+</nav>
+<script>
+    document.querySelectorAll('.task-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const card = this.closest('.task-card');
+            const label = card.querySelector('p');
+            if (this.checked) {
+                label.classList.add('line-through', 'opacity-40');
+                card.classList.add('opacity-60', 'bg-surface-container');
+            } else {
+                label.classList.remove('line-through', 'opacity-40');
+                card.classList.remove('opacity-60', 'bg-surface-container');
+            }
+        });
+    });
+</script>
+</body></html>
