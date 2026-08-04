@@ -5,6 +5,7 @@ import { directionOfContent } from "../core/language";
 import {
   archiveNote,
   dismissNoteAction,
+  isConfigured,
   SYNCED_EVENT,
   timeline,
   type TimelineNote,
@@ -23,20 +24,32 @@ import { pending as pendingNotes, type OutboxNote } from "../data/outbox";
 export function Notes({ t, language }: { t: Translator; language: string }) {
   const [notes, setNotes] = useState<TimelineNote[] | null>(null);
   const [unsynced, setUnsynced] = useState<OutboxNote[]>([]);
-  const [error, setError] = useState(false);
+  // Not "error". The server being out of reach is an ordinary condition for
+  // this app -- the notes below are still the right thing to be looking at.
+  const [unreachable, setUnreachable] = useState(false);
 
   const load = useCallback(async () => {
     // Local first, and separately: IndexedDB does not depend on the network,
     // so a failing timeline request must not take the user's own notes down
     // with it.
     setUnsynced(await pendingNotes().catch(() => []));
+
+    // With no Supabase URL there is no server to be unreachable -- the app
+    // already says so in its own banner. Reporting it a second time as a
+    // failed fetch would be noise about a build setting.
+    if (!isConfigured) {
+      setNotes([]);
+      setUnreachable(false);
+      return;
+    }
+
     try {
       const page = await timeline(language);
       setNotes(page.notes);
-      setError(false);
+      setUnreachable(false);
     } catch {
       setNotes([]);
-      setError(true);
+      setUnreachable(true);
     }
   }, [language]);
 
@@ -58,17 +71,23 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
   const local = unsynced.filter((note) => !onServer.has(note.clientId)).reverse();
 
   if (local.length === 0 && notes.length === 0) {
-    return <p className="center">{error ? t.t("errorGeneric") : t.t("notesEmpty")}</p>;
+    // "No notes yet" would be a claim about the server, and the server did not
+    // answer. Say which of the two it is.
+    return (
+      <p className="center">{unreachable ? t.t("notesOffline") : t.t("notesEmpty")}</p>
+    );
   }
 
   return (
     <>
-      {/* Only when the request could plausibly have succeeded. Offline is a
-          normal state here, not an error to report -- the notes below are
-          exactly what the user should be looking at. */}
-      {error && navigator.onLine && (
-        <p className="muted center">{t.t("errorGeneric")}</p>
-      )}
+      {/* Deliberately not an error. Nothing was lost, nothing needs retrying,
+          and the notes below are exactly what the user should be reading --
+          this line only explains why the list may be short.
+
+          `navigator.onLine` used to gate this and was wrong: it reports the
+          network adapter, not whether this app can reach its server, and it
+          cheerfully says "online" while every request fails. */}
+      {unreachable && <p className="muted center">{t.t("notesOffline")}</p>}
 
       {local.map((note) => (
         <PendingCard key={note.clientId} note={note} t={t} />

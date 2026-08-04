@@ -46,7 +46,7 @@ tested, the built behaviour wins.
 | Plus Jakarta Sans · Inter · JetBrains Mono | None carry Arabic glyphs. The existing Arabic-first stack stays |
 | Design line-heights (1.33–1.5) | Arabic diacritics clip. `--line-height: 1.65` stays |
 | The floating action button | Decided: not needed |
-| Removal of the accept/dismiss buttons on note cards | Deletes a working feature. SB-033 closed by this decision |
+| Removal of the accept/dismiss buttons on note cards | Deletes a working feature — and one the owner has since tested (SB-033). The buttons stay |
 | Day-grouping of the notes list | The flat keyset-paginated list stays; grouping is separate work |
 | Eastern Arabic numerals (`١٠:٣٠`) | Current output is `10:30 ص` under locale `ar` and is tested. Cosmetic, not theme |
 | `rtl:flex-row-reverse` on headers/navs | Double-reverses an already-mirrored flex row — a bug in the export, visible in `screen.png` |
@@ -82,6 +82,11 @@ the opacity.
 
 ## Still unanswered
 
+- **What an answered suggestion looks like** (SB-033). The owner tested this
+  and reported *"ماحصل أي شي"* — the write had succeeded every time; all that
+  happens is two small links disappearing. The design does not fix this: its
+  note cards have no accept/dismiss affordance at all, so it supplies no
+  resolved state to copy. This needs designing, not porting.
 - What a note whose enrichment **failed** renders as. The export's muted
   "مسودة" card supplies the visual language, but that card still has a title
   and a summary — which are exactly what a failed enrichment lacks.
