@@ -34,6 +34,9 @@ blocked on.
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | todo |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | todo |
 | SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | todo |
+| SB-033 | Tasks screen — a filter over notes, not a container | M8 | M | todo |
+| SB-034 | Open the source note from a task row (+ SB-021) | M8 | M | todo |
+| SB-035 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | todo |
 | SB-001 | Schedule the sweep worker — **may already be done**, see below | M5 | M | todo |
 | SB-003 | Strict CSP | M6 | M | todo |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
@@ -413,24 +416,95 @@ this was inferred, not observed.
 - **Accept:** either the claim is verified in a browser, or the feature is built
   and then verified. Update the inventory either way.
 
-### SB-031 · Implement the new UI design · `todo` · L · *not started, by design*
+### SB-031 · Implement the new UI design · `in progress` · L
 
-A redesign is being produced in Google Stitch and will land as a spec later.
-Nothing to do until it exists — this entry is here so the work is not a surprise
-and so nobody polishes screens that are about to be replaced.
+**The design landed** on 2026-08-03: three screens exported from Google Stitch,
+committed under `docs/design/`. `docs/design/README.md` is the contract — read
+it before touching any of the sub-tasks below.
 
-When it arrives, the constraints it must survive:
+**The governing decision: theme only.** Colours, type scale, spacing, radii.
+Where the export contradicts behaviour that is already built and tested, the
+built behaviour wins. That decision closed several questions outright:
 
-- **Logical CSS properties only.** `check-rtl.mjs` fails the build otherwise,
-  and generated design output is a likely source of `margin-left`.
-- **Arabic text only in `web/src/i18n/`.** Copy in the design becomes catalogue
-  entries, never literals in components.
-- **Capture stays the fastest path in the app.** A design that adds a step
-  between opening and typing costs the product its reason to exist.
-- **The four plural forms** and RTL mirroring must still hold on real content.
+| Question | Answer |
+|---|---|
+| Capture screen shape | **Unchanged.** The export replaces the autofocused textarea with a button, costing one tap per capture. Rejected — see the constraint below |
+| Save confirmation | Stay in place; drop the `setTab("notes")` hand-off. Folded into SB-034 |
+| Suggested-action buttons | **Stay.** The export has no accept/dismiss on its note cards; adopting that would delete a working feature |
+| Floating action button | Dropped — not needed |
+| Day-grouped notes list | Not adopted. The flat keyset-paginated timeline stays |
 
-Pre-work that pays off either way: SB-025 (unsynced notes visible) and SB-024,
-since both change what the capture and notes screens must show.
+The constraints this predicted all held, and the export violated three of the
+four — every one caught before it reached `web/`:
+
+- **Logical CSS properties only.** The export ships `right-4`, `pr-12 pl-4`,
+  `left-6`, `left-8`, and `rtl:flex-row-reverse` (which double-reverses an
+  already-mirrored flex row — visible in its own `screen.png`, brand on the
+  wrong side). None ported.
+- **Arabic text only in `web/src/i18n/`.** Five literals in the markup. The
+  existing catalogue wording is better Arabic and stays (`جارٍ التسجيل…` over
+  the export's `جاري التسجيل...`).
+- **Capture stays the fastest path.** Held — see the table above.
+- **Four plural forms and RTL mirroring.** Not yet re-checked against the new
+  screens; carries into SB-033.
+
+#### SB-031a · Port the theme · `done` · M
+
+Tokens into `global.css`, PWA theme colours updated. Verified in a browser in
+both colour schemes. Evidence: `00-verification.md`, "Theme port".
+
+#### SB-033 · Tasks screen · `todo` · M
+
+A **filter over notes**, not a container — ADR-0004. Grouped اليوم / هذا الأسبوع
+/ لاحقاً.
+
+- **No migration needed for the grouping.** `note_enrichments.action_due_at`
+  already exists, is a required field in the enrichment schema
+  (`_shared/enrichment.ts`), is populated by the model, and is already selected
+  by the timeline. This was mis-scoped as needing a new column; it does not.
+- Priority rail on each card: `urgent` → `--danger`, `high` → the design's
+  `secondary` `#56642b`, `low` → `--border`, **`normal` → no rail at all**.
+- Group headings go in `i18n/`. Note the collision: `priorityLow` is already
+  `لاحقًا`. One of the two must be reworded.
+- Counts need `arPlurals` entries — it currently has exactly one (`pendingSync`).
+- **Accept:** the four plural categories render correctly on real counts, and
+  the screen mirrors under `dir=ltr`.
+
+#### SB-034 · Open the source note from a task row · `todo` · M
+
+Tapping a task shows the original note: the exact text captured, its date, its
+summary. This is what keeps a task a *view*.
+
+- **The timeline does not return `raw_text`, deliberately** — see the comment in
+  `functions/notes/index.ts`; it is the difference between a 30 KB and a 900 KB
+  response on a long scroll. A single-note fetch is needed. No Edge Function:
+  `notes` is client-readable under RLS, so `select raw_text where id = ?` is
+  enough.
+- Overlaps SB-021, which asked for the same view from the notes list. Do them
+  as one thing.
+- Fold in the capture hand-off change from the table above: drop
+  `setTab("notes")` in `App.tsx` and confirm the save in place instead. The
+  design gives no confirmation state, so this needs designing, not copying —
+  and the current hand-off is a *strong* confirmation. Do not remove it without
+  a replacement that is as convincing.
+
+#### SB-035 · `completed_at`, so a task can be ticked · `todo` · M
+
+The checkbox has nothing to write to. `notes` has no completion column, and
+`archived_at` is not it — that means "gone from the timeline and search for
+good".
+
+- Migration + RLS + a `verify.sql` assertion, **in the same change**.
+- Do it together with SB-023 (column-scoped update grant): both alter the same
+  grant, and doing them apart means touching it twice.
+
+#### SB-036 · Bundle the Arabic font · `todo` · S
+
+Pre-existing as SB-011, but the design raises the stakes: its type system names
+Plus Jakarta Sans, Inter, and JetBrains Mono, **none of which carry Arabic
+glyphs**, and `DESIGN.md` covers the gap with one vague sentence. So for the
+app's primary language the design specifies nothing, and the fallback is
+whatever the OS happens to have.
 
 ### SB-022 · Safari and Firefox · `todo` · S
 
@@ -454,6 +528,7 @@ Only Chromium has ever run this app.
 | SB-024 | Capture releases on the local write — 95 ms with 8 queued | `00-verification.md` |
 | SB-025 | Unsynced notes render in the timeline, deduped by `client_id` | `00-verification.md` |
 | SB-026 | Failed local write keeps the text and says so | folded into SB-024 |
+| SB-031a | Theme ported from the Stitch export, light + dark, verified in a browser | `00-verification.md` |
 
 ---
 

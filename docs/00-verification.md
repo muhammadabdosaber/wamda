@@ -68,6 +68,71 @@ passing. A temporary file with `margin-left` and `text-align: left` made it
 exit 1 and report both offences; removing the file returned it to exit 0. A
 checker that has only ever passed is not known to work.
 
+### Theme port — ran, in a browser, in both colour schemes
+
+The Stitch design's tokens replaced the previous palette in `global.css`
+(SB-031a). Driven at 375×812 with the dev server running, read back from
+`getComputedStyle` rather than judged from a screenshot:
+
+| | Value on screen |
+|---|---|
+| `--bg` | `rgb(249, 250, 248)` — `#f9faf8` |
+| `--accent` | `#1b3022` |
+| Save button background | `rgb(27, 48, 34)` |
+| Radius | `8px` (was 16px) |
+| Capture textarea | `18px`, line-height `29.7px` = 18 × **1.65** |
+| `text-align` / `direction` | `start` / `rtl` |
+| `<meta name="theme-color">` | `#1b3022` |
+
+`npm run verify` after the change: typecheck exit 0, RTL guard passed, **21/21
+tests**, build clean.
+
+**Two real bugs, found by running it rather than reading it:**
+
+**1. A comment closed the stylesheet early.** The ported header comment
+contained the path `docs/design/*` followed by `/DESIGN.md` — and `*/`
+terminates a CSS comment. Everything after it became garbage declarations.
+esbuild's minifier reported it as `Unexpected "\`"` and `Unterminated string
+token`, which points at neither the cause nor the line that matters. Confirmed
+fixed by the emitted bundle shrinking 7.09 KB → 6.75 KB.
+
+**2. Dark mode made every filled button unreadable.** `.btn` carried
+`color: #fff` as a literal. That was safe while `--accent` was a mid-green in
+both schemes; the new dark palette sets `--accent` to `#b4cdb8`
+(`inverse-primary`), so white-on-sage measured **1.70:1** — below the 3:1 floor
+for any text at all. Same trap on `.btn.recording` and `.btn-icon.recording`,
+where dark `--danger` is `#ffb4ab`.
+
+Fixed with `--on-accent` / `--on-danger`, which flip with the scheme.
+Re-measured **in the page, not on paper** — `getComputedStyle` on the live
+button, luminance computed from the returned `rgb()` values:
+
+```
+mode: dark   fg: rgb(6, 27, 14)   bg: rgb(180, 205, 184)   ratio: 10.56
+```
+
+1.70 → **10.56**.
+
+This is the second time a hardcoded colour has survived a palette change in
+this file. There are now no colour literals left in `global.css` outside the
+two `:root` blocks.
+
+**Contrast of the ported palette**, measured, not taken from `DESIGN.md` — whose
+own "minimum 7:1" claim is true of its tokens and false of its markup, because
+the markup layers opacity on top (its chip labels land at 3.98, its inactive nav
+at 3.19). The opacity was not ported.
+
+| | Light | Dark |
+|---|---|---|
+| Body text on background | 16.40 | 14.76 |
+| Muted text on card | 9.35 | 7.48 |
+| Chip ink on chip fill | 10.91 | 10.65 |
+| Filled button | 14.07 | 10.56 |
+
+**Not verified:** only Chromium, and only at 375×812. The notes and tasks
+screens in the export have not been built, so nothing here says the theme holds
+on a screen dense with cards.
+
 ### Live browser verification
 
 Dev server started, page driven directly:
@@ -377,9 +442,10 @@ available, so none of these executed against a real service:
   Still untested: iOS Safari, where `MediaRecorder` availability is the open
   question, and transcription itself.
 - **Only Chromium.** No Safari or Firefox testing. iOS install flow untested.
-- **No visual screenshot.** Verification was done through the DOM and computed
-  styles, which is stronger for layout assertions but says nothing about
-  whether the design looks good.
+- ~~**No visual screenshot.**~~ **Partly superseded.** The capture screen has
+  now been looked at in both colour schemes at 375×812 — which is how the
+  dark-mode button bug above was noticed at all. Still unseen: notes, search,
+  digest, auth, and every screen at any other width.
 - **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
   Noto Sans Arabic first, but neither is shipped — rendering currently falls
   back to a system face.

@@ -90,6 +90,9 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.14 | Suggested-action chips do something (accept / dismiss) | 🟡 archive exercised for real; **dismiss still never run** | `Notes.tsx` |
 | 4.15 | Archive a note for real | ✅ card gone, `archived_at` set, still gone after a reload | `api.ts` `archiveNote` |
 | 4.16 | Accepting "أضفها كمهمة" creates a task | ❌ **no destination exists** — the chip only records that you responded | SB-027 |
+| 4.17 | Design theme from the Stitch export | ✅ tokens verified in a browser, light **and** dark | `global.css` · `docs/design/` |
+| 4.18 | Dark mode | ✅ derived palette; filled-button contrast fixed 1.70 → 10.56 | `global.css` |
+| 4.19 | Tasks screen | ❌ not built — designed only | SB-033 |
 
 ## 5. Auth, data, security
 
@@ -143,10 +146,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 41 |
+| ✅ working | 43 |
 | 🟡 partial | 7 |
 | ⬜ built, unrun | 18 |
-| ❌ not built | 18 |
+| ❌ not built | 19 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API
 key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key

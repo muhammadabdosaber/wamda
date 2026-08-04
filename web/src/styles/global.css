@@ -20,49 +20,95 @@
  * `tool/check-rtl.mjs` fails CI on any physical property here.
  */
 
+/*
+ * THEME: "Serene Cognitive Architecture: Forest Edition".
+ *
+ * Ported from the DESIGN.md that ships beside each screen under docs/design,
+ * byte-identical across all three. Its YAML front-matter is authoritative; its
+ * prose is not -- the prose names two colours (#8A9A5B, #A9BA9D) that appear
+ * in neither the tokens nor the markup. See docs/design/README.md.
+ *
+ * Every ratio in a comment below is measured, not estimated.
+ */
 :root {
-  --bg: #faf8f5;
-  --surface: #ffffff;
-  --text: #1f2421;
-  --muted: #6b7280;
-  --accent: #3e6b5c;
-  --accent-strong: #2f5346;
-  --accent-soft: #e6efe9;
-  --danger: #b3261e;
-  --danger-soft: #fdecea;
-  --radius-sm: 10px;
-  --radius: 16px;
-  --radius-lg: 22px;
+  --bg: #f9faf8;              /* background            */
+  --surface: #ffffff;         /* surface-container-lowest -- cards */
+  --surface-sunken: #f3f4f2;  /* surface-container-low -- de-emphasised cards */
+  --text: #191c1b;            /* on-surface           16.40:1 on --bg */
+  --muted: #434843;           /* on-surface-variant    8.93:1 on --bg */
+  --accent: #1b3022;          /* primary-container    14.07:1 against white */
+  --accent-strong: #061b0e;   /* primary -- hover only */
+  --accent-soft: #d0e9d4;     /* primary-fixed -- chips, banners, tints */
+  --on-accent: #ffffff;       /* on-primary           14.07:1 on --accent */
+  --border: #c3c8c1;          /* outline-variant */
+  --danger: #ba1a1a;          /* error                 6.17:1 on --bg */
+  --danger-soft: #ffdad6;     /* error-container */
+  --danger-ink: #93000a;      /* on-error-container    7.24:1 on --danger-soft */
+  --on-danger: #ffffff;       /* on-error              6.46:1 on --danger */
 
-  /* Warm-tinted, not pure black -- a neutral gray shadow on a cream
-     background reads as dirt; tinting it toward the accent keeps the whole
-     surface feeling like one calm palette instead of "content + a generic
-     UI kit shadow". */
-  --shadow-sm: 0 1px 2px rgba(62, 107, 92, 0.08);
-  --shadow-md: 0 8px 24px rgba(62, 107, 92, 0.12);
+  /* The export layers opacity on top of these (`/80`, `opacity-70`), which
+     drops its own chip labels to 3.98:1 and its inactive nav to 3.19:1 --
+     below AA for 12px text, and worst on Arabic, where the glyphs are denser.
+     The tokens are ported; the opacity is not. */
+
+  /* 0.5rem is the design's stated standard: "soft-square" rather than pill.
+     Squarer than what this file carried before (10/16/22). */
+  --radius-sm: 4px;
+  --radius: 8px;
+  --radius-lg: 12px;
+
+  /* The design's own spacing scale, so a gap is never an invented number. */
+  --stack-sm: 12px;
+  --stack-md: 24px;
+  --stack-lg: 48px;
+  --gutter: 24px;
+
+  /* DESIGN.md calls for tonal layering over drop shadows, and a card carries a
+     border as its real edge. But --surface (#ffffff) against --bg (#f9faf8) is
+     a 1.03:1 step, and --border against --bg is 1.65:1, so with neither the
+     card has no visible boundary at all. Both, kept faint: the border does the
+     work, the shadow only separates. Tinted toward the accent rather than
+     neutral grey -- a grey shadow on a tinted background reads as dirt. */
+  --shadow-sm: 0 1px 2px rgba(27, 48, 34, 0.06);
+  --shadow-md: 0 4px 16px rgba(27, 48, 34, 0.10);
 
   --ease: 160ms ease;
 
   /* Arabic glyphs carry ascenders, descenders, and diacritics that clip at
-     the ~1.2 line height Latin-first defaults assume. */
+     the ~1.2 line height Latin-first defaults assume. The design specifies
+     1.33 (label-sm) to 1.5 (body-md); its SIZES are ported, its line-heights
+     are not, for the same reason they were set here in the first place. */
   --line-height: 1.65;
 
   color-scheme: light dark;
 }
 
+/*
+ * The export ships no dark palette -- it is `class="light"` with an empty
+ * `darkMode: "class"`. This one is derived rather than invented: Material's
+ * `inverse-primary` IS the primary role under dark, and the token set already
+ * carries it as #b4cdb8. Surfaces are the design's greens taken down, not the
+ * previous neutral slate, so the two modes read as one product.
+ */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #14171a;
-    --surface: #1d2125;
-    --text: #e8eaed;
-    --muted: #9aa0a6;
-    --accent: #7fb3a0;
-    --accent-strong: #9cc7b6;
+    --bg: #101410;
+    --surface: #18201a;         /* text 13.23:1, muted 7.48:1 */
+    --surface-sunken: #141a15;
+    --text: #e3e6e1;
+    --muted: #a8b0a6;
+    --accent: #b4cdb8;          /* inverse-primary       9.81:1 on --surface */
+    --accent-strong: #d0e9d4;   /* primary-fixed */
     --accent-soft: #23302b;
-    --danger-soft: #3a2323;
+    --on-accent: #061b0e;       /* 10.56:1 -- white here would be 1.70:1 */
+    --border: #3a443c;
+    --danger: #ffb4ab;          /* 9.81:1 -- #ba1a1a is unreadable on dark */
+    --danger-soft: #93000a;
+    --danger-ink: #ffdad6;
+    --on-danger: #690005;       /*  7.72:1 -- same trap */
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
-    --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
   }
 }
 
@@ -111,10 +157,10 @@ body {
 .main {
   flex: 1;
   overflow-y: auto;
-  padding-inline: 20px;
-  padding-block: 20px;
+  padding-inline: var(--gutter);
+  padding-block: var(--gutter);
   /* Respects the home-indicator inset on installed iOS/Android PWAs. */
-  padding-block-end: calc(20px + env(safe-area-inset-bottom));
+  padding-block-end: calc(var(--gutter) + env(safe-area-inset-bottom));
 }
 
 /* ---- header ---- */
@@ -123,7 +169,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding-inline: 20px;
+  padding-inline: var(--gutter);
   padding-block: 14px;
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -132,9 +178,9 @@ body {
 }
 
 .brand { display: flex; align-items: center; gap: 10px; }
-.brand-mark { display: block; border-radius: 9px; }
+.brand-mark { display: block; border-radius: var(--radius); }
 
-.header h1 { font-size: 1.05rem; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+.header h1 { font-size: 1.125rem; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
 /* ---- tabs ---- */
 .tabs {
@@ -144,7 +190,7 @@ body {
   padding-block: 8px;
   padding-block-end: calc(8px + env(safe-area-inset-bottom));
   background: var(--surface);
-  box-shadow: 0 -1px 2px rgba(62, 107, 92, 0.06);
+  box-shadow: 0 -1px 2px rgba(27, 48, 34, 0.05);
   position: relative;
   z-index: 1;
 }
@@ -159,7 +205,7 @@ body {
   background: transparent;
   color: var(--muted);
   font: inherit;
-  font-size: 0.74rem;
+  font-size: 0.75rem;
   font-weight: 500;
   padding-block: 8px;
   border-radius: var(--radius-sm);
@@ -178,11 +224,11 @@ body {
   min-block-size: 160px;
   padding: 18px;
   font: inherit;
-  font-size: 1.02rem;
+  font-size: 1.125rem;
   line-height: var(--line-height);
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--accent-soft);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
   resize: vertical;
@@ -214,7 +260,7 @@ body {
   border: 0;
   border-radius: var(--radius);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: background var(--ease), box-shadow var(--ease), transform var(--ease);
@@ -226,7 +272,7 @@ body {
 .btn:disabled { opacity: 0.45; cursor: default; box-shadow: none; }
 .btn.secondary { background: var(--accent-soft); color: var(--accent); }
 .btn.secondary:hover:not(:disabled) { background: var(--accent-soft); filter: brightness(0.97); }
-.btn.recording { background: var(--danger); color: #fff; }
+.btn.recording { background: var(--danger); color: var(--on-danger); }
 .btn.recording:hover:not(:disabled) { background: var(--danger); filter: brightness(0.93); }
 
 /* Compact circular button for the mic toggle, sitting beside Save rather
@@ -251,14 +297,14 @@ body {
 .btn-icon:hover { filter: brightness(0.97); }
 .btn-icon:active { transform: scale(0.94); }
 .btn-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.btn-icon.recording { background: var(--danger); color: #fff; }
+.btn-icon.recording { background: var(--danger); color: var(--on-danger); }
 
 .recording-status {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-block-start: 14px;
-  font-size: 0.85rem;
+  font-size: 0.875rem;
   color: var(--danger);
 }
 
@@ -279,14 +325,14 @@ body {
 /* ---- notes ---- */
 .card {
   background: var(--surface);
-  border: 1px solid var(--accent-soft);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 16px;
   margin-block-end: 12px;
   box-shadow: var(--shadow-sm);
 }
 
-.card h3 { margin: 0 0 6px; font-size: 1rem; }
+.card h3 { margin: 0 0 6px; font-size: 1.125rem; }
 .card p { margin: 0; }
 
 /* Captured and durable, not on the server yet. Dashed rather than faded: the
@@ -299,7 +345,7 @@ body {
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 12px; }
 
 .chip {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   padding-inline: 10px;
   padding-block: 4px;
   border-radius: 999px;
@@ -307,7 +353,7 @@ body {
   color: var(--accent);
 }
 
-.chip.urgent { background: #fdecea; color: var(--danger); }
+.chip.urgent { background: var(--danger-soft); color: var(--danger-ink); }
 
 .linkbtn {
   border: 0;
@@ -321,18 +367,18 @@ body {
 
 .linkbtn:disabled { opacity: 0.5; cursor: default; }
 
-.muted { color: var(--muted); font-size: 0.85rem; }
+.muted { color: var(--muted); font-size: 0.875rem; }
 .center { text-align: center; padding-block: 48px; color: var(--muted); }
 
 .banner {
   background: var(--accent-soft);
   color: var(--accent);
-  border-radius: 12px;
+  border-radius: var(--radius);
   border-inline-start: 3px solid var(--accent);
   padding-inline: 14px;
   padding-block: 10px;
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.875rem;
+  line-height: var(--line-height);
   margin-block-end: 16px;
 }
 
@@ -344,7 +390,7 @@ body {
   text-align: start;
   color: var(--text);
   background: var(--surface);
-  border: 1px solid var(--accent-soft);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-block-end: 16px;
 }
@@ -353,7 +399,7 @@ body {
 .row-inline { display: flex; align-items: center; gap: 12px; }
 
 .field { display: block; margin-block: 16px 12px; }
-.field > span { display: block; margin-block-end: 6px; font-size: 0.85rem; }
+.field > span { display: block; margin-block-end: 6px; font-size: 0.875rem; }
 
 /* Monospace + wide tracking so a six-digit code is scannable while typing.
    `dir="ltr"` is set on the element itself, not here — digits are LTR even
@@ -367,16 +413,16 @@ body {
 
 .error-text {
   color: var(--danger);
-  font-size: 0.9rem;
-  margin-block-start: 12px;
+  font-size: 0.875rem;
+  margin-block-start: var(--stack-sm);
 }
 
 .select {
   font: inherit;
   padding-block: 6px;
   padding-inline: 10px;
-  border-radius: 10px;
-  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
 }

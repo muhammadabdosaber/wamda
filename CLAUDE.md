@@ -121,5 +121,10 @@ The docs have a voice: short, concrete, honest about gaps. Match it.
 - Add a dependency to solve something Postgres already does.
 - Edit an applied migration — add a new one.
 - Introduce hierarchy (folders/notebooks/projects) — ADR-0004 is deliberate.
-- Start work against the assumptions in `docs/09-status-handoff.md` before
-  asking about **the unspecified design change** the user has flagged.
+  The Tasks screen is a **filter over notes**, not a container to move them
+  into.
+- Port anything from `docs/design/` without reading `docs/design/README.md`
+  first. The rule is **theme only**: where the export contradicts behaviour
+  that is already built and tested, the built behaviour wins. The export
+  carries physical CSS properties, Arabic literals in markup, fonts with no
+  Arabic glyphs, and no dark palette.

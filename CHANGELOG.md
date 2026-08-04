@@ -10,6 +10,42 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — the Stitch design export, and its theme (SB-031a)
+
+- `docs/design/` carries three screens exported from Google Stitch (Capture,
+  Notes, Tasks). The three `DESIGN.md` files are byte-identical, so the theme
+  is unambiguous. `docs/design/README.md` records the rule we settled on:
+  **theme only** — where the export contradicts behaviour that is already built
+  and tested, the built behaviour wins.
+- `web/src/styles/global.css` now carries the "Forest Edition" palette, the
+  design's type scale and spacing scale, and its squarer radii (16px → 8px).
+  PWA `theme_color` and `<meta name="theme-color">` follow.
+- New tokens `--border`, `--surface-sunken`, `--on-accent`, `--on-danger`,
+  `--danger-ink`, and the design's `--stack-*` / `--gutter` scale.
+
+### Changed — what we did not take from the design
+
+The export costs one tap per capture (it replaces the autofocused textarea with
+a button), deletes the accept/dismiss buttons from note cards, ships no dark
+palette, names three fonts that carry no Arabic glyphs, and specifies
+line-heights between 1.33 and 1.5 that clip Arabic diacritics. None of that was
+adopted. Its `rtl:flex-row-reverse` double-reverses an already-mirrored flex row
+— a bug visible in its own `screen.png` — and its search field is written in
+physical properties that break under `dir=ltr`.
+
+Verified: typecheck, RTL guard, 21/21 tests, build, and the capture screen
+driven in a browser at 375×812 in **both** colour schemes, with every colour
+read back from `getComputedStyle`.
+
+Two bugs this caught, both introduced by the port and both fixed before commit:
+a `*/` inside a comment silently truncated the stylesheet (bundle 7.09 → 6.75
+KB once fixed), and `color: #fff` hardcoded on `.btn` made every filled button
+**1.70:1** under the new dark palette, where `--accent` inverts to a light sage.
+Measured again in the live page after the fix: **10.56:1**.
+
+**Not verified:** Chromium only, 375×812 only. The notes and tasks screens have
+not been built, so nothing here shows the theme on a card-dense screen.
+
 ### Added — note actions and capture feedback (PR #3, open)
 
 - `notes.action_dismissed_at` (migration `20260802000100_note_action_state.sql`)
