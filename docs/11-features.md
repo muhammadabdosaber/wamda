@@ -33,7 +33,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 1.9 | Honest degradation when recording is unavailable | ⬜ | `Capture.tsx` |
 | 1.10 | Background sync while the app is closed | ❌ | out of scope for PWA — ADR-0006 |
 | 1.11 | Saving state, released on the local write | ✅ **95 ms** to on-screen with 8 notes queued | `Capture.tsx` |
-| 1.12 | Hand off to the notes tab after a save | ✅ | `App.tsx` |
+| 1.12 | Confirm a save in place (no hand-off to notes) | ✅ stays on capture, clears the box, shows `تم الحفظ ✓` | `Capture.tsx` (SB-037) |
 | 1.13 | Error shown when the local write itself fails | ✅ text kept in the box, message shown | `Capture.tsx` |
 | 1.14 | Unsynced notes rendered in the timeline | ✅ verified offline and across a reload | `Notes.tsx` |
 
@@ -84,16 +84,17 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.8 | Weekly digest screen | ⬜ | `features/Digest.tsx` |
 | 4.9 | Installable PWA, manifest + service worker | 🟡 built and emitted; install flow untested on iOS | `vite.config.ts` |
 | 4.10 | Pending-sync indicator | ✅ | `Capture.tsx` |
-| 4.11 | Bundled Arabic font | ❌ named in CSS, not shipped — falls back to system face | SB-011 |
+| 4.11 | Self-hosted fonts (Public Sans + Noto Sans Arabic) | ✅ both `loaded` in a browser, Arabic renders in Noto; CDN `<link>` removed | `global.css` · `web/public/fonts/` (SB-011) |
 | 4.12 | Safari / Firefox support | ⬜ only Chromium tested | — |
-| 4.13 | Note detail: raw text next to the AI version | 🟡 verify against `Notes.tsx` before claiming | SB-021 |
+| 4.13 | Note detail: raw text next to the AI version | ✅ opened from a note or task; `raw_text` fetched as a single RLS read | `features/NoteDetail.tsx` (SB-021/037) |
 | 4.14 | Suggested-action chips do something (accept / dismiss) | ✅ both paths verified against a real database — but see 4.17 | `Notes.tsx` |
 | 4.15 | Archive a note for real | ✅ card gone, `archived_at` set, still gone after a reload | `api.ts` `archiveNote` |
 | 4.16 | Accepting "أضفها كمهمة" creates a task | ❌ **no destination exists** — the chip only records that you responded | SB-027 |
-| 4.17 | A visible result when a suggestion is answered | ❌ two small links vanish, nothing else; **the owner read it as broken** — and the design does not answer it either | SB-033 |
+| 4.17 | A visible result when a suggestion is answered | ✅ shows `تمّت / تم التجاهل` + undo; verified click → resolved → undo restores chips | `Notes.tsx` (SB-033) |
 | 4.18 | Design theme from the Stitch export | ✅ tokens verified in a browser, light **and** dark | `global.css` · `docs/design/` |
 | 4.19 | Dark mode | ✅ derived palette; filled-button contrast fixed 1.70 → 10.56 | `global.css` |
-| 4.20 | Tasks screen | ❌ not built — designed only | SB-036 |
+| 4.20 | Tasks screen (filter over notes, grouped by due date) | ✅ built + driven in a browser on real data; plurals `one`/`two`/`few` observed | `features/Tasks.tsx` (SB-036) |
+| 4.21 | Tick a task done (`completed_at`) | ✅ optimistic, persisted, survives reload | `Tasks.tsx` · `api.ts` (SB-038) |
 
 ## 5. Auth, data, security
 
@@ -114,7 +115,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.13 | Delete account + all data | ❌ | SB-015 |
 | 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ❌ column exists, nothing enforces it | SB-009 |
 | 5.15 | `notes.action_dismissed_at` | 🟡 applied to the local database; nowhere else exists yet | migration `20260802000100` |
-| 5.16 | Column-scoped update grant on `notes` | ❌ the client can update **any** column, incl. `status` and `raw_text` | SB-023 |
+| 5.16 | Column-scoped update grant on `notes` | ✅ client limited to `archived_at`/`action_dismissed_at`/`completed_at`/`updated_at`; `status` rejected — asserted in `verify.sql` | migration `20260804000200` (SB-023) |
 
 ## 6. Operations
 

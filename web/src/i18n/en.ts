@@ -15,6 +15,7 @@ export const en: Messages = {
   captureText: "Write",
   captureSave: "Save",
   captureSaving: "Saving…",
+  captureSaved: "Saved",
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
@@ -24,6 +25,23 @@ export const en: Messages = {
   notesPendingSync: "Saved on your device",
   notesVoiceNote: "Voice note",
   notesOffline: "Couldn't reach the server — these are the notes saved on your device.",
+
+  notesActionAccepted: "Done",
+  notesActionDismissed: "Dismissed",
+  notesActionUndo: "Undo",
+
+  tasksTitle: "Tasks",
+  tasksEmpty: "No tasks right now. Anything the AI files as a task shows up here.",
+  tasksToday: "Today",
+  tasksThisWeek: "This week",
+  tasksLater: "Later",
+  tasksDone: "Done",
+  tasksNoDate: "No date",
+
+  detailTitle: "Note",
+  detailRawLabel: "As you wrote it",
+  detailClose: "Close",
+  detailLoadFailed: "Couldn't open the note.",
 
   searchTitle: "Search",
   searchHint: "Search your notes",
@@ -65,7 +83,7 @@ export const en: Messages = {
   priorityUrgent: "Urgent",
   priorityHigh: "High",
   priorityNormal: "Normal",
-  priorityLow: "Later",
+  priorityLow: "Low",
 
   actionCreateTask: "Add as task",
   actionCreateEvent: "Add to calendar",
@@ -95,5 +113,13 @@ export const enPlurals: Record<PluralKey, Record<Intl.LDMLPluralRule, string>> =
     few: "{n} notes waiting to sync",
     many: "{n} notes waiting to sync",
     other: "{n} notes waiting to sync",
+  },
+  taskCount: {
+    zero: "No tasks",
+    one: "1 task",
+    two: "{n} tasks",
+    few: "{n} tasks",
+    many: "{n} tasks",
+    other: "{n} tasks",
   },
 };

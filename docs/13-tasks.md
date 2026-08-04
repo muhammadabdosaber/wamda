@@ -30,13 +30,15 @@ blocked on.
 
 | # | Task | Milestone | Size | Status |
 |---|---|---|---|---|
-| SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | todo |
-| SB-023 | Column-scoped update grant on `notes` | M6 | S | todo |
+| SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
+| SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | todo |
 | SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | todo |
-| SB-036 | Tasks screen — a filter over notes, not a container | M8 | M | todo |
-| SB-037 | Open the source note from a task row (+ SB-021) | M8 | M | todo |
-| SB-038 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | todo |
+| SB-033 | An answered suggestion must show it was answered | M1 | S | **done** |
+| SB-036 | Tasks screen — a filter over notes, not a container | M8 | M | **done** |
+| SB-037 | Open the source note from a task row (+ SB-021) | M8 | M | **done** |
+| SB-038 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | **done** |
+| SB-011 | Bundle the app fonts (Public Sans + Noto Sans Arabic) | — | S | **done** |
 | SB-001 | Schedule the sweep worker — **may already be done**, see below | M5 | M | todo |
 | SB-003 | Strict CSP | M6 | M | todo |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
@@ -279,7 +281,13 @@ sees an empty notes list even though their notes are safe on the device.**
 > notes and the chips were gone after a reload; archive re-confirmed alongside
 > it. What the test also produced is SB-033: it worked and he could not tell.
 
-### SB-033 · An answered suggestion must show that it was answered · `todo` · S
+### SB-033 · An answered suggestion must show that it was answered · `done` · S
+
+> **Done.** Accepting or dismissing now shows a resolved line (`تمّت` /
+> `تم التجاهل`, with a check) plus an undo that clears `action_dismissed_at`
+> (`restoreNoteAction`). Verified in a browser: click → resolved state appears →
+> undo restores the two chips. The destination for *accepted* suggestions is
+> still SB-027; this is the feedback half only.
 
 The owner clicked تجاهل and reported *"ماحصل أي شي"*. The write had succeeded
 every time. All that happens on screen is two small links disappearing —
@@ -299,7 +307,14 @@ screen where trust in the AI is either earned or lost.
   nothing behind the button. Fixing the feedback without fixing the
   destination makes the app *look* like it filed something it did not.
 
-### SB-023 · Column-scoped update grant on `notes` · `todo` · S
+### SB-023 · Column-scoped update grant on `notes` · `done` · S
+
+> **Done.** Migration `20260804000200` revokes the blanket `update` and
+> re-grants `(archived_at, action_dismissed_at, completed_at, updated_at)` —
+> `updated_at` because `capture_note`'s SECURITY INVOKER upsert touches it as
+> the caller. `verify.sql` asserts `update notes set status` is rejected
+> (42501) while the owned columns still write. Archive / dismiss / complete all
+> still work in the app.
 
 Pre-existing, and PR #3 now leans on it: `grant select, insert, update, delete
 on public.notes to authenticated` lets a client update **every** column of its
@@ -416,7 +431,16 @@ machine-local collision is now everyone's default, and it contradicts
 
 ## Cross-cutting
 
-### SB-011 · Bundle the Arabic font · `todo` · S
+### SB-011 · Bundle the app fonts · `done` · S
+
+> **Done**, and the decision changed the face: the owner chose **Public Sans**
+> (the redesign's Latin face). Since Public Sans carries no Arabic glyphs, it is
+> paired with **Noto Sans Arabic**, split by `unicode-range`. Both are
+> self-hosted variable woff2 in `web/public/fonts/` (~189 KB total), precached
+> by the SW. The Amiri files were retired. Crucially, the Google Fonts `<link>`
+> in `index.html` (IBM Plex over a CDN — an offline-first violation) was
+> removed. Verified: both faces `loaded`, Arabic renders in Noto, no request to
+> `fonts.gstatic`.
 
 `global.css` names IBM Plex Sans Arabic / Noto Sans Arabic; neither ships, so
 Arabic renders in a system fallback.
@@ -445,7 +469,12 @@ Every metric in `docs/10-product-spec.md` is currently unmeasured.
 - **Accept:** capture latency, stuck-note count, and cost per note are visible
   somewhere without running SQL by hand.
 
-### SB-021 · Audit the note detail view · `todo` · S
+### SB-021 · Audit the note detail view · `done` · S
+
+> **Done** by building it, then verifying. The note detail view now exists
+> (`features/NoteDetail.tsx`) and shows `raw_text` beside the AI summary; opened
+> from both a note card and a task row. Folded into SB-037. Inventory 4.13
+> updated.
 
 `docs/11-features.md` 4.13 claims raw text is shown next to the AI version;
 this was inferred, not observed.
@@ -453,7 +482,14 @@ this was inferred, not observed.
 - **Accept:** either the claim is verified in a browser, or the feature is built
   and then verified. Update the inventory either way.
 
-### SB-031 · Implement the new UI design · `in progress` · L
+### SB-031 · Implement the new UI design · `done` · L
+
+> **Done.** Theme (SB-031a) plus every behavioural surface: Tasks (SB-036), note
+> detail + in-place save (SB-037/021), completion (SB-038/023), answered-
+> suggestion feedback (SB-033), and the fonts (SB-011). The one redesign-adjacent
+> item still open is **SB-032** (a note that fails enrichment is invisible) and
+> the accepted-suggestion *destination* **SB-027** — neither is a theming or
+> layout task. Evidence across `00-verification.md` "Design surfaces".
 
 **The design landed** on 2026-08-03: three screens exported from Google Stitch,
 committed under `docs/design/`. `docs/design/README.md` is the contract — read
@@ -490,7 +526,13 @@ four — every one caught before it reached `web/`:
 Tokens into `global.css`, PWA theme colours updated. Verified in a browser in
 both colour schemes. Evidence: `00-verification.md`, "Theme port".
 
-#### SB-036 · Tasks screen · `todo` · M
+#### SB-036 · Tasks screen · `done` · M
+
+> **Done.** `web/src/features/Tasks.tsx` — a filter over `category = 'task'`
+> notes, grouped by `action_due_at` (overdue folds into today), priority rails,
+> `taskCount` plural per group. Driven in a browser on the owner's real data:
+> `3 مهام` → `مهمتان` → `مهمة واحدة` (few/two/one), and the rail mirrors under
+> `dir=ltr`. Evidence: `00-verification.md` "Design surfaces".
 
 A **filter over notes**, not a container — ADR-0004. Grouped اليوم / هذا الأسبوع
 / لاحقاً.
@@ -507,7 +549,13 @@ A **filter over notes**, not a container — ADR-0004. Grouped اليوم / هذ
 - **Accept:** the four plural categories render correctly on real counts, and
   the screen mirrors under `dir=ltr`.
 
-#### SB-037 · Open the source note from a task row · `todo` · M
+#### SB-037 · Open the source note from a task row · `done` · M
+
+> **Done.** `web/src/features/NoteDetail.tsx`, opened from a task row and from a
+> note card (folds in SB-021). Single-row `select raw_text` under RLS, no Edge
+> Function. Capture's `setTab("notes")` hand-off dropped for an in-place
+> `تم الحفظ ✓`. Verified: opening a task showed the captured text
+> `عايز اركز علي المشروع بتاعي بكره` beside the AI summary.
 
 Tapping a task shows the original note: the exact text captured, its date, its
 summary. This is what keeps a task a *view*.
@@ -525,7 +573,12 @@ summary. This is what keeps a task a *view*.
   and the current hand-off is a *strong* confirmation. Do not remove it without
   a replacement that is as convincing.
 
-#### SB-038 · `completed_at`, so a task can be ticked · `todo` · M
+#### SB-038 · `completed_at`, so a task can be ticked · `done` · M
+
+> **Done** with SB-023, as planned. Migration `20260804000100` adds
+> `completed_at`; `20260804000200` scopes the update grant to include it.
+> `verify.sql` asserts both. Ticking writes optimistically and **survives a
+> reload** — the Edge Function timeline now returns `completed_at`.
 
 The checkbox has nothing to write to. `notes` has no completion column, and
 `archived_at` is not it — that means "gone from the timeline and search for
@@ -602,6 +655,13 @@ Only Chromium has ever run this app.
 | SB-025 | Unsynced notes render in the timeline, deduped by `client_id` | `00-verification.md` |
 | SB-026 | Failed local write keeps the text and says so | folded into SB-024 |
 | SB-031a | Theme ported from the Stitch export, light + dark, verified in a browser | `00-verification.md` |
+| SB-036 | Tasks screen — filter over notes, grouped by due date, plurals on real data | `00-verification.md` "Design surfaces" |
+| SB-037 | Note detail from a task/note (raw text); capture confirms in place | `00-verification.md` "Design surfaces" |
+| SB-038 | `completed_at` migration + tick-to-complete, persists across reload | `00-verification.md` |
+| SB-023 | Column-scoped update grant; `status` update rejected | `verify.sql` PASS |
+| SB-021 | Note detail view built and verified (folded into SB-037) | `00-verification.md` |
+| SB-033 | Answered suggestion shows `تمّت / تم التجاهل` + undo | `00-verification.md` |
+| SB-011 | Self-hosted Public Sans + Noto Sans Arabic; CDN font `<link>` removed | `00-verification.md` |
 
 ---
 

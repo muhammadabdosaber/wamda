@@ -14,6 +14,10 @@ export const ar = {
   captureText: "اكتب",
   captureSave: "احفظ",
   captureSaving: "جارٍ الحفظ…",
+  // The in-place confirmation that replaces the old jump to the notes tab: the
+  // composer stays put so the next thought can go straight in, and this line
+  // is the proof the last one landed (SB-037).
+  captureSaved: "تم الحفظ",
   captureRecording: "جارٍ التسجيل…",
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
@@ -29,6 +33,32 @@ export const ar = {
   // user is looking at instead -- it is not a warning, because nothing is
   // wrong and nothing needs doing.
   notesOffline: "تعذّر الوصول للخادم — هذه ملاحظاتك المحفوظة على جهازك.",
+
+  // The suggestion the user just answered, shown IN PLACE of the two links so
+  // the click has a visible result -- the screen where trust in the AI is
+  // earned or lost, and where the owner reported "ماحصل أي شي" (SB-033).
+  notesActionAccepted: "تمّت",
+  notesActionDismissed: "تم التجاهل",
+  notesActionUndo: "تراجع",
+
+  // Tasks -- a filter over notes whose AI category is "task", grouped by when
+  // they are due. Not a container: a task IS a note, it does not move into one.
+  tasksTitle: "المهام",
+  tasksEmpty: "لا مهام الآن. ما تكتبه وتصنّفه المعالجة كمهمة يظهر هنا.",
+  tasksToday: "اليوم",
+  tasksThisWeek: "هذا الأسبوع",
+  tasksLater: "لاحقًا",
+  tasksDone: "منجزة",
+  // Shown on a task with no resolved due date, so "لاحقًا" is not misread as a
+  // date the app invented.
+  tasksNoDate: "بلا موعد",
+
+  // The single-note detail view: the exact text captured, opened from a note
+  // or a task row. This is what keeps a task a VIEW over its note (SB-037).
+  detailTitle: "الملاحظة",
+  detailRawLabel: "النص كما كُتب",
+  detailClose: "إغلاق",
+  detailLoadFailed: "تعذّر فتح الملاحظة.",
 
   searchTitle: "البحث",
   searchHint: "ابحث في ملاحظاتك",
@@ -74,7 +104,10 @@ export const ar = {
   priorityUrgent: "عاجل",
   priorityHigh: "مهم",
   priorityNormal: "عادي",
-  priorityLow: "لاحقًا",
+  // Reworded from "لاحقًا" to "منخفض": "لاحقًا" now names the Tasks screen's
+  // later-due group (tasksLater), and a scheduling word read badly as a
+  // priority label anyway. This is a priority level, so name it as one.
+  priorityLow: "منخفض",
 
   actionCreateTask: "أضفها كمهمة",
   actionCreateEvent: "أضفها للتقويم",
@@ -108,6 +141,17 @@ export const arPlurals = {
     few: "{n} ملاحظات بانتظار المزامنة",
     many: "{n} ملاحظة بانتظار المزامنة",
     other: "{n} ملاحظة بانتظار المزامنة",
+  },
+  // The open-task count beside each group heading. All six categories, because
+  // "مهمتان" (2) and "مهام" (3-10) are different words from "مهمة" (11+) and no
+  // singular/plural pair can express them -- the whole reason this table exists.
+  taskCount: {
+    zero: "لا مهام",
+    one: "مهمة واحدة",
+    two: "مهمتان",
+    few: "{n} مهام",
+    many: "{n} مهمة",
+    other: "{n} مهمة",
   },
 } as const;
 

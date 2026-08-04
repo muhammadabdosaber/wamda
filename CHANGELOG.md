@@ -10,6 +10,58 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — the Tasks screen, note detail, and answered-suggestion feedback (SB-036, SB-037, SB-038, SB-033, SB-021, SB-023)
+
+Completes the redesign's behavioural surfaces, on top of the theme (SB-031a).
+
+- **Tasks screen (SB-036)** — a fifth tab, `web/src/features/Tasks.tsx`. A
+  *filter over notes*, not a container (ADR-0004): notes whose enrichment reads
+  `category = 'task'`, grouped by `action_due_at` into اليوم / هذا الأسبوع /
+  لاحقًا, overdue folding into today. No new column and no new endpoint — it
+  reuses the timeline. Priority rail per row (`urgent`→`--danger`,
+  `high`→`--secondary` #56642b, `low`→`--border`, `normal`→none). Open-count per
+  group uses a new `taskCount` plural; **verified on real data rendering the
+  `one`, `two`, and `few` Arabic forms** (1, 2, 3 tasks).
+- **`completed_at` (SB-038)** — migration `20260804000100`; a task can be ticked
+  done. Distinct from `archived_at` (which is "gone for good"). Completion
+  writes optimistically and **persists across reload** (verified).
+- **Column-scoped update grant (SB-023)** — migration `20260804000200` revokes
+  the blanket `update` on `notes` and re-grants only
+  `(archived_at, action_dismissed_at, completed_at, updated_at)`. An
+  authenticated client can no longer set `status`, rewrite `raw_text`, or forge
+  `client_created_at`. Asserted in `verify.sql` (**PASS**).
+- **Note detail (SB-037 / SB-021)** — `web/src/features/NoteDetail.tsx`. Tapping
+  a task row or a note card opens the source note: the exact `raw_text`
+  captured, its date, and the AI's read side by side. The timeline still omits
+  `raw_text`; this is a single-row PostgREST read under RLS.
+- **Answered-suggestion feedback (SB-033)** — accepting or dismissing a
+  suggestion now shows a visible "تمّت / تم التجاهل" resolved state with an undo,
+  instead of two links silently vanishing. `restoreNoteAction` clears the
+  timestamp. Verified: click → resolved line appears → undo restores the chips.
+- **Capture confirms in place (SB-037)** — the save no longer hands off to the
+  notes tab; capture stays put and shows "تم الحفظ ✓", so the next thought goes
+  straight in. Verified: app stays on the capture tab, textarea clears.
+
+### Added — self-hosted fonts, and a CDN dependency removed (SB-011)
+
+- The app now bundles **Public Sans** (Latin) and **Noto Sans Arabic** (Arabic),
+  self-hosted woff2 in `web/public/fonts/`, split by `unicode-range` so each
+  glyph picks the right face. Both are variable (weight 400–700, one file each);
+  ~189 KB total, precached by the service worker.
+- **Removed the Google Fonts `<link>`** from `index.html` that pulled IBM Plex
+  Sans Arabic over a CDN — a network dependency that failed the instant the user
+  was offline, in an offline-first PWA. Verified: no request to `fonts.gstatic`
+  / `fonts.googleapis`, and Arabic renders in Noto (measured, not assumed).
+- Retired the unused `amiri-*.woff2` that were sitting inert on disk; the
+  redesign's face is Public Sans, not Amiri.
+
+Verified end to end in a browser against the live local stack: `npm run verify`
+(typecheck + RTL guard + 22 tests + build) and `verify.sql` (**ALL SCHEMA CHECKS
+PASSED**, including the new grant + `completed_at` assertions). Tasks grouping,
+completion + reload persistence, note-detail raw text, resolved state + undo,
+in-place save, RTL↔LTR rail mirroring, and dark mode all driven and read back
+via the browser tools.
+
 ### Added — the Stitch design export, and its theme (SB-031a)
 
 - `docs/design/` carries three screens exported from Google Stitch (Capture,

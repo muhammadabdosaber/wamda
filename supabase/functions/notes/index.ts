@@ -19,6 +19,7 @@ interface TimelineRow {
   detected_language: string | null;
   client_created_at: string;
   action_dismissed_at: string | null;
+  completed_at: string | null;
   note_enrichments: Array<{
     title: string | null;
     summary: string;
@@ -69,7 +70,7 @@ Deno.serve(async (req) => {
           // summaries, and a full note body per row is the difference between
           // a 30 KB and a 900 KB response on a long scroll.
           "id, client_id, source, status, input_language, detected_language, " +
-            "client_created_at, action_dismissed_at, note_enrichments(title, summary, category, priority, " +
+            "client_created_at, action_dismissed_at, completed_at, note_enrichments(title, summary, category, priority, " +
             "suggested_action, action_due_at, language)",
         )
         .eq("status", "ready")

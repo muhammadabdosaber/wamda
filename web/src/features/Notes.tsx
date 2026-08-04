@@ -6,11 +6,13 @@ import {
   archiveNote,
   dismissNoteAction,
   isConfigured,
+  restoreNoteAction,
   SYNCED_EVENT,
   timeline,
   type TimelineNote,
 } from "../data/api";
 import { pending as pendingNotes, type OutboxNote } from "../data/outbox";
+import { NoteDetail } from "./NoteDetail";
 
 /**
  * The timeline reads from TWO sources, and the local one is the one that must
@@ -27,6 +29,8 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
   // Not "error". The server being out of reach is an ordinary condition for
   // this app -- the notes below are still the right thing to be looking at.
   const [unreachable, setUnreachable] = useState(false);
+  // The note whose full body is open in the detail sheet (SB-021/SB-037).
+  const [open, setOpen] = useState<TimelineNote | null>(null);
 
   const load = useCallback(async () => {
     // Local first, and separately: IndexedDB does not depend on the network,
@@ -98,6 +102,7 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
           key={note.id}
           note={note}
           t={t}
+          onOpen={() => setOpen(note)}
           // Archiving removes the row outright; dismissing just marks this
           // note's card so the suggestion stops being offered.
           onArchived={() => setNotes((prev) => prev?.filter((n) => n.id !== note.id) ?? prev)}
@@ -109,8 +114,28 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
                 ) ?? prev,
             )
           }
+          // Undo puts the suggestion back by clearing the timestamp, so the
+          // chips return (SB-033).
+          onRestored={() =>
+            setNotes(
+              (prev) =>
+                prev?.map((n) =>
+                  n.id === note.id ? { ...n, action_dismissed_at: null } : n,
+                ) ?? prev,
+            )
+          }
         />
       ))}
+
+      {open && (
+        <NoteDetail
+          t={t}
+          noteId={open.id}
+          enrichment={open.note_enrichments[0]}
+          contentLanguage={open.detected_language ?? open.input_language}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </>
   );
 }
@@ -135,16 +160,24 @@ function PendingCard({ note, t }: { note: OutboxNote; t: Translator }) {
 function NoteCard({
   note,
   t,
+  onOpen,
   onArchived,
   onDismissed,
+  onRestored,
 }: {
   note: TimelineNote;
   t: Translator;
+  onOpen: () => void;
   onArchived: () => void;
   onDismissed: () => void;
+  onRestored: () => void;
 }) {
-  const [busy, setBusy] = useState<"accept" | "dismiss" | null>(null);
+  const [busy, setBusy] = useState<"accept" | "dismiss" | "undo" | null>(null);
   const [failed, setFailed] = useState(false);
+  // How the suggestion was just answered, so the resolved line can say which.
+  // Local, because `action_dismissed_at` alone cannot tell "accepted" from
+  // "ignored" (SB-027) -- and it is the immediate click that needs the feedback.
+  const [resolution, setResolution] = useState<"accepted" | "dismissed" | null>(null);
 
   const enrichment = note.note_enrichments[0];
 
@@ -159,7 +192,8 @@ function NoteCard({
     );
   }
 
-  const action = note.action_dismissed_at ? null : actionLabel(t, enrichment.suggested_action);
+  const answered = note.action_dismissed_at !== null;
+  const action = answered ? null : actionLabel(t, enrichment.suggested_action);
 
   // The action button's own effect depends on what it is suggesting: for
   // "archive" it performs the real archive; every other suggestion (create a
@@ -174,6 +208,7 @@ function NoteCard({
         onArchived();
       } else {
         await dismissNoteAction(note.id);
+        setResolution("accepted");
         onDismissed();
       }
     } catch {
@@ -188,7 +223,24 @@ function NoteCard({
     setBusy("dismiss");
     try {
       await dismissNoteAction(note.id);
+      setResolution("dismissed");
       onDismissed();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  // Reverses the dismiss/accept so the chips come back. The action was
+  // otherwise irreversible from the UI (SB-033).
+  async function handleUndo() {
+    setFailed(false);
+    setBusy("undo");
+    try {
+      await restoreNoteAction(note.id);
+      setResolution(null);
+      onRestored();
     } catch {
       setFailed(true);
     } finally {
@@ -204,8 +256,14 @@ function NoteCard({
       // keeps an English note readable inside an Arabic UI.
       dir={directionOfContent(note.detected_language ?? note.input_language)}
     >
-      {enrichment.title && <h3>{enrichment.title}</h3>}
-      <p>{enrichment.summary}</p>
+      {/* The title and summary open the source note -- the exact text captured,
+          shown beside the AI's read of it (SB-021). A button so the keyboard
+          and screen reader reach it; the chips and actions below stay separate
+          controls. */}
+      <button className="note-open" onClick={onOpen}>
+        {enrichment.title && <h3>{enrichment.title}</h3>}
+        <p>{enrichment.summary}</p>
+      </button>
 
       <div className="chips">
         {/* Chips render LOCALIZED labels from stored identifiers. The row
@@ -237,7 +295,33 @@ function NoteCard({
         </div>
       )}
 
+      {answered && resolution && (
+        // The resolved state. Without this, answering a suggestion just made
+        // two links vanish and the owner reported "nothing happened" (SB-033).
+        // A visible confirmation plus an undo, so the click is legible AND
+        // reversible.
+        <div className="resolved">
+          <span className="resolved-label">
+            <CheckIcon />
+            {resolution === "accepted"
+              ? t.t("notesActionAccepted")
+              : t.t("notesActionDismissed")}
+          </span>
+          <button className="linkbtn" onClick={() => void handleUndo()} disabled={busy !== null}>
+            {busy === "undo" ? "…" : t.t("notesActionUndo")}
+          </button>
+        </div>
+      )}
+
       {failed && <p className="error-text">{t.t("errorGeneric")}</p>}
     </div>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m5 12.5 4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
   );
 }

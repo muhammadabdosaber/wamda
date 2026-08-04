@@ -80,7 +80,14 @@ export interface TimelineNote {
   detected_language: string | null;
   client_created_at: string;
   action_dismissed_at: string | null;
+  completed_at: string | null;
   note_enrichments: Enrichment[];
+}
+
+/** The full note body, fetched on demand for a detail view. */
+export interface NoteDetail {
+  raw_text: string | null;
+  client_created_at: string;
 }
 
 export async function captureNote(note: OutboxNote): Promise<string> {
@@ -168,6 +175,51 @@ export async function dismissNoteAction(noteId: string): Promise<void> {
     .update({ action_dismissed_at: new Date().toISOString() })
     .eq("id", noteId);
   if (error) throw new ApiError("dismiss_failed");
+}
+
+/**
+ * Marks a task-category note done, or clears it. `completed_at` is a column
+ * the client owns (migration 09, scoped grant migration 10) -- distinct from
+ * `archived_at`, which removes the note from the timeline for good. A completed
+ * task stays a note and stays findable; it is only ticked off the Tasks view.
+ */
+export async function setNoteCompleted(noteId: string, done: boolean): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ completed_at: done ? new Date().toISOString() : null })
+    .eq("id", noteId);
+  if (error) throw new ApiError("complete_failed");
+}
+
+/**
+ * Fetches a single note's full body. The timeline deliberately omits
+ * `raw_text` -- a full note per row is the difference between a 30 KB and a
+ * 900 KB response on a long scroll (see functions/notes) -- so opening one note
+ * to read what was actually captured is a separate, single-row read. Goes
+ * straight through PostgREST under RLS; no Edge Function is needed.
+ */
+export async function noteDetail(noteId: string): Promise<NoteDetail> {
+  const { data, error } = await supabase
+    .from("notes")
+    .select("raw_text, client_created_at")
+    .eq("id", noteId)
+    .single();
+  if (error) throw new ApiError("note_fetch_failed");
+  return data as NoteDetail;
+}
+
+/**
+ * Undoes {@link dismissNoteAction}: clears `action_dismissed_at` so the note's
+ * suggested-action chips are offered again. This is the reversal behind the
+ * undo affordance in the resolved state (SB-033) -- without it, answering a
+ * suggestion is irreversible from the UI.
+ */
+export async function restoreNoteAction(noteId: string): Promise<void> {
+  const { error } = await supabase
+    .from("notes")
+    .update({ action_dismissed_at: null })
+    .eq("id", noteId);
+  if (error) throw new ApiError("restore_failed");
 }
 
 /** Fired on `window` after a sync that actually moved at least one note. */
