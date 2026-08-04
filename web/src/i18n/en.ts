@@ -15,7 +15,6 @@ export const en: Messages = {
   captureText: "Write",
   captureSave: "Save",
   captureSaving: "Saving…",
-  captureSaved: "Saved",
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
@@ -92,6 +91,7 @@ export const en: Messages = {
   actionDismiss: "Dismiss",
 
   statusProcessing: "Analysing…",
+  statusFailed: "Couldn't analyse this note — it's still saved",
   statusNeedsReview: "Audio was unclear — check the transcript",
 
   errorGeneric: "Something went wrong. Try again.",

@@ -10,6 +10,29 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — a captured note that fails enrichment no longer vanishes (SB-032), and capture confirms by showing the note again
+
+Owner feedback the moment the redesign hit his own stack: he added two notes,
+they "weren't added", and the save gave no sign it worked.
+
+- **The notes *were* saved** — synced to the server — but their enrichment
+  failed (`ai_jobs`: `stage=enrich, error_code=missing_configuration`, no
+  `ANTHROPIC_API_KEY` in this environment), so they stalled at `status=queued`.
+  The timeline only returned `ready` notes, so they were invisible in both the
+  list and the outbox: exactly SB-032.
+- **Fix (SB-032):** `functions/notes` timeline now returns every non-archived
+  note, not just `ready`. A note with no enrichment renders as a processing
+  card; a `failed` one says so honestly (`statusFailed`) rather than claiming to
+  still be analysing. Verified: two stranded notes reappeared as "جارٍ التحليل…".
+- **Reverted the SB-037 capture change.** Dropping the hand-off to the notes tab
+  for an in-place "تم الحفظ" read as *failure* to the owner. Capture hands off to
+  the notes tab again — with SB-032, the just-captured note is right there at the
+  top of the list, which is the strongest confirmation there is. The in-place
+  toast and its unused `captureSaved` string / `.saved-status` style were removed.
+- **Note for operators:** enrichment cannot run without
+  `supabase/functions/.env` carrying `ANTHROPIC_API_KEY`; until then every new
+  note shows as "processing". That is now visible rather than silent.
+
 ### Added — the Tasks screen, note detail, and answered-suggestion feedback (SB-036, SB-037, SB-038, SB-033, SB-021, SB-023)
 
 Completes the redesign's behavioural surfaces, on top of the theme (SB-031a).

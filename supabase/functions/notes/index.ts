@@ -73,7 +73,12 @@ Deno.serve(async (req) => {
             "client_created_at, action_dismissed_at, completed_at, note_enrichments(title, summary, category, priority, " +
             "suggested_action, action_due_at, language)",
         )
-        .eq("status", "ready")
+        // Every non-archived note, NOT just `ready` ones. A note that synced
+        // but whose enrichment stalled or failed is still the user's note and
+        // must stay visible -- filtering to `ready` made it vanish from both
+        // the timeline and the outbox, so the user watched a note they just
+        // captured disappear (SB-032). The client labels a note with no
+        // enrichment as processing or failed from its `status`.
         .is("archived_at", null)
         .eq("note_enrichments.language", language)
         .order("client_created_at", { ascending: false })

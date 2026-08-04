@@ -182,12 +182,19 @@ function NoteCard({
   const enrichment = note.note_enrichments[0];
 
   if (!enrichment) {
-    // Captured but not yet enriched. Shown, not hidden: the user must be able
-    // to see that their thought landed, even before the AI has said anything
-    // about it.
+    // Captured but not enriched yet -- or enrichment failed. Shown, not hidden:
+    // the user must see their thought landed, even before (or without) the AI
+    // saying anything about it. A failed note says so honestly rather than
+    // claiming to still be "analysing" forever (SB-032).
+    const failedEnrichment = note.status === "failed";
     return (
-      <div className="card">
-        <p className="muted">{t.t("statusProcessing")}</p>
+      <div className="card" dir={directionOfContent(note.detected_language ?? note.input_language)}>
+        <p className="muted">
+          {failedEnrichment ? t.t("statusFailed") : t.t("statusProcessing")}
+        </p>
+        <div className="chips">
+          <span className="chip">{t.date(note.client_created_at)}</span>
+        </div>
       </div>
     );
   }
