@@ -56,6 +56,15 @@ describe("Arabic plurals", () => {
   it("returns empty for zero so the UI renders nothing", () => {
     expect(t.plural("pendingSync", 0)).toBe("");
   });
+
+  // The Tasks screen shows an open-count beside each group heading; Arabic
+  // needs the dual (2), few (3-10) and many (11+) forms to read correctly.
+  it("counts tasks with the right form for 1, 2, 3 and 11", () => {
+    expect(t.plural("taskCount", 1)).toBe("مهمة واحدة");
+    expect(t.plural("taskCount", 2)).toBe("مهمتان");
+    const forms = [1, 2, 3, 11].map((n) => t.plural("taskCount", n));
+    expect(new Set(forms).size).toBe(4);
+  });
 });
 
 describe("English plurals", () => {

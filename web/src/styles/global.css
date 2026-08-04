@@ -21,6 +21,45 @@
  */
 
 /*
+ * FONTS -- self-hosted, because this is an offline-first PWA and a CDN font
+ * (Google Fonts, Tailwind) is a network dependency that breaks the moment the
+ * user is offline. Both are the woff2 subsets Google Fonts serves, copied into
+ * web/public/fonts and precached by the service worker.
+ *
+ * Two families, split by `unicode-range` so the browser picks per glyph:
+ *   * Public Sans  -- the redesign's chosen face, but Latin-only. It covers
+ *                     digits, punctuation, and any English.
+ *   * Noto Sans Arabic -- carries the Arabic glyphs Public Sans lacks, and is
+ *                     the humanist sans the design names as the Arabic pairing.
+ * Arabic is the primary language, so most of the UI renders in Noto; Public
+ * Sans handles the Latin that Noto's Arabic subset does not. Both are variable
+ * (weight 400-700 in one file), so each is a single request.
+ *
+ * `font-display: swap`: the fallback shows immediately and is replaced when the
+ * face loads -- never invisible text on a capture screen.
+ */
+@font-face {
+  font-family: "Public Sans";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/public-sans-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+2000-206F, U+2074, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Noto Sans Arabic";
+  font-style: normal;
+  font-weight: 400 700;
+  font-display: swap;
+  src: url("/fonts/noto-sans-arabic.woff2") format("woff2");
+  unicode-range: U+0600-06FF, U+0750-077F, U+0870-088E, U+0890-0891,
+    U+0898-08E1, U+08E3-08FF, U+200C-200E, U+2010-2011, U+204F, U+2E41,
+    U+FB50-FDFF, U+FE70-FE74, U+FE76-FEFC;
+}
+
+/*
  * THEME: "Serene Cognitive Architecture: Forest Edition".
  *
  * Ported from the DESIGN.md that ships beside each screen under docs/design,
@@ -45,6 +84,7 @@
   --danger-soft: #ffdad6;     /* error-container */
   --danger-ink: #93000a;      /* on-error-container    7.24:1 on --danger-soft */
   --on-danger: #ffffff;       /* on-error              6.46:1 on --danger */
+  --secondary: #56642b;       /* design's `secondary` -- the high-priority rail */
 
   /* The export layers opacity on top of these (`/80`, `opacity-70`), which
      drops its own chip labels to 3.98:1 and its inactive nav to 3.19:1 --
@@ -106,6 +146,7 @@
     --danger-soft: #93000a;
     --danger-ink: #ffdad6;
     --on-danger: #690005;       /*  7.72:1 -- same trap */
+    --secondary: #bdce89;       /* secondary-fixed-dim -- #56642b is too dark on dark */
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
@@ -134,10 +175,11 @@ body {
   color: var(--text);
   line-height: var(--line-height);
 
-  /* An Arabic-first product cannot rely on a Latin-first stack. The Arabic
-     faces are listed BEFORE the generic families so the browser picks a face
-     designed for Arabic rather than falling back to whatever it finds. */
-  font-family: "IBM Plex Sans Arabic", "Noto Sans Arabic", "Segoe UI",
+  /* Public Sans (the design's face) first, Noto Sans Arabic next -- Public
+     Sans is declared Latin-only via unicode-range, so Arabic codepoints fall
+     straight through to Noto rather than to a random system face. The generic
+     families remain as the offline-cache-miss fallback. */
+  font-family: "Public Sans", "Noto Sans Arabic", "Segoe UI",
     system-ui, -apple-system, sans-serif;
 
   /* Prevents iOS Safari zooming the page when a text field is focused --
@@ -425,4 +467,188 @@ body {
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
+}
+
+/* ---- capture: in-place saved confirmation ---- */
+/* Replaces the old jump to the notes tab (SB-037). Calm, centred, brief. */
+.saved-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-block-start: 14px;
+  color: var(--accent);
+  font-size: 0.9375rem;
+  font-weight: 600;
+}
+
+/* ---- note card: open-the-note affordance + resolved state ---- */
+/* The title/summary are a button that opens the source note (SB-021). It must
+   look like the text it replaced, not a button -- the affordance is the tap,
+   not a chrome change. */
+.note-open {
+  display: block;
+  inline-size: 100%;
+  text-align: start;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.note-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); }
+
+/* The visible answer to "did my click do anything?" (SB-033). */
+.resolved {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-start: 12px;
+}
+.resolved-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent);
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+/* ---- tasks ---- */
+.task-group { margin-block-end: var(--stack-md); }
+
+.task-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: var(--stack-sm);
+}
+.task-group-head h2 { margin: 0; font-size: 1rem; font-weight: 600; }
+.task-count { font-size: 0.8125rem; color: var(--muted); }
+
+/* 56px min-height is the design's ADHD-friendly hit target for list rows. */
+.task-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 56px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding-inline: 18px 14px;
+  padding-block: 10px;
+  margin-block-end: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* A priority rail pinned to the row's leading edge. `normal` renders it
+   transparent -- no rail at all -- because most tasks are normal and a bar on
+   every row is the visual noise this product removes. */
+.task-row .rail {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block: 0;
+  inline-size: 4px;
+  background: transparent;
+  border-start-start-radius: var(--radius);
+  border-end-start-radius: var(--radius);
+}
+.rail-urgent { background: var(--danger); }
+.rail-high { background: var(--secondary); }
+.rail-low { background: var(--border); }
+
+.task-check {
+  flex: 0 0 auto;
+  inline-size: 20px;
+  block-size: 20px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.task-body {
+  flex: 1;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: start;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  padding: 0;
+  cursor: pointer;
+}
+.task-body:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: var(--radius-sm); }
+.task-body .chips { margin-block-start: 0; }
+
+.task-title { font-weight: 500; }
+
+.task-row.done { opacity: 0.65; }
+.task-row.done .task-title { text-decoration: line-through; color: var(--muted); }
+
+/* ---- note detail sheet (opened from a note or a task) ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(9, 15, 11, 0.45);
+}
+
+.sheet {
+  inline-size: 100%;
+  max-inline-size: 560px;
+  max-block-size: 85vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-start-start-radius: var(--radius-lg);
+  border-start-end-radius: var(--radius-lg);
+  padding: var(--gutter);
+  padding-block-end: calc(var(--gutter) + env(safe-area-inset-bottom));
+  box-shadow: var(--shadow-md);
+}
+
+/* On anything wider than a phone the sheet becomes a centred dialog. */
+@media (min-width: 640px) {
+  .overlay { align-items: center; padding: var(--gutter); }
+  .sheet { border-radius: var(--radius-lg); }
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-block-end: 16px;
+}
+.sheet-head h2 { margin: 0; font-size: 1.125rem; }
+.sheet h3 { margin: 0 0 6px; font-size: 1.125rem; }
+
+.detail-summary { margin: 0; color: var(--muted); }
+
+.detail-raw-label {
+  margin-block: 20px 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* `pre-wrap` so the note reads exactly as it was typed -- line breaks and all.
+   text-align: start keeps it following the note body's own direction. */
+.detail-raw {
+  margin: 0;
+  white-space: pre-wrap;
+  text-align: start;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 14px;
 }

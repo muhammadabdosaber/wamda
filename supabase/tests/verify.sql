@@ -192,6 +192,13 @@ commit;
 -- ---------------------------------------------------------------------------
 -- 4. Generated search vector + lexical search path
 -- ---------------------------------------------------------------------------
+-- Mark the note ready as the PIPELINE would -- i.e. privileged, not as the
+-- client. Since migration 10 the authenticated role can no longer set
+-- `status` itself (that is section 5b's assertion), so this stands in for the
+-- service role rather than reaching through the client's grant.
+update public.notes set status = 'ready'
+ where client_id = '33333333-3333-3333-3333-333333333333';
+
 begin;
 set local role authenticated;
 set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
@@ -211,9 +218,6 @@ $$;
 
 -- Query with a DIFFERENT spelling than was stored (taa-marbuta -> haa).
 -- This is the whole point of normalizing on both sides.
-update public.notes set status = 'ready'
- where client_id = '33333333-3333-3333-3333-333333333333';
-
 do $$
 declare
   variant_query text := chr(1575) || chr(1604) || chr(1605) || chr(1583)
@@ -273,6 +277,55 @@ begin
   raise notice 'PASS: tag variants collapsed to a single tag';
 end
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 5b. The client's UPDATE on notes is scoped to the columns it owns
+-- ---------------------------------------------------------------------------
+-- completed_at (migration 09) exists, and the scoped grant (migration 10) lets
+-- an authenticated client write its own response columns while rejecting any
+-- attempt to touch pipeline-owned state like `status`.
+do $$
+declare has_col boolean;
+begin
+  select exists (
+    select 1 from information_schema.columns
+     where table_schema = 'public' and table_name = 'notes'
+       and column_name = 'completed_at'
+  ) into has_col;
+  if not has_col then
+    raise exception 'notes.completed_at column is missing';
+  end if;
+  raise notice 'PASS: notes.completed_at exists';
+end
+$$;
+
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+
+do $$
+begin
+  -- The three columns the client owns must all be writable on its own note.
+  update public.notes
+     set completed_at = now(), archived_at = null, action_dismissed_at = null
+   where client_id = '33333333-3333-3333-3333-333333333333';
+  update public.notes
+     set completed_at = null
+   where client_id = '33333333-3333-3333-3333-333333333333';
+
+  -- A pipeline-owned column must be rejected at the grant layer, not silently
+  -- written. 42501 is insufficient_privilege -- the column-level UPDATE denial.
+  begin
+    update public.notes set status = 'queued'
+     where client_id = '33333333-3333-3333-3333-333333333333';
+    raise exception 'GRANT BREACH: authenticated client updated notes.status';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS: scoped grant blocks notes.status, allows completed_at';
+  end;
+end
+$$;
+commit;
 
 -- ---------------------------------------------------------------------------
 -- 6. Every public table has RLS enabled -- no table may be forgotten

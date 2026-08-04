@@ -31,6 +31,14 @@ function StopIcon() {
   );
 }
 
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="m5 12.5 4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 /**
  * The capture surface. One job: get a thought out of the user's head and into
  * durable storage with as little ceremony as possible.
@@ -65,6 +73,10 @@ export function Capture({
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  // The confirmation now lives on THIS screen, not a jump to the notes tab
+  // (SB-037): capture stays put so the next thought goes straight in, and this
+  // flag is what proves the last one landed. Auto-clears so it never lingers.
+  const [justSaved, setJustSaved] = useState(false);
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -90,6 +102,13 @@ export function Capture({
 
   async function refresh() {
     setPending(await pendingCount());
+  }
+
+  // A single place to raise the "saved" confirmation and take it back down, so
+  // a rapid second save re-arms the timer rather than leaving a stale tick.
+  function confirmSaved() {
+    setJustSaved(true);
+    window.setTimeout(() => setJustSaved(false), 2500);
   }
 
   async function saveText() {
@@ -120,6 +139,7 @@ export function Capture({
     // refreshes itself when the sync lands.
     void sync().then(refresh);
 
+    confirmSaved();
     onSaved?.();
   }
 
@@ -155,6 +175,7 @@ export function Capture({
       }
 
       void sync().then(refresh);
+      confirmSaved();
       onSaved?.();
     };
 
@@ -178,7 +199,10 @@ export function Capture({
         className="capture-input"
         autoFocus
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          if (justSaved) setJustSaved(false);
+        }}
         placeholder={t.t("captureHint")}
         // The composer follows the UI direction because the user is writing
         // in their own language. Rendered note BODIES elsewhere set their own
@@ -216,6 +240,15 @@ export function Capture({
         // leaves the note queued, which is not something to alarm anyone about.
         <p className="error-text" style={{ marginBlockStart: 14, textAlign: "center" }}>
           {t.t("errorCaptureFailed")}
+        </p>
+      )}
+
+      {justSaved && !failed && (
+        // The in-place replacement for the old jump to the notes tab. Calm and
+        // brief: enough to confirm the thought landed, gone before it nags.
+        <p className="saved-status" role="status">
+          <CheckIcon />
+          {t.t("captureSaved")}
         </p>
       )}
 

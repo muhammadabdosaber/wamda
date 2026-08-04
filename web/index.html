@@ -17,18 +17,22 @@
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
 
     <!--
-      IBM Plex Sans Arabic is listed first in the font stack (see global.css)
-      but isn't installed on most devices -- without loading it, every user
-      silently falls back to Noto Sans Arabic or the OS default. If the
-      network is unavailable (this is an offline-first PWA), the fallback
-      stack in global.css still applies, so this is a progressive enhancement
-      only, never a blocker for capture.
+      Fonts are SELF-HOSTED, not loaded from a CDN. The @font-face blocks in
+      global.css point at /fonts/*.woff2 (Public Sans + Noto Sans Arabic),
+      which the service worker precaches. A Google Fonts <link> here used to
+      pull IBM Plex Sans Arabic over the network -- a dependency that fails the
+      instant the user is offline, which is exactly the case this PWA is built
+      for. Removed on purpose; do not re-add a CDN font.
+
+      The one woff2 that matters for first paint is preloaded so Arabic text
+      does not flash in a fallback face before the real one arrives.
     -->
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap"
+      rel="preload"
+      href="/fonts/noto-sans-arabic.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
     />
 
     <title>الدماغ الثاني</title>

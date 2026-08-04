@@ -7,11 +7,12 @@ import { isConfigured, supabase, sync } from "./data/api";
 import { Auth } from "./features/Auth";
 import { Capture } from "./features/Capture";
 import { Notes } from "./features/Notes";
+import { Tasks } from "./features/Tasks";
 import { Search } from "./features/Search";
 import { Digest } from "./features/Digest";
 
 const STORAGE_KEY = "ui_locale";
-type Tab = "capture" | "notes" | "search" | "digest";
+type Tab = "capture" | "notes" | "tasks" | "search" | "digest";
 
 /** Inline so no icon library is added just for four tab glyphs. */
 const TAB_ICONS: Record<Tab, ReactNode> = {
@@ -29,6 +30,12 @@ const TAB_ICONS: Record<Tab, ReactNode> = {
         strokeLinejoin="round"
       />
       <path d="M8.5 10.5h7M8.5 14h7M8.5 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  ),
+  tasks: (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M4 6.5h11M4 12h11M4 17.5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="m17 16.5 2 2 3-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   search: (
@@ -60,7 +67,7 @@ const TAB_ICONS: Record<Tab, ReactNode> = {
  * `auth.uid()`, so they attach to whoever signs in, with no reconciliation
  * step and nothing lost.
  */
-const REQUIRES_AUTH: ReadonlySet<Tab> = new Set<Tab>(["notes", "search", "digest"]);
+const REQUIRES_AUTH: ReadonlySet<Tab> = new Set<Tab>(["notes", "tasks", "search", "digest"]);
 
 export function App() {
   const [language, setLanguage] = useState(() =>
@@ -94,6 +101,7 @@ export function App() {
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: "capture", label: t.t("captureText") },
     { id: "notes", label: t.t("notesTitle") },
+    { id: "tasks", label: t.t("tasksTitle") },
     { id: "search", label: t.t("searchTitle") },
     { id: "digest", label: t.t("digestTitle") },
   ];
@@ -172,10 +180,11 @@ export function App() {
           />
         ) : (
           <>
-            {tab === "capture" && (
-              <Capture t={t} language={language} onSaved={() => setTab("notes")} />
-            )}
+            {/* No onSaved hand-off: capture confirms in place now and stays
+                put, so the next thought can go straight in (SB-037). */}
+            {tab === "capture" && <Capture t={t} language={language} />}
             {tab === "notes" && <Notes t={t} language={language} />}
+            {tab === "tasks" && <Tasks t={t} language={language} />}
             {tab === "search" && <Search t={t} language={language} />}
             {tab === "digest" && <Digest t={t} language={language} />}
           </>

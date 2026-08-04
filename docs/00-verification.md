@@ -11,7 +11,7 @@ ran on this machine or it did not.
 (Postgres + pgvector), no warnings beyond an idempotent `pgcrypto already
 exists` notice.
 
-### 12 schema checks against a live database
+### 14 schema checks against a live database
 
 ```
 docker exec -i supabase_db_Second_Brain \
@@ -30,6 +30,8 @@ PASS: generated search_vector populated = 'مدرسه':1
 PASS: lexical search matches across spelling variants (1 hit(s))
 PASS: unenriched note is still findable (summary is null: t)
 PASS: tag variants collapsed to a single tag
+PASS: notes.completed_at exists
+PASS: scoped grant blocks notes.status, allows completed_at
 PASS: every public table has RLS enabled
 ALL SCHEMA CHECKS PASSED
 ```
@@ -59,14 +61,36 @@ every layer of it is verifiable on this machine, and was.
 | Check | Result |
 |---|---|
 | `tsc --noEmit` | exit 0 |
-| `vitest run` | **21 tests passed** (2 files) |
+| `vitest run` | **22 tests passed** (2 files) |
 | `node tool/check-rtl.mjs` | passed |
-| `vite build` | 431 KB → **124 KB gzipped**; SW + manifest emitted |
+| `vite build` | 449 KB → **129 KB gzipped**; SW + manifest emitted |
 
 **The RTL guard was tested against a deliberate violation**, not just observed
 passing. A temporary file with `margin-left` and `text-align: left` made it
 exit 1 and report both offences; removing the file returned it to exit 0. A
 checker that has only ever passed is not known to work.
+
+### Design surfaces — Tasks, note detail, feedback, fonts — driven in a browser
+
+Against the live local stack, signed in as the owner (12 real notes, 4 of them
+`category = 'task'`), driven with the browser tools and read back from the DOM /
+`getComputedStyle` / `document.fonts` — not inferred.
+
+| What | Observed |
+|---|---|
+| **Tasks grouping** | Four task notes grouped اليوم (3, incl. two overdue folded in) / لاحقًا (1, no date). |
+| **Arabic plural counts** | Group count rendered `3 مهام` (few), then `مهمتان` (two) after one completion, then `مهمة واحدة` (one) — three CLDR categories on real data. |
+| **Tick to complete** | Checkbox → optimistic done state (line-through, 0.65 opacity, sinks in group); `completed_at` written to the DB; **survives a full reload** (Edge Function now returns it). |
+| **Note detail (SB-037/021)** | Tapping a task opened the source note showing `raw_text` — `عايز اركز علي المشروع بتاعي بكره` — beside the AI summary, fetched as a single RLS read. |
+| **Answered-suggestion state (SB-033)** | تجاهل → visible `تم التجاهل` + undo; undo restored the two action chips (DB `action_dismissed_at` cleared). |
+| **Capture confirms in place (SB-037)** | Save kept the app on the capture tab, cleared the textarea, and showed `تم الحفظ ✓`. No hand-off to notes. |
+| **RTL ↔ LTR mirroring (SB-036)** | Priority rail resolved to the row's right edge under `dir=rtl`, left under `dir=ltr` — logical properties, no override. |
+| **Dark mode** | Task rows, sheet, and text resolved to the dark tokens (`--surface` #18201a, `--text` #e3e6e1); detail sheet renders as a full-width bottom sheet at 375×812. |
+| **Fonts self-hosted (SB-011)** | `document.fonts` lists only Public Sans + Noto Sans Arabic, both `loaded`; Arabic measurably renders in Noto (94px vs 144px mono). **No request to `fonts.gstatic`/`fonts.googleapis`** — the CDN `<link>` is gone. |
+
+The grant assertion is doubly covered: `verify.sql` proves an authenticated role
+cannot `update notes set status`, and the app proves archive / dismiss /
+complete still work through the narrowed grant.
 
 ### Theme port — ran, in a browser, in both colour schemes
 
