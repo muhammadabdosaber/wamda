@@ -469,19 +469,6 @@ body {
   color: var(--text);
 }
 
-/* ---- capture: in-place saved confirmation ---- */
-/* Replaces the old jump to the notes tab (SB-037). Calm, centred, brief. */
-.saved-status {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-block-start: 14px;
-  color: var(--accent);
-  font-size: 0.9375rem;
-  font-weight: 600;
-}
-
 /* ---- note card: open-the-note affordance + resolved state ---- */
 /* The title/summary are a button that opens the source note (SB-021). It must
    look like the text it replaced, not a button -- the affordance is the tap,

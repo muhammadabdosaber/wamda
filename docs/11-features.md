@@ -33,7 +33,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 1.9 | Honest degradation when recording is unavailable | ⬜ | `Capture.tsx` |
 | 1.10 | Background sync while the app is closed | ❌ | out of scope for PWA — ADR-0006 |
 | 1.11 | Saving state, released on the local write | ✅ **95 ms** to on-screen with 8 notes queued | `Capture.tsx` |
-| 1.12 | Confirm a save in place (no hand-off to notes) | ✅ stays on capture, clears the box, shows `تم الحفظ ✓` | `Capture.tsx` (SB-037) |
+| 1.12 | Hand off to the notes tab after a save | ✅ restored after owner feedback; the note appears at the top of the list, even as a processing card | `App.tsx` (SB-037/032) |
 | 1.13 | Error shown when the local write itself fails | ✅ text kept in the box, message shown | `Capture.tsx` |
 | 1.14 | Unsynced notes rendered in the timeline | ✅ verified offline and across a reload | `Notes.tsx` |
 
@@ -95,6 +95,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.19 | Dark mode | ✅ derived palette; filled-button contrast fixed 1.70 → 10.56 | `global.css` |
 | 4.20 | Tasks screen (filter over notes, grouped by due date) | ✅ built + driven in a browser on real data; plurals `one`/`two`/`few` observed | `features/Tasks.tsx` (SB-036) |
 | 4.21 | Tick a task done (`completed_at`) | ✅ optimistic, persisted, survives reload | `Tasks.tsx` · `api.ts` (SB-038) |
+| 4.22 | A note that fails/stalls enrichment stays visible | ✅ timeline returns non-`ready` notes; shows processing/failed, never absent | `functions/notes` · `Notes.tsx` (SB-032) |
 
 ## 5. Auth, data, security
 

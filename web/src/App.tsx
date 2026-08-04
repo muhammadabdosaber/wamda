@@ -180,9 +180,15 @@ export function App() {
           />
         ) : (
           <>
-            {/* No onSaved hand-off: capture confirms in place now and stays
-                put, so the next thought can go straight in (SB-037). */}
-            {tab === "capture" && <Capture t={t} language={language} />}
+            {/* After a save, hand off to the notes tab. The just-captured note
+                appears there immediately -- rendered from the outbox while it
+                syncs, then as its server row, and as a "processing" card if
+                enrichment has not finished (SB-032). That the note shows up in
+                the list is the strongest possible confirmation the save worked;
+                the owner told us the in-place version read as failure. */}
+            {tab === "capture" && (
+              <Capture t={t} language={language} onSaved={() => setTab("notes")} />
+            )}
             {tab === "notes" && <Notes t={t} language={language} />}
             {tab === "tasks" && <Tasks t={t} language={language} />}
             {tab === "search" && <Search t={t} language={language} />}

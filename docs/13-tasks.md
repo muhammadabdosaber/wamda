@@ -33,7 +33,7 @@ blocked on.
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | todo |
-| SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | todo |
+| SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | **done** |
 | SB-033 | An answered suggestion must show it was answered | M1 | S | **done** |
 | SB-036 | Tasks screen — a filter over notes, not a container | M8 | M | **done** |
 | SB-037 | Open the source note from a task row (+ SB-021) | M8 | M | **done** |
@@ -392,7 +392,13 @@ local-first.
 - **Accept:** archiving offline updates the card immediately and reaches the
   server on reconnect. Low priority: the failure today is visible, not silent.
 
-### SB-032 · A note that syncs but fails enrichment disappears · `todo` · S
+### SB-032 · A note that syncs but fails enrichment disappears · `done` · S
+
+> **Done.** The owner hit this on his own stack: two notes he added stalled at
+> `queued` (enrich failed with `missing_configuration` — no API key) and were
+> invisible. `functions/notes` now returns every non-archived note, not just
+> `ready`; `NoteCard` renders a processing card, or a `statusFailed` one for a
+> `failed` note. Verified: two stranded notes reappeared as "جارٍ التحليل…".
 
 Found while verifying SB-025. `sync()` marks a note synced even when
 enrichment failed (correctly — the note is durable on both sides). But the
@@ -553,9 +559,14 @@ A **filter over notes**, not a container — ADR-0004. Grouped اليوم / هذ
 
 > **Done.** `web/src/features/NoteDetail.tsx`, opened from a task row and from a
 > note card (folds in SB-021). Single-row `select raw_text` under RLS, no Edge
-> Function. Capture's `setTab("notes")` hand-off dropped for an in-place
-> `تم الحفظ ✓`. Verified: opening a task showed the captured text
+> Function. Verified: opening a task showed the captured text
 > `عايز اركز علي المشروع بتاعي بكره` beside the AI summary.
+>
+> **The capture hand-off was NOT dropped.** It was, briefly, for an in-place
+> `تم الحفظ` — but the owner tested it and read the missing redirect as failure.
+> Reverted: capture hands off to the notes tab again, where the just-captured
+> note now sits at the top (visible even while it enriches, thanks to SB-032).
+> The list showing the note is the strongest confirmation there is.
 
 Tapping a task shows the original note: the exact text captured, its date, its
 summary. This is what keeps a task a *view*.
@@ -662,6 +673,7 @@ Only Chromium has ever run this app.
 | SB-021 | Note detail view built and verified (folded into SB-037) | `00-verification.md` |
 | SB-033 | Answered suggestion shows `تمّت / تم التجاهل` + undo | `00-verification.md` |
 | SB-011 | Self-hosted Public Sans + Noto Sans Arabic; CDN font `<link>` removed | `00-verification.md` |
+| SB-032 | Non-`ready` notes stay visible (processing/failed), never absent | owner-reported; `CHANGELOG` |
 
 ---
 

@@ -14,10 +14,6 @@ export const ar = {
   captureText: "اكتب",
   captureSave: "احفظ",
   captureSaving: "جارٍ الحفظ…",
-  // The in-place confirmation that replaces the old jump to the notes tab: the
-  // composer stays put so the next thought can go straight in, and this line
-  // is the proof the last one landed (SB-037).
-  captureSaved: "تم الحفظ",
   captureRecording: "جارٍ التسجيل…",
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
@@ -116,6 +112,10 @@ export const ar = {
   actionDismiss: "تجاهل",
 
   statusProcessing: "جارٍ التحليل…",
+  // A note that reached the server but whose AI pass failed. Honest, not
+  // alarming, and true for a voice note too: the note itself is safe, only the
+  // analysis did not complete.
+  statusFailed: "تعذّر تحليل هذه الملاحظة — ملاحظتك محفوظة",
   statusNeedsReview: "التسجيل غير واضح — راجع النص",
 
   errorGeneric: "حدث خطأ. حاول مرة أخرى.",

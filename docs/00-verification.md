@@ -87,6 +87,7 @@ Against the live local stack, signed in as the owner (12 real notes, 4 of them
 | **RTL ↔ LTR mirroring (SB-036)** | Priority rail resolved to the row's right edge under `dir=rtl`, left under `dir=ltr` — logical properties, no override. |
 | **Dark mode** | Task rows, sheet, and text resolved to the dark tokens (`--surface` #18201a, `--text` #e3e6e1); detail sheet renders as a full-width bottom sheet at 375×812. |
 | **Fonts self-hosted (SB-011)** | `document.fonts` lists only Public Sans + Noto Sans Arabic, both `loaded`; Arabic measurably renders in Noto (94px vs 144px mono). **No request to `fonts.gstatic`/`fonts.googleapis`** — the CDN `<link>` is gone. |
+| **Stranded notes stay visible (SB-032)** | Owner-reported: two notes stalled at `queued` (enrich `missing_configuration`, no API key) were invisible. After the timeline stopped filtering to `ready`, both reappeared as "جارٍ التحليل…" processing cards, and saving now hands back to the notes tab showing the new note on top. |
 
 The grant assertion is doubly covered: `verify.sql` proves an authenticated role
 cannot `update notes set status`, and the app proves archive / dismiss /
