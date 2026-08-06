@@ -49,6 +49,7 @@ blocked on.
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
+| SB-017 | Schedule the weekly digest | M5 | S | **blocked** (mechanism proven; needs `ANTHROPIC_API_KEY`) |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -151,7 +152,28 @@ audio and the signed-URL upload to Storage worked. Both notes then failed at
 > secrets removed afterward. Evidence: `docs/00-verification.md` "SB-001 · A
 > note recovered by the schedule".
 
-### SB-017 · Schedule the weekly digest · `todo` · S
+### SB-017 · Schedule the weekly digest · `blocked` · S
+
+> **Mechanism built and proven live (2026-08-07); the task's own accept line
+> is blocked on `ANTHROPIC_API_KEY`, same as SB-018/SB-034.** Migration
+> `20260807000300_digest_schedule.sql` mirrors SB-001 exactly: two `pg_cron`
+> jobs, `digest-enqueue` (Saturdays 03:00 UTC) and `digest-collect` (every 6
+> hours — enqueue is once a week, but the Batch API can take up to 24h, so
+> collect keeps polling), both conditional on two Vault secrets, both reading
+> them live at call time rather than baking them into the stored job text.
+>
+> With the secrets set, both jobs were temporarily fast-forwarded to `* * *
+> * *`, and **both fired on their own timer within the next minute** —
+> `cron.job_run_details` shows `succeeded` for each, and `net._http_response`
+> shows the real `digest` function was reached (`500 missing_configuration`
+> — this worktree has no working key, so `requireEnv` throws before either
+> action's logic runs). Restored to the real cadence, then unscheduled and
+> both secrets removed, matching SB-001's precedent: nothing useful comes
+> from leaving a keyless job to fail on a timer forever locally.
+>
+> **What is NOT proven, and is this task's actual accept line:** a real row
+> in `digest_batches`. That needs `enqueue` to reach a real Anthropic Batch
+> API call, which needs the key. Evidence: `docs/00-verification.md` "SB-017".
 
 Same gap, same mechanism.
 

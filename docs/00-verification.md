@@ -720,6 +720,45 @@ client yet, so `confirm_email` was exercised directly against the API, not
 through a UI a person would actually click through. The endpoint's
 confirmation gate is real regardless of whether a UI sits in front of it.
 
+### SB-017 · Schedule the weekly digest
+
+**2026-08-07, local stack.** Mirrors SB-001's proof exactly, on the `digest`
+function's own two actions. Migration `20260807000300_digest_schedule.sql`
+schedules `digest-enqueue` (Saturdays 03:00 UTC) and `digest-collect` (every
+6 hours) via `pg_cron`, conditional on two Vault secrets, both read live at
+call time — never baked into the stored job text (an earlier draft of this
+migration did exactly that with `format(...)`, caught and fixed before it
+was ever applied: the secret would have sat in cleartext in `cron.job`,
+readable by anyone who could `select command from cron.job`).
+
+With the secrets set, both jobs were temporarily fast-forwarded to `* * * *
+*` to observe a real automatic tick within the session rather than waiting
+until next Saturday:
+
+| job | fired on its own timer | `net._http_response` |
+|---|---|---|
+| `digest-collect` | `succeeded`, 20:48:00 | `500 {"error":{"code":"missing_configuration"}}` |
+| `digest-enqueue` | `succeeded`, 20:49:00 | `500 {"error":{"code":"missing_configuration"}}` |
+
+Both reached the real `digest` function — the `500` is `requireEnv`
+throwing on the missing `ANTHROPIC_API_KEY`, which this worktree does not
+have, before either action's own logic runs. This is the mechanism working
+correctly, not a failure of it: `cron.job_run_details` and the real HTTP
+response together prove the schedule fires and reaches the function, exactly
+as much as is provable without the vendor key.
+
+Restored to the real cadence, then unscheduled and both secrets removed —
+same reasoning as SB-001: nothing useful comes from leaving a keyless job to
+fail on a timer forever in this environment. `cron.job` and `vault.secrets`
+are clean of digest entries again; `ai-jobs-retention` (SB-004) is the only
+job left scheduled, correctly, since it has no vendor dependency.
+
+**Not proven, and this is the task's actual accept line:** a real row in
+`digest_batches`. That needs a real `messages.batches.create()` call, which
+needs the key. SB-017 is filed `blocked` on that basis, not `done` — the
+mechanism working is necessary but not sufficient for what the task itself
+asks for.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

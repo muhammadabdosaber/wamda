@@ -119,9 +119,14 @@ Ordered by consequence, not effort.
       safe to run more than once. Until those two secrets exist, the
       migration raises a NOTICE and leaves the job unscheduled instead of
       failing the deploy — the same "written, not yet turned on" state the
-      vendor keys and `digest` are already in. `digest` still has no
-      schedule at all; the same two-secret pattern (with its own URL secret)
-      would wire it the same way.
+      vendor keys are already in.
+
+      **`digest`'s schedule is now built too** (SB-017, migration
+      `20260807000300_digest_schedule.sql`), same two-secret pattern, its own
+      URL secret. Both `digest-enqueue` and `digest-collect` were proven to
+      fire on their own timer and reach the real function; the vendor key
+      still blocks the part that matters (a real `digest_batches` row), so
+      SB-017 is filed `blocked`, not `done`. See `docs/00-verification.md`.
 
       Verified locally: extensions install, the conditional correctly
       no-ops without secrets, and — with Vault secrets pointed at a local

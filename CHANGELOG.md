@@ -10,6 +10,36 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — weekly digest schedule, mechanism proven live (SB-017, blocked on a key)
+
+Same gap, same mechanism as SB-001's sweep schedule, applied to `digest`'s
+two actions. `20260807000300_digest_schedule.sql` schedules
+`digest-enqueue` (Saturdays 03:00 UTC) and `digest-collect` (every 6 hours —
+enqueue is weekly, but the Batch API can take up to 24h, so collect keeps
+polling), both conditional on two Vault secrets read live at call time.
+
+**Caught before it shipped:** a first draft used `format(...)` to bake the
+actual secret values into the stored `cron.job` command text. That would
+have put the service-role key in cleartext, readable by anyone who could
+`select command from cron.job`, and needed the migration re-run on every key
+rotation. Rewritten to match `sweep-worker`'s pattern exactly — a live
+lookup subquery in the job body, never a baked-in literal.
+
+**Proven live:** with the secrets set, both jobs were temporarily
+fast-forwarded to fire every minute and both fired on their own timer within
+the session — `cron.job_run_details` `succeeded` for each, `net._http_response`
+confirming the real `digest` function was reached (`500
+missing_configuration` — this worktree has no `ANTHROPIC_API_KEY`, so
+`requireEnv` throws before either action's logic runs). Restored to the real
+cadence, then unscheduled and secrets removed — same reasoning as SB-001,
+nothing useful in leaving a keyless job to fail on a timer forever locally.
+
+**Filed `blocked`, not `done`:** the mechanism works, but the task's actual
+accept line — a real row in `digest_batches` — needs a real
+`messages.batches.create()` call, which needs the key.
+
+Evidence: `docs/00-verification.md`, "SB-017 · Schedule the weekly digest".
+
 ### Added — export everything and delete everything (SB-014, SB-015)
 
 The two user-rights endpoints the product spec named from day one and had
