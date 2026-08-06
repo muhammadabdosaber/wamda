@@ -670,6 +670,56 @@ both times — `storage.objects` count stayed `1`, `audio_path` stayed set.
 Test notes and objects removed afterward. The owner's 14 real notes and his 2
 real audio objects were confirmed present, untouched, before and after.
 
+### SB-014/015 · Export everything · Delete everything
+
+**2026-08-07, local stack, real data, a disposable user, never the owner's
+account.**
+
+**SB-014, against the real owner's account (read-only, safe):** a local-dev
+JWT was minted for the real owner (no client session exists in this
+worktree). `GET /export` returned `200`, 13 KB, exactly the owner's **14**
+real notes, correctly split **2 archived / 1 completed / 10 with an
+enrichment and tags** — matching known counts from earlier sessions.
+`raw_text`, full enrichment detail (`title`, `summary`, `category`,
+`priority`, `suggested_action`, `action_due_at`, `context`, `model`), and
+tags with per-language labels were all present and correctly nested.
+
+**Cross-user isolation for `/export`, proven fresh — not just inherited from
+RLS being proven elsewhere.** A disposable test user was created via the
+Auth Admin API (`sb015-disposable-test@example.test`). Before they had any
+data: `GET /export` → `{"notes":[]}` — zero leakage of the owner's 14 notes.
+They then captured one real note through `POST /notes`; `GET /export`
+immediately returned exactly that one note.
+
+**SB-015, full deletion cycle, the same disposable user:** given one real
+enrichment, tag (+ label), embedding, `ai_jobs` row, and a real audio object
+actually uploaded to the `audio` bucket via the Storage REST API. Pre-check
+confirmed exactly 1 row in every relevant table.
+
+| step | result |
+|---|---|
+| `POST /delete-account` with the wrong `confirm_email` | `400 confirmation_mismatch`; user still present afterward |
+| `POST /delete-account` with the correct `confirm_email` | `200 {"deleted":true}` |
+
+**Every one of 10 tables checked read exactly zero afterward:** `notes`,
+`note_enrichments`, `note_tags`, `tags`, `tag_labels`, `note_embeddings`,
+`ai_jobs`, `profiles`, `auth.users`, `storage.objects` — the last two
+confirming the deletion reached the auth layer and Storage, not just
+application tables. A direct `GET` on the deleted audio object returned
+**`400`** — the same real-byte-deletion proof used for SB-009, not just an
+absent catalog row.
+
+**The real owner was never touched, confirmed before and after:** 14 notes,
+1 `auth.users` row, 2 real audio objects, all present and unchanged.
+`auth.users` held exactly 2 rows throughout the whole test — the owner and
+the pre-existing documented local test fixture (`muhammad@example.test`,
+CLAUDE.md) — never the disposable user once deletion completed.
+
+**What this does not cover:** there is no settings/account screen in the
+client yet, so `confirm_email` was exercised directly against the API, not
+through a UI a person would actually click through. The endpoint's
+confirmation gate is real regardless of whether a UI sits in front of it.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

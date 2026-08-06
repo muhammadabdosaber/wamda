@@ -44,6 +44,8 @@ blocked on.
 | SB-010 | Pin `ALLOWED_ORIGIN` | M6 | S | **done** |
 | SB-004 | `ai_jobs` retention | M6 | S | **done** |
 | SB-009 | Enforce audio retention | M6 | M | **done** |
+| SB-014 | Export everything | M6 | M | **done** |
+| SB-015 | Delete everything | M6 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -311,12 +313,51 @@ voice longer than promised is a privacy failure, not a cleanup task.
   Storage on a schedule, the note survives with its transcript, and a test
   covers the boundary.
 
-### SB-014 · Export everything · `todo` · M
+### SB-014 · Export everything · `done` · M
+
+> **Done, proven against real data (2026-08-07).** `GET /export`
+> (`supabase/functions/export`) runs entirely under the caller's own client —
+> no service role, no `user_id` filter to forget, RLS is the reason no other
+> user's data is reachable. Returns every note (including archived, unlike
+> the timeline) with `raw_text`, its enrichments, and its tags with labels.
+> Format documented in `docs/03-api.md`.
+>
+> Called for real against the owner's live account: **200, 13 KB, all 14
+> notes**, including 2 archived and 1 completed, `raw_text` and full
+> enrichment/tag detail present and correctly shaped. Cross-user isolation
+> proven fresh, not just inherited: a brand-new disposable test user got back
+> `notes: []` — zero leakage of the owner's 14 notes — then, after capturing
+> one real note of their own, got back exactly that one note with its
+> enrichment and tag correctly joined. Evidence:
+> `docs/00-verification.md` "SB-014/015".
 
 - **Accept:** one call returns every note, enrichment, and tag for the caller in
   a documented format, under RLS, with no other user's data reachable.
 
-### SB-015 · Delete everything · `todo` · M
+### SB-015 · Delete everything · `done` · M
+
+> **Done, proven with a full deletion cycle against real data across every
+> table (2026-08-07).** `POST /delete-account` (`supabase/functions/delete-account`)
+> requires `confirm_email` to match the caller's own authenticated email
+> exactly — the endpoint *is* the confirmation step, since no settings UI
+> exists yet to put one in front of it. One call, `auth.admin.deleteUser()`,
+> cascades through every `references auth.users ... on delete cascade` table
+> (already true before this task — `docs/08-security.md`); this task's own
+> code is the Storage audio cleanup, which no Postgres FK reaches.
+>
+> **Full live cycle, a disposable test user, never the owner's account:**
+> created via the Auth Admin API, given one real note plus a real
+> enrichment, tag, tag label, embedding, `ai_jobs` row, and a real uploaded
+> audio object. A wrong `confirm_email` was rejected (`400
+> confirmation_mismatch`) and the account confirmed still present. The
+> correct email deleted it (`200 {"deleted":true}`). Afterward, **all 10
+> tables checked read exactly zero** — `notes`, `note_enrichments`,
+> `note_tags`, `tags`, `tag_labels`, `note_embeddings`, `ai_jobs`,
+> `profiles`, `auth.users`, and `storage.objects` — and a direct `GET` on
+> the deleted audio object returned `400`: the bytes are gone, not just the
+> catalog row. The real owner's 14 notes, 1 `auth.users` row, and 2 real
+> audio objects were confirmed present and untouched throughout. Evidence:
+> `docs/00-verification.md` "SB-014/015".
 
 - **Accept:** account deletion removes notes, enrichments, embeddings, tags,
   `ai_jobs` rows, and Storage audio; verified by a query returning zero rows
@@ -790,6 +831,8 @@ Only Chromium has ever run this app.
 | SB-010 | Preflight rejects a foreign Origin; first `deno test` in the project, proven against a deliberate regression | `00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`" |
 | SB-004 | `purge_old_ai_jobs()` scheduled daily; `verify.sql` proves old rows go, recent ones stay | `00-verification.md` "SB-004 · `ai_jobs` retention" |
 | SB-009 | Real audio object uploaded and deleted via the Storage API; `400` on re-fetch proves the bytes are gone, not just the row | `00-verification.md` "SB-009 · Enforce audio retention" |
+| SB-014 | `/export` proven against the owner's real 14 notes; cross-user isolation proven fresh with a disposable user | `00-verification.md` "SB-014/015" |
+| SB-015 | Full deletion cycle on a disposable user: 10 tables to zero, real audio bytes confirmed gone, owner's account untouched | `00-verification.md` "SB-014/015" |
 
 ---
 

@@ -103,7 +103,9 @@ were flagged for later. Read-only, cheap, batch.
 
 The user can see what the system did to a note (raw text preserved next to the
 AI's version), export everything, and delete everything.
-**Export/delete are not built yet** — tracked as SB-014/SB-015.
+**Built and proven** — `GET /export`, `POST /delete-account` (SB-014/SB-015,
+2026-08-07). No settings screen exposes them in the client UI yet; both are
+real, tested API endpoints. `docs/00-verification.md`.
 
 ## Scope
 
@@ -115,8 +117,14 @@ email OTP auth · installable PWA · Arabic RTL UI.
 
 ### In, later
 
-English (phase 7 — wired, disabled) · rate limits · CSP · export/delete ·
-audio retention enforcement · scheduled digest and sweep.
+English (phase 7 — wired, disabled) · scheduled digest.
+
+**Done ahead of schedule, 2026-08-06/07:** rate limits (SB-002), CSP (SB-003),
+`ALLOWED_ORIGIN` (SB-010), `ai_jobs` retention (SB-004), audio retention
+enforcement (SB-009), export/delete (SB-014/SB-015), and the sweep schedule
+mechanism (SB-001, proven live but left unscheduled locally — see
+`docs/09-status-handoff.md`). All proven with real data, not just written —
+`docs/00-verification.md`.
 
 ### Out, deliberately
 

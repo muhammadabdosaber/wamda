@@ -10,6 +10,47 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — export everything and delete everything (SB-014, SB-015)
+
+The two user-rights endpoints the product spec named from day one and had
+never built.
+
+**`GET /export` (SB-014).** Runs entirely under the caller's own client — no
+service role, no `user_id` filter to get wrong; RLS is the reason no other
+user's data is reachable, not application code remembering to check. Returns
+every note the caller owns (including archived, unlike the timeline), with
+full `raw_text`, every enrichment, and every tag with its labels. Format
+documented in `docs/03-api.md`.
+
+**`POST /delete-account` (SB-015).** Requires `confirm_email` to match the
+caller's own authenticated email exactly — the endpoint *is* the
+confirmation step, since no settings UI exists yet to put one in front of
+it. The deletion itself is one call, `auth.admin.deleteUser()`, which
+cascades through every table with a `references auth.users ... on delete
+cascade` FK (already true before this change). This task's own code is the
+Storage audio cleanup, which no Postgres FK reaches — deleted first, so a
+failure there leaves the account, and the ability to retry, intact.
+
+**Proven with real data, not a mock:**
+
+- `/export` called against the real owner's account: `200`, 13 KB, exactly
+  their 14 real notes, correctly split 2 archived / 1 completed / 10
+  enriched-and-tagged.
+- Cross-user isolation for `/export` proven fresh with a disposable test
+  user: empty before they had data, exactly their own note after capturing
+  one.
+- `/delete-account` run through a full cycle on that same disposable user —
+  given a real enrichment, tag, tag label, embedding, `ai_jobs` row, and a
+  real uploaded audio object first. A wrong `confirm_email` was rejected and
+  the account confirmed still present; the correct one deleted it. All 10
+  tables checked (`notes` through `storage.objects`, including `auth.users`
+  itself) read exactly zero afterward, and a direct `GET` on the deleted
+  audio object returned `400` — the bytes are gone, not just the row.
+- The real owner's 14 notes, `auth.users` row, and 2 real audio objects were
+  confirmed present and untouched before and after.
+
+Evidence: `docs/00-verification.md`, "SB-014/015".
+
 ### Added — audio retention actually enforced (SB-009)
 
 `profiles.audio_retention_days` existed since the first migration and

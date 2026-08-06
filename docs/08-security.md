@@ -161,9 +161,20 @@ real, not silently worked around. Evidence: `docs/00-verification.md`.
 
 ## User rights
 
-Hard delete cascades from `auth.users` through notes, enrichments, embeddings,
-tags, relations, digests, and jobs. Audio is path-scoped per user and deleted
-alongside.
+**Export (SB-014), done 2026-08-07.** `GET /export` returns every note,
+enrichment, and tag the caller owns, under the caller's own RLS — no
+service role, no `user_id` filter to get wrong. Proven against the owner's
+real 14 notes and a fresh cross-user isolation check. See
+`docs/00-verification.md` "SB-014/015".
+
+**Delete (SB-015), done 2026-08-07.** `POST /delete-account` requires the
+caller's own email typed back exactly, then `auth.admin.deleteUser()`
+cascades hard delete from `auth.users` through notes, enrichments,
+embeddings, tags, relations, digests, and jobs. Audio is path-scoped per
+user and deleted explicitly via the Storage API first (a Postgres FK cannot
+reach Storage objects). Proven with a full cycle on a disposable test user:
+10 tables to zero, a direct `GET` on the deleted audio object returning
+`400`. See `docs/00-verification.md` "SB-014/015".
 
 ## Open items before production
 
