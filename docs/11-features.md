@@ -124,9 +124,9 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 |---|---|---|---|
 | 6.1 | Schema verification harness (12 assertions) | ✅ | `supabase/tests/verify.sql` |
 | 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
-| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 verified locally; **nothing schedules it** | `functions/sweep` · SB-001 |
+| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 unstick proven on a live cron timer (SB-001); retry/backfill still fail for want of vendor keys | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
-| 6.5 | `pg_cron` schedule for sweep | 🟡 on `main`; applies cleanly in CI and takes its `NOTICE` path. **Nothing has ever swept** — needs Vault secrets | SB-001 |
+| 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06. Left inert locally after; a hosted run is SB-016 | SB-001 |
 | 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |

@@ -10,6 +10,39 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Verified — the sweep schedule recovered a stranded note on its own timer (SB-001)
+
+The claim every earlier sweep note deferred — *a `pg_cron` job fires by itself
+and rescues a note with no client open* — now has evidence, not just a
+mechanism. Nothing in the code changed; the migration was already on `main`.
+What ran, on the local stack (2026-08-06):
+
+- Set the two Vault secrets the migration reads at call time — the sweep URL
+  pointed at kong via `host.docker.internal:54421`, and the local service-role
+  key — then re-ran the `do` block of `20260801000800_sweep_schedule.sql`. It
+  took the scheduled branch and registered `sweep-worker` (`*/5 * * * *`).
+- A note stranded in `enriching` with a 15-minute-old `updated_at` was returned
+  to `queued` **by the cron's own timer** — no browser, no hand-fired command.
+  Proof from three angles: `cron.job_run_details` runid 3 `succeeded` at
+  18:35:00 UTC; `net._http_response` `200 {"unstuck":1,...}`; the note's status
+  and `updated_at` flipped at that same instant.
+- **What did not run:** the retry pass that follows the unstick tried to enrich
+  the two genuinely-stranded `queued` notes and failed with
+  `missing_configuration` — this environment has no vendor keys — so they
+  returned to `queued`, not `failed`. Only the *unstick* arm is proven live;
+  enrich/embed still wait on SB-005/SB-007, and a hosted run on SB-016.
+- Left inert afterward on purpose: `sweep-worker` unscheduled and both secrets
+  deleted, so a keyless `*/5` does not drive real notes to the 5-attempt
+  `failed` cap. `cron.job` and `vault.secrets` are empty again.
+- **Operational note:** the local stack had last been started from a since-
+  deleted worktree, so kong could not mount its email template and stayed down
+  (exit 127). A `supabase stop && supabase start` from a live checkout rebuilt
+  the containers with valid mounts; the database volume (14 real notes) was
+  untouched. Same class of breakage recorded before under the owner's test
+  session.
+
+Evidence: `docs/00-verification.md`, "SB-001 · A note recovered by the schedule".
+
 ### Fixed — a captured note that fails enrichment no longer vanishes (SB-032), and capture confirms by showing the note again
 
 Owner feedback the moment the redesign hit his own stack: he added two notes,

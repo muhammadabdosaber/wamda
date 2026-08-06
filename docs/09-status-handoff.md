@@ -129,6 +129,17 @@ Ordered by consequence, not effort.
       `cron.schedule` registered the job and manually firing its exact
       command returned a real `200` from `sweep`. The test job and secrets
       were removed afterward; nothing from that test is left scheduled.
+
+      **SB-001 closed (2026-08-06).** The gap that remained — proving the
+      *schedule*, not a hand-fired command — is now closed. With the two
+      secrets set, `sweep-worker` (`*/5`) fired on its own timer and returned a
+      note stranded in `enriching` to `queued` with no client open:
+      `cron.job_run_details` runid 3 `succeeded` at 18:35:00 UTC,
+      `net._http_response` `200 {"unstuck":1,...}`. The follow-on retry still
+      fails enrich/embed for want of vendor keys, so only the unstick arm is
+      proven live; a hosted run is SB-016. Unscheduled and secrets removed
+      after — local `cron.job`/`vault.secrets` empty again. Evidence:
+      `docs/00-verification.md`.
 - [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Unbounded today —
       a runaway client loop is a runaway bill.
 - [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the

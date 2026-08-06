@@ -39,25 +39,26 @@ blocked on.
 | SB-037 | Open the source note from a task row (+ SB-021) | M8 | M | **done** |
 | SB-038 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | **done** |
 | SB-011 | Bundle the app fonts (Public Sans + Noto Sans Arabic) | — | S | **done** |
-| SB-001 | Schedule the sweep worker — **may already be done**, see below | M5 | M | todo |
+| SB-001 | Schedule the sweep worker | M5 | M | **done** |
 | SB-003 | Strict CSP | M6 | M | todo |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
 
-> **SB-001 is on `main`** (#5). `20260801000800_sweep_schedule.sql` reads the
-> function URL and service role key from Vault at call time rather than
-> embedding either in a committed file, and when the secrets are absent it
-> raises a `NOTICE` and leaves the job unscheduled instead of failing the
-> deploy. `cron.schedule` replaces by name, so the file is re-runnable.
-> **Verified in CI on a clean Postgres:** the migration applies and takes the
-> `NOTICE` path, so deploying into an environment with no Vault secrets is
-> safe. Confirmed inert locally too — `cron.job` and `vault.secrets` are both
-> empty.
->
-> **What remains is the only part that matters:** set the two Vault secrets
-> somewhere that should actually sweep, re-run the migration, and prove a
-> stranded note recovers **with no client open**. Nothing has ever swept.
+> **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
+> `20260801000800_sweep_schedule.sql` reads the function URL and service role
+> key from Vault at call time rather than embedding either in a committed file,
+> and when the secrets are absent it raises a `NOTICE` and leaves the job
+> unscheduled instead of failing the deploy. `cron.schedule` replaces by name,
+> so the file is re-runnable. **The part that mattered is now proven:** with the
+> two secrets set on the local stack, the `*/5` `sweep-worker` job fired on its
+> own timer (`cron.job_run_details` runid 3, 18:35:00 UTC), the call returned
+> `200 {"unstuck":1,...}`, and a note stranded in `enriching` returned to
+> `queued` **with no client open and nothing invoked by hand**. Evidence:
+> `docs/00-verification.md` "SB-001 · A note recovered by the schedule". Left
+> inert afterward (`cron.job`/`vault.secrets` empty) so a keyless local `*/5`
+> does not drive real notes to the failed-attempt cap. Turning it on for real is
+> still one secret-pair + migration re-run per environment (SB-016 for hosted).
 
 ---
 
@@ -128,20 +129,22 @@ audio and the signed-URL upload to Storage worked. Both notes then failed at
 
 ## M5 — Scheduling
 
-### SB-001 · Schedule the sweep worker · `todo` · M
+### SB-001 · Schedule the sweep worker · `done` · M
 
-The sweep worker is written and verified, and **nothing runs it**. No `pg_cron`
-job exists in any migration.
-
-- **Start at:** `supabase/functions/sweep/index.ts`, migration `…000700`.
-- **Do:** a migration creating a `pg_cron` job that calls the deployed function
-  URL via `pg_net.http_post`, with the service role key read from Vault — never
-  literal in a migration.
-- **Accept:** a note manually stranded in `enriching` with an old timestamp is
-  returned to `queued` **with no client open and nothing invoked by hand**;
-  `ai_jobs` shows the sweep run.
-- **Note:** the URL and key are environment-specific. Parameterize; do not hard
-  code a project ref.
+> **Done, proven on a live timer (2026-08-06).** The migration
+> (`20260801000800_sweep_schedule.sql`) creates a `pg_cron` job that POSTs to
+> the deployed function via `pg_net`, reading both the function URL and the
+> service-role key from Vault at call time — neither is a literal in the file,
+> and the project ref is not hard-coded. With the two secrets set on the local
+> stack, `sweep-worker` (`*/5 * * * *`) fired **on its own timer** and returned
+> a note stranded in `enriching` to `queued` with no client open and nothing
+> invoked by hand: `cron.job_run_details` runid 3 `succeeded` at 18:35:00 UTC,
+> `net._http_response` `200 {"unstuck":1,...}`, note `updated_at` 18:35:00. The
+> retry pass that follows still fails enrich/embed for want of vendor keys
+> (`missing_configuration`), so only the *unstick* arm is proven end to end; the
+> rest waits on SB-005/SB-007, and a hosted run waits on SB-016. Unscheduled and
+> secrets removed afterward. Evidence: `docs/00-verification.md` "SB-001 · A
+> note recovered by the schedule".
 
 ### SB-017 · Schedule the weekly digest · `todo` · S
 
@@ -674,6 +677,7 @@ Only Chromium has ever run this app.
 | SB-033 | Answered suggestion shows `تمّت / تم التجاهل` + undo | `00-verification.md` |
 | SB-011 | Self-hosted Public Sans + Noto Sans Arabic; CDN font `<link>` removed | `00-verification.md` |
 | SB-032 | Non-`ready` notes stay visible (processing/failed), never absent | owner-reported; `CHANGELOG` |
+| SB-001 | `pg_cron` sweep fired on its own timer; stranded `enriching` note → `queued`, no client | `00-verification.md` "SB-001 · A note recovered by the schedule" |
 
 ---
 

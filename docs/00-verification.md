@@ -380,8 +380,58 @@ NOTICE: sweep-worker cron job NOT scheduled: set the "sweep_function_url" and
 followed by `ALL SCHEMA CHECKS PASSED`. That is the design claim — absent
 secrets degrade to a notice rather than failing the deploy — reproduced
 somewhere nobody had configured, instead of only on the machine where it was
-written. **It still proves nothing about sweeping**: no cron job has ever
-fired, and no note has ever been recovered without a client open.
+written. It proved the *safe* path only; it still proved nothing about
+sweeping — see the next section, which closes that gap.
+
+### SB-001 · A note recovered by the schedule, with no client open
+
+**2026-08-06, local stack.** The thing every prior sweep note said had never
+happened: a `pg_cron` job fired on its own timer, called the deployed function,
+and returned a stranded note to `queued` — no browser open, nothing invoked by
+hand.
+
+Setup, on the running local stack (`project_id = Second_Brain`, kong on 54421):
+
+1. Set the two environment secrets the migration reads from Vault — the URL
+   pointed at kong from inside the db container,
+   `http://host.docker.internal:54421/functions/v1/sweep`, and the local
+   service-role key.
+2. Re-ran the `do` block of `20260801000800_sweep_schedule.sql`. It took the
+   *scheduled* branch this time (secrets present) and registered
+   `sweep-worker`, `*/5 * * * *`, `active = t`.
+3. Inserted one note stranded in `enriching` with `updated_at` 15 minutes old —
+   past the function's 10-minute `STUCK_MINUTES` cutoff.
+4. Waited. Did not call the function.
+
+What the database recorded, entirely on the cron's own timer:
+
+| evidence | value |
+|---|---|
+| `cron.job_run_details` runid 3 | `succeeded`, `start_time` **18:35:00.03 UTC** |
+| `net._http_response` id 3 (that call) | `200`, body **`{"unstuck":1,"retried":0,"embedded":0}`** |
+| the note | `enriching` → `queued`, `updated_at` **18:35:00.29 UTC** |
+
+The `unstuck:1` and the status flip are the same event seen from two sides. The
+tick at 18:30:00 (`unstuck:0`, before the note existed) rules out coincidence —
+the note moved on the first tick *after* it was stranded, not before.
+
+**What did NOT run, stated plainly.** The retry pass that runs right after the
+unstick tried to enrich the two genuinely-stranded `queued` notes on this stack
+and failed with `missing_configuration` — **this worktree has no vendor keys** —
+so they returned to `queued` (not `failed`; a non-refusal error is transient by
+`pipeline.ts` design), each with one more `ai_jobs` attempt logged. So the
+*unstick* arm of the sweep is now proven end to end on a real timer; the
+*enrich/embed* arms still fail for want of keys, exactly as everywhere else in
+this ledger (SB-005/SB-007). And this is **local only** — nothing has swept on a
+hosted project (SB-016).
+
+**Left inert again afterward, on purpose.** A `*/5` job against a keyless stack
+would drive those two real notes to the 5-attempt cap and mark them `failed`, so
+`sweep-worker` was unscheduled and both secrets deleted once the proof landed —
+`cron.job` and `vault.secrets` are empty again, the same "written and proven,
+not left running" state the earlier `host.docker.internal` test settled on. The
+mechanism is proven; turning it on for real is one `vault.create_secret` pair
+plus a re-run of the migration, per `docs/09-status-handoff.md`.
 
 ### The owner's own test session
 
