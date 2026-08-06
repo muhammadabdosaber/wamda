@@ -108,7 +108,7 @@ client open, and one real weekly digest exists in the database.
 - [x] `ALLOWED_ORIGIN` pinned (SB-010) — preflight rejects a foreign Origin when configured; a hosted deploy (SB-016) still needs to actually set the env var
 - [ ] Export everything (SB-014) and delete everything (SB-015)
 - [ ] Audio retention enforcement (SB-009)
-- [ ] `ai_jobs` retention (SB-004)
+- [x] `ai_jobs` retention (SB-004) — 90-day purge, daily `pg_cron`, proven live
 - [ ] Deployed to a real Supabase project (SB-016)
 
 **Exit:** the app can be left running for a month unattended without an

@@ -42,6 +42,7 @@ blocked on.
 | SB-001 | Schedule the sweep worker | M5 | M | **done** |
 | SB-003 | Strict CSP | M6 | M | **done** |
 | SB-010 | Pin `ALLOWED_ORIGIN` | M6 | S | **done** |
+| SB-004 | `ai_jobs` retention | M6 | S | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -255,7 +256,21 @@ Defaults to `*` today.
 - **Accept:** a request with a foreign `Origin` is rejected by the preflight
   path in `_shared/http.ts`; a test covers it.
 
-### SB-004 · `ai_jobs` retention · `todo` · S
+### SB-004 · `ai_jobs` retention · `done` · S
+
+> **Done (2026-08-07).** `public.purge_old_ai_jobs(p_days default 90)`
+> (migration `20260807000100`) deletes `ai_jobs` rows older than the window
+> and returns the count removed; scheduled via `pg_cron` daily at 03:00 UTC,
+> unconditionally — no Vault secrets needed, since this never leaves
+> Postgres (unlike the sweep/digest schedules). Window recorded in
+> `docs/02-database-schema.md` under a new **Retention** section. Proven live:
+> `verify.sql` inserts a 120-day-old row and a 10-day-old row, calls the
+> function, and asserts the old one is gone and the recent one survives —
+> `ALL SCHEMA CHECKS PASSED`. Confirmed on the running local stack:
+> `cron.job` shows `ai-jobs-retention` scheduled and active; the 57 real
+> `ai_jobs` rows (oldest from 2026-08-02) were untouched, correctly, since
+> none are near the 90-day window yet. Left scheduled — no reason to turn it
+> off, unlike SB-001's sweep. Evidence: `docs/00-verification.md`.
 
 Grows without limit; it takes a row per stage per note per attempt.
 
@@ -748,6 +763,7 @@ Only Chromium has ever run this app.
 | SB-002 | Rate gate proven in `verify.sql` and over real HTTP: 60 vendor attempts then a clean `429` on call 61 | `00-verification.md` "SB-002 · Per-user rate limit" |
 | SB-003 | Strict CSP served real (curl-confirmed), real cross-origin auth call succeeds, deliberate violation blocked + reported | `00-verification.md` "SB-003 · Strict CSP" |
 | SB-010 | Preflight rejects a foreign Origin; first `deno test` in the project, proven against a deliberate regression | `00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`" |
+| SB-004 | `purge_old_ai_jobs()` scheduled daily; `verify.sql` proves old rows go, recent ones stay | `00-verification.md` "SB-004 · `ai_jobs` retention" |
 
 ---
 

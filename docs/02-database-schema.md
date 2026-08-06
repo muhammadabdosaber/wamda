@@ -127,6 +127,16 @@ Partial indexes matter here because the timeline only ever shows ready,
 unarchived notes — indexing failed and draft rows would grow the index for
 queries that never touch them.
 
+## Retention
+
+`ai_jobs` is pipeline telemetry — shape, cost, latency, error code, never note
+content (`docs/08-security.md`) — so unlike everything else in this schema it
+has no reason to be kept forever. **Rows older than 90 days are deleted daily**
+by `public.purge_old_ai_jobs()`, scheduled via `pg_cron` at 03:00 UTC
+(migration `20260807000100_ai_jobs_retention.sql`, SB-004). No other table has
+a retention policy: notes and their enrichments are the product's memory and
+are kept until the user deletes them (SB-015).
+
 ## Verification
 
 `supabase/tests/verify.sql` asserts, against a live database:

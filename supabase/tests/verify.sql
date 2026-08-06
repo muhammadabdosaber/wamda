@@ -397,6 +397,39 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 8. ai_jobs retention (SB-004)
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  removed integer;
+  remaining integer;
+begin
+  delete from public.ai_jobs where user_id = alice and stage = 'digest';
+
+  insert into public.ai_jobs (user_id, stage, status, created_at)
+  values
+    (alice, 'digest', 'succeeded', now() - interval '120 days'), -- old, must go
+    (alice, 'digest', 'succeeded', now() - interval '10 days');  -- recent, must stay
+
+  removed := public.purge_old_ai_jobs(90);
+  if removed < 1 then
+    raise exception 'purge_old_ai_jobs removed % rows, expected at least 1', removed;
+  end if;
+
+  select count(*) into remaining from public.ai_jobs
+   where user_id = alice and stage = 'digest';
+  if remaining <> 1 then
+    raise exception 'purge_old_ai_jobs left % rows for alice, expected exactly 1 (the recent one)', remaining;
+  end if;
+
+  raise notice 'PASS: purge_old_ai_jobs removes rows past the window, keeps recent ones';
+
+  delete from public.ai_jobs where user_id = alice and stage = 'digest';
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

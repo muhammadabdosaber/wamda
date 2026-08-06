@@ -600,6 +600,34 @@ setting it locally would have changed this worktree's CORS behavior for
 every other browser session using it, so the unit-test proof (which exercises
 the real `preflight()` function, not a mock) stands as evidence for that case.
 
+### SB-004 · `ai_jobs` retention
+
+**2026-08-07, local stack.** `ai_jobs` takes a row per stage per note per
+attempt and had no retention policy. `public.purge_old_ai_jobs(p_days default
+90)` (migration `20260807000100_ai_jobs_retention.sql`) deletes rows older
+than the window and returns the count removed; `pg_cron` calls it daily at
+03:00 UTC. No Vault secrets involved — unlike the sweep/digest schedules this
+never leaves Postgres, so it schedules unconditionally rather than taking the
+conditional "NOTICE and stay unscheduled" path SB-001 needed.
+
+**Proven live**, via `verify.sql`: inserted one `ai_jobs` row 120 days old and
+one 10 days old for the same test user, called `purge_old_ai_jobs(90)`,
+asserted the old row was gone and the recent one survived. `ALL SCHEMA CHECKS
+PASSED`.
+
+**Confirmed on the actual running stack**, not just in the test script:
+
+| check | result |
+|---|---|
+| `cron.job` | `ai-jobs-retention`, `0 3 * * *`, `active = t` |
+| the owner's 14 real notes | untouched |
+| the owner's 57 real `ai_jobs` rows | untouched — oldest is from 2026-08-02, nowhere near 90 days |
+
+**Left scheduled**, unlike SB-001's sweep-worker: there is no failure mode
+from leaving this running against real data (it only ever deletes rows past
+the window, and nothing here is anywhere close to it), so there was no reason
+to turn it off after proving it.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

@@ -10,6 +10,25 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — `ai_jobs` retention (SB-004)
+
+`ai_jobs` takes a row per stage per note per attempt and grew without limit.
+`public.purge_old_ai_jobs(p_days default 90)` (migration
+`20260807000100_ai_jobs_retention.sql`) deletes rows older than the window
+and returns the count removed; `pg_cron` calls it daily at 03:00 UTC. No
+Vault secrets needed — unlike the sweep/digest schedules this never leaves
+Postgres, so it schedules unconditionally. Window recorded in
+`docs/02-database-schema.md`'s new **Retention** section.
+
+Proven live in `verify.sql`: a 120-day-old row and a 10-day-old row inserted,
+the function called, the old one confirmed gone and the recent one confirmed
+to survive. Confirmed on the running local stack too — `cron.job` shows it
+scheduled and active, and the owner's 57 real `ai_jobs` rows (oldest from
+2026-08-02) were untouched, correctly, since none are near 90 days yet. Left
+scheduled — no reason to turn it off, unlike SB-001's sweep.
+
+Evidence: `docs/00-verification.md`, "SB-004 · `ai_jobs` retention".
+
 ### Added — `ALLOWED_ORIGIN` now actually gates the preflight (SB-010)
 
 Before, `ALLOWED_ORIGIN` only decorated the CORS header value — every

@@ -155,7 +155,11 @@ Ordered by consequence, not effort.
       `disposition: "enforce"`. `frame-ancestors`/`report-to` can't live in
       `<meta>` — whatever host SB-016 deploys to must set those at the server
       layer. See `docs/00-verification.md` and `docs/08-security.md`.
-- [ ] **`ai_jobs` retention/partitioning.** Grows without limit.
+- [x] **`ai_jobs` retention** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, no Vault secrets needed (never leaves Postgres). Proven live
+      against real inserted rows in `verify.sql`; the schedule is left
+      running, unlike SB-001's sweep, since nothing about it is unsafe against
+      real data. Partitioning not attempted — not needed at this scale.
 - [ ] **Audio deletion sweep.** `profiles.audio_retention_days` exists; nothing
       enforces it.
 - [x] **`ALLOWED_ORIGIN`** (SB-010, 2026-08-06). Still defaults to `*`

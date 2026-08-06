@@ -129,7 +129,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06. Left inert locally after; a hosted run is SB-016 | SB-001 |
 | 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
-| 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |
+| 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
 | 6.10 | Staging / production deployment | ❌ local only, never deployed | SB-016 |

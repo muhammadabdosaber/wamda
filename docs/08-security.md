@@ -170,7 +170,9 @@ alongside.
 - [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002). Gate on
       `ai_jobs` (60 calls / 15 min per user/stage), proven live over real HTTP
       — see `docs/00-verification.md`.
-- [ ] **Retention/partitioning for `ai_jobs`.** Grows without limit.
+- [x] **Retention for `ai_jobs`** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, proven live against real inserted rows in `verify.sql`. See
+      `docs/02-database-schema.md` and `docs/00-verification.md`.
 - [x] **`ALLOWED_ORIGIN` set to a real origin** (SB-010, 2026-08-06). Still
       defaults to `*` locally, by design; when configured, `preflight()` now
       rejects a foreign or missing Origin at `403` instead of only decorating
