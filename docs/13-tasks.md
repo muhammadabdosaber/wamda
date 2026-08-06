@@ -46,6 +46,7 @@ blocked on.
 | SB-009 | Enforce audio retention | M6 | M | **done** |
 | SB-014 | Export everything | M6 | M | **done** |
 | SB-015 | Delete everything | M6 | M | **done** |
+| SB-028 | Queue archive/dismiss while offline | — | S | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -238,9 +239,20 @@ vendor bill, and both endpoints call paid APIs.
 > deliberate violation. `fetch("https://example.com/")` from the page was
 > blocked (`Failed to fetch`), and the `securitypolicyviolation` listener
 > caught it: `{directive: "connect-src", blocked: "https://example.com/",
-> disposition: "enforce"}` — enforced, not report-only. Also re-verified on
-> `vite dev` (HMR, React Fast Refresh) with the same header active — nothing
-> in the dev inner loop needed a relaxation.
+> disposition: "enforce"}` — enforced, not report-only.
+>
+> **Correction, 2026-08-07: the original "dev mode re-verified" claim was
+> wrong.** `vite dev` was checked for HMR reconnecting and a clean console —
+> not for whether a component ever actually rendered. It did not: the CSP
+> header (plus a meta-tag plugin that, unnoticed, also ran during `vite dev`)
+> blocked the inline Fast Refresh preamble `@vitejs/plugin-react` injects,
+> so React never mounted, silently. Found live while building SB-028. Fixed
+> by dropping CSP from `vite dev` entirely (`server.headers` removed, meta
+> plugin scoped `apply: "build"`) — correct on reflection, since CSP protects
+> the shipped app, not Vite's own dev tooling. `vite preview` and the built
+> `dist/index.html`, the actual production-representative surfaces this
+> task's proof rested on, were unaffected throughout. Re-verified for real on
+> `vite dev` afterward — see SB-028's evidence, same session.
 >
 > **Honest gap:** `frame-ancestors` and `report-to` cannot live in a `<meta>`
 > CSP (the spec has browsers ignore them there), so the *served header*
@@ -556,7 +568,34 @@ When it happens, the parts that are already known:
 - Pairs with SB-033: feedback without a destination makes the app look like it
   filed something it did not.
 
-### SB-028 · Queue archive/dismiss while offline · `todo` · S
+### SB-028 · Queue archive/dismiss while offline · `done` · S
+
+> **Done, proven with the backend genuinely unreachable, not simulated
+> (2026-08-07).** `archiveNote`, `dismissNoteAction`, and `restoreNoteAction`
+> now share one `writeNoteField()`: try the real write, and on any failure
+> — offline or a network error while nominally online, `navigator.onLine` is
+> not trustworthy here either (`Notes.tsx`'s own comment) — queue it in a new
+> IndexedDB store (`noteActions`, keyed `noteId:field` so a later action on
+> the same field simply overwrites an earlier queued one instead of racing
+> it on replay) instead of throwing. The caller never sees a failure, so the
+> existing optimistic UI update in `Notes.tsx` fires either way, unchanged —
+> no UI code needed to move for this. `sync()` replays the queue first, on
+> the same reconnect trigger every other mutation already uses.
+>
+> **Proven in a real browser against the real local stack:** stopped the
+> `kong` container (a genuine connection failure, not a flag), clicked
+> "تجاهل" on a real note — the card updated immediately to the resolved
+> state, no error shown. Confirmed the write had **not** reached the server
+> (`action_dismissed_at` still null in Postgres) and **had** been queued in
+> IndexedDB with the exact field/value. Restarted `kong`, called `sync()`,
+> and the queue drained (`pendingNoteActions()` → `[]`) with the server row
+> now correctly set to the exact timestamp that was queued. Reloaded the
+> page: durable, not an in-memory illusion — action chips gone, matching a
+> note that was genuinely answered.
+>
+> **A real bug in SB-003 surfaced and was fixed while building this** — see
+> the correction in that task's entry above and in `docs/00-verification.md`.
+> Evidence: `docs/00-verification.md` "SB-028".
 
 `archiveNote` and `dismissNoteAction` are direct PostgREST writes. Offline they
 fail with an error message — honest, but every other mutation in this app is
@@ -855,6 +894,7 @@ Only Chromium has ever run this app.
 | SB-009 | Real audio object uploaded and deleted via the Storage API; `400` on re-fetch proves the bytes are gone, not just the row | `00-verification.md` "SB-009 · Enforce audio retention" |
 | SB-014 | `/export` proven against the owner's real 14 notes; cross-user isolation proven fresh with a disposable user | `00-verification.md` "SB-014/015" |
 | SB-015 | Full deletion cycle on a disposable user: 10 tables to zero, real audio bytes confirmed gone, owner's account untouched | `00-verification.md` "SB-014/015" |
+| SB-028 | Dismiss with the backend genuinely down: immediate UI update, queued in IndexedDB, replayed correctly on reconnect, durable across reload | `00-verification.md` "SB-028" |
 
 ---
 

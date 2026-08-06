@@ -1,7 +1,14 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { OutboxNote } from "./outbox";
-import { markAttempted, markSynced, pending } from "./outbox";
+import {
+  clearNoteAction,
+  markAttempted,
+  markSynced,
+  pending,
+  pendingNoteActions,
+  queueNoteAction,
+} from "./outbox";
 
 /**
  * The anon key is public by design and safe to ship in a bundle. It is safe
@@ -149,17 +156,35 @@ export async function timeline(language: string, cursor?: string) {
 }
 
 /**
+ * SB-028: writes one column on an existing note, local-first like every
+ * other mutation in this app. Goes straight through PostgREST under RLS --
+ * no vendor call or server-side logic sits between the button and the row.
+ *
+ * On any failure to reach the server -- offline, or a network error while
+ * nominally online (`navigator.onLine` is not trustworthy here either, see
+ * `Notes.tsx`) -- the write is queued instead of thrown. The caller (and the
+ * optimistic UI update after it) proceeds either way: the difference between
+ * "wrote it" and "queued it to write" is invisible to the person who just
+ * tapped a button, the same as capturing a note offline already works.
+ */
+async function writeNoteField(
+  noteId: string,
+  field: "archived_at" | "action_dismissed_at",
+  value: string | null,
+): Promise<void> {
+  try {
+    const { error } = await supabase.from("notes").update({ [field]: value }).eq("id", noteId);
+    if (error) throw error;
+  } catch {
+    await queueNoteAction(noteId, field, value);
+  }
+}
+
+/**
  * Archives a note -- hides it from the timeline and from search for good.
- * Goes straight through PostgREST, not an Edge Function: `notes` is fully
- * client-writable under RLS (see 04_rls), so there is no vendor call or
- * server-side logic between the button and the row.
  */
 export async function archiveNote(noteId: string): Promise<void> {
-  const { error } = await supabase
-    .from("notes")
-    .update({ archived_at: new Date().toISOString() })
-    .eq("id", noteId);
-  if (error) throw new ApiError("archive_failed");
+  await writeNoteField(noteId, "archived_at", new Date().toISOString());
 }
 
 /**
@@ -170,11 +195,7 @@ export async function archiveNote(noteId: string): Promise<void> {
  * own response without touching AI output.
  */
 export async function dismissNoteAction(noteId: string): Promise<void> {
-  const { error } = await supabase
-    .from("notes")
-    .update({ action_dismissed_at: new Date().toISOString() })
-    .eq("id", noteId);
-  if (error) throw new ApiError("dismiss_failed");
+  await writeNoteField(noteId, "action_dismissed_at", new Date().toISOString());
 }
 
 /**
@@ -215,11 +236,7 @@ export async function noteDetail(noteId: string): Promise<NoteDetail> {
  * suggestion is irreversible from the UI.
  */
 export async function restoreNoteAction(noteId: string): Promise<void> {
-  const { error } = await supabase
-    .from("notes")
-    .update({ action_dismissed_at: null })
-    .eq("id", noteId);
-  if (error) throw new ApiError("restore_failed");
+  await writeNoteField(noteId, "action_dismissed_at", null);
 }
 
 /** Fired on `window` after a sync that actually moved at least one note. */
@@ -249,6 +266,22 @@ export async function sync(): Promise<number> {
   // genuinely stuck items.
   const { data } = await supabase.auth.getSession();
   if (!data.session) return 0;
+
+  // SB-028: replay queued archive/dismiss/undo writes before new captures --
+  // cheap, single-row updates, unlike a note's capture+enrich round trip, so
+  // there is no ordering reason to defer them.
+  for (const action of await pendingNoteActions()) {
+    try {
+      const { error } = await supabase
+        .from("notes")
+        .update({ [action.field]: action.value })
+        .eq("id", action.noteId);
+      if (error) throw error;
+      await clearNoteAction(action.key);
+    } catch {
+      // Still unreachable -- leave it queued for the next sync() call.
+    }
+  }
 
   let synced = 0;
   for (const note of await pending()) {

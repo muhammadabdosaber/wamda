@@ -10,6 +10,63 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — archive and dismiss now queue while offline (SB-028)
+
+`archiveNote`, `dismissNoteAction`, and `restoreNoteAction` were direct
+PostgREST writes that threw when unreachable — honest, but every other
+mutation in this app is local-first.
+
+- All three now share `writeNoteField()`: attempt the real write, and on any
+  failure — offline, or a network error while nominally online
+  (`navigator.onLine` is not trustworthy here either, see the comment in
+  `Notes.tsx`) — queue it instead of throwing.
+- New IndexedDB store, `noteActions`, keyed `noteId:field` — a later action
+  on the same field overwrites an earlier queued one rather than racing it
+  on replay (dismiss then undo, both offline, correctly collapses to a
+  no-op instead of two conflicting requests).
+- `sync()` replays the queue first, on the same reconnect trigger every
+  other mutation already uses.
+- **No UI code changed.** The existing optimistic update in `Notes.tsx` was
+  already gated on the mutation function not throwing; making it not throw
+  was the entire fix.
+
+**Proven with the backend genuinely down**, not simulated: stopped the
+`kong` container, dismissed a real note — the card updated immediately,
+confirmed queued in IndexedDB, confirmed *not* yet on the server. Restarted
+`kong`, called `sync()`, confirmed the queue drained and the server row now
+carries the exact timestamp queued while offline — not a new one from the
+replay. Reloaded the page: durable, not an in-memory illusion.
+
+Evidence: `docs/00-verification.md`, "SB-028".
+
+### Fixed — `vite dev` rendered a blank page under the CSP added for SB-003
+
+Found live while building SB-028: `vite dev` on port 5174 served a page
+where `#root` stayed permanently empty, no console error, nothing to
+explain it. `@vitejs/plugin-react` injects an **inline** `<script>`
+preamble into dev-served HTML for Fast Refresh
+(`window.__vite_plugin_react_preamble_installed__`), which the strict
+`script-src 'self'` (no `unsafe-inline`) added for SB-003 blocked outright
+— silently, since an inline-script CSP block does not always surface as a
+`securitypolicyviolation` the way a blocked `connect-src` request reliably
+does. Every component module then failed importing with `"@vitejs/plugin-react
+can't detect preamble"`, and `main.tsx` never reached `createRoot(...).render(...)`.
+
+Two sources carried the header into dev, only one of which was intentional:
+`server.headers` in `vite.config.ts`, and — unnoticed — the CSP meta-tag
+plugin, whose `transformIndexHtml` hook runs during `vite dev` too, not only
+`vite build`, without an explicit `apply` filter.
+
+Fixed by removing the header from `server.headers` entirely and adding
+`apply: "build"` to the meta plugin, so `vite dev` carries no CSP at all.
+Correct on reflection, not a workaround: CSP protects the shipped app;
+Vite's own dev-time tooling was never part of what ships. `vite preview` and
+the built `dist/index.html` — the actual production-representative surfaces
+SB-003's original proof rested on — were unaffected throughout; SB-003's
+"dev mode re-checked" claim was corrected in place rather than left standing.
+
+Evidence: `docs/00-verification.md`, the SB-003 correction and "SB-028".
+
 ### Added — weekly digest schedule, mechanism proven live (SB-017, blocked on a key)
 
 Same gap, same mechanism as SB-001's sweep schedule, applied to `digest`'s

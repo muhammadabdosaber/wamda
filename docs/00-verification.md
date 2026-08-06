@@ -537,11 +537,38 @@ the same breath:
 `disposition: "enforce"` — not `"report"` — confirms this is a blocking
 policy, not a report-only one that would have let the request through.
 
-**Dev mode re-checked separately** (HMR, React Fast Refresh) with the same
-header live on `vite dev`: hot updates to the 4 edited files applied, the
-Vite HMR websocket (`ws://` back to the same origin) connected without a
-single `csp_violation` in console. Nothing in the daily inner loop needed a
-relaxation.
+**Correction, 2026-08-07 — the original dev-mode claim above was wrong.**
+What was actually checked at the time: HMR reconnected and no
+`csp_violation` appeared in console. What was **not** checked: whether a
+component ever rendered. It did not. Found only while building SB-028, when
+`vite dev` on port 5174 served a page with `document.getElementById('root')`
+permanently empty — no console error, no CSP violation logged, nothing to
+explain it.
+
+Root cause, found by manually importing modules one at a time until one
+threw: `@vitejs/plugin-react` injects an **inline** `<script>` preamble into
+the dev-served HTML for Fast Refresh
+(`window.__vite_plugin_react_preamble_installed__ = true`, checked by every
+Babel-instrumented component module before it runs). `script-src 'self'`
+with no `unsafe-inline` blocks that inline script outright — silently, since
+an inline-script CSP block does not always surface as a
+`securitypolicyviolation` the way a blocked `connect-src` request reliably
+does. Every component import then failed with `"@vitejs/plugin-react can't
+detect preamble"`, main.tsx never reached `createRoot(...).render(...)`, and
+the page rendered nothing. **Two** sources turned out to carry the header:
+`server.headers` in `vite.config.ts`, and the `cspMetaPlugin`'s
+`transformIndexHtml` hook — which runs during `vite dev` too, not only
+`vite build`, since neither has its own `apply` filter by default.
+
+Fixed by removing the header from `server.headers` entirely and adding
+`apply: "build"` to the meta plugin, so dev mode carries no CSP at all.
+Correct on reflection, not just a workaround: CSP protects the *shipped*
+app; Vite's own dev-time tooling was never part of what ships. Re-verified
+after the fix — real OTP sign-in, a real note with suggestion chips, full
+interaction — on `vite dev`, port 5174 (see SB-028 below, same session).
+`vite preview` and the built `dist/index.html` were unaffected throughout;
+both were the actual production-representative surfaces this task's proof
+rested on, and neither ever carried the bug.
 
 **What this does not cover, stated honestly:** `frame-ancestors` and
 `report-to` cannot live in a `<meta>` CSP at all — the served header carries
@@ -758,6 +785,54 @@ job left scheduled, correctly, since it has no vendor dependency.
 needs the key. SB-017 is filed `blocked` on that basis, not `done` — the
 mechanism working is necessary but not sufficient for what the task itself
 asks for.
+
+### SB-028 · Queue archive/dismiss while offline
+
+**2026-08-07, local stack, a real disconnected backend, not a flag.**
+`archiveNote`, `dismissNoteAction`, and `restoreNoteAction` now share
+`writeNoteField()`: attempt the real write, and on any failure queue it in a
+new IndexedDB store (`noteActions`) instead of throwing, so the caller (and
+the existing optimistic UI update) proceeds regardless. `sync()` replays the
+queue on the same reconnect trigger every other mutation already uses.
+
+**Signed in for real** (OTP from Mailpit, `muhammad@example.test`, the
+documented local test account), against a note seeded with a real
+`suggested_action: "archive"` enrichment so the chips would render.
+
+1. `docker stop supabase_kong_Second_Brain` — a genuine connection failure,
+   not `navigator.onLine` toggled or a network throttle flag.
+2. Clicked "تجاهل" (dismiss). **The card updated immediately** to the
+   resolved state (`تم التجاهل` + `تراجع`) — no error, no `failed` state.
+3. Confirmed the server had **not** moved: `action_dismissed_at` still
+   `null` in Postgres.
+4. Confirmed the write **had** been queued:
+   `pendingNoteActions()` → `[{noteId, field: "action_dismissed_at", value:
+   "2026-08-06T21:09:12.756Z", ...}]`.
+5. `docker start supabase_kong_Second_Brain`, waited for `healthy`.
+6. Called `sync()` directly. Queue drained: `pendingNoteActions()` → `[]`.
+7. Confirmed the server row now reads
+   `action_dismissed_at = 2026-08-06 21:09:12.756+00` — **the exact value
+   queued while offline**, not a new timestamp from the replay.
+8. Reloaded the page. The note shows with no action chips — genuinely
+   answered server-side, not an in-memory illusion that a refresh would
+   have undone.
+
+Test note deleted afterward; the owner's 14 real notes were unaffected
+throughout — the disposable test note belonged to a different account.
+
+**A real bug in SB-003 was found and fixed in the course of this work**, not
+a separate incident: `vite dev` was serving a strict CSP that silently
+blocked React from ever mounting (the inline Fast Refresh preamble
+`@vitejs/plugin-react` injects is blocked by `script-src` with no
+`unsafe-inline`), so the very first attempt to test this feature in a
+browser showed a blank page. Root-caused by manually importing modules one
+at a time until one threw `"@vitejs/plugin-react can't detect preamble"`.
+Fixed by dropping CSP from `vite dev` entirely — `server.headers` removed,
+and the meta-tag plugin (which, unnoticed, was also running during `vite
+dev` via the same `transformIndexHtml` hook `vite build` uses) scoped to
+`apply: "build"`. Full correction recorded in SB-003's own entry above.
+`vite preview` and the shipped `dist/index.html` — the surfaces SB-003's
+original proof actually rested on — were never affected.
 
 ### The owner's own test session
 

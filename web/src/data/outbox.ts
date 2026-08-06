@@ -30,21 +30,46 @@ export interface OutboxNote {
   attempts: number;
 }
 
+/**
+ * SB-028: a queued mutation on an EXISTING (already-synced) note -- archive
+ * or answer a suggestion offline. Keyed by `noteId:field`, not an incrementing
+ * id, so a second offline action on the same field (e.g. dismiss, then undo,
+ * both before ever reconnecting) collapses to one row instead of queuing two
+ * requests that would race on replay -- the later action simply overwrites
+ * the earlier queued one, the correct outcome either way.
+ */
+export interface PendingNoteAction {
+  key: string;
+  noteId: string;
+  field: "archived_at" | "action_dismissed_at";
+  value: string | null;
+  queuedAt: string;
+}
+
 interface SecondBrainDB extends DBSchema {
   outbox: {
     key: string;
     value: OutboxNote;
     indexes: { byCaptured: string };
   };
+  noteActions: {
+    key: string;
+    value: PendingNoteAction;
+  };
 }
 
 let dbPromise: Promise<IDBPDatabase<SecondBrainDB>> | null = null;
 
 function db(): Promise<IDBPDatabase<SecondBrainDB>> {
-  dbPromise ??= openDB<SecondBrainDB>("second-brain", 1, {
-    upgrade(database) {
-      const store = database.createObjectStore("outbox", { keyPath: "clientId" });
-      store.createIndex("byCaptured", "capturedAt");
+  dbPromise ??= openDB<SecondBrainDB>("second-brain", 2, {
+    upgrade(database, oldVersion) {
+      if (oldVersion < 1) {
+        const store = database.createObjectStore("outbox", { keyPath: "clientId" });
+        store.createIndex("byCaptured", "capturedAt");
+      }
+      if (oldVersion < 2) {
+        database.createObjectStore("noteActions", { keyPath: "key" });
+      }
     },
   });
   return dbPromise;
@@ -101,6 +126,29 @@ export async function markAttempted(clientId: string): Promise<void> {
   const note = await database.get("outbox", clientId);
   if (!note) return;
   await database.put("outbox", { ...note, attempts: note.attempts + 1 });
+}
+
+export async function queueNoteAction(
+  noteId: string,
+  field: PendingNoteAction["field"],
+  value: string | null,
+): Promise<void> {
+  const action: PendingNoteAction = {
+    key: `${noteId}:${field}`,
+    noteId,
+    field,
+    value,
+    queuedAt: new Date().toISOString(),
+  };
+  await (await db()).put("noteActions", action);
+}
+
+export async function pendingNoteActions(): Promise<PendingNoteAction[]> {
+  return (await db()).getAll("noteActions");
+}
+
+export async function clearNoteAction(key: string): Promise<void> {
+  await (await db()).delete("noteActions", key);
 }
 
 /** Test seam: lets a suite point at a fresh database. */

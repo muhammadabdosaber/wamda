@@ -45,11 +45,21 @@ function buildCsp(supabaseUrl: string, { includeFrameAncestors }: { includeFrame
   return directives.join("; ");
 }
 
-/** Injects the meta-tag CSP into the built HTML so it ships with the bundle
- * regardless of which static host eventually serves it (SB-016 undecided). */
+/**
+ * Injects the meta-tag CSP into the built HTML so it ships with the bundle
+ * regardless of which static host eventually serves it (SB-016 undecided).
+ *
+ * `apply: "build"` -- a Vite plugin hook with no `apply` filter runs in BOTH
+ * `vite build` and `vite dev`, since both call `transformIndexHtml`. Without
+ * this, the meta tag lands in the dev-served HTML too and blocks the exact
+ * same inline Fast Refresh preamble the header already had to be kept off
+ * of, for the exact same reason -- found live, alongside that bug, not two
+ * separate incidents.
+ */
 function cspMetaPlugin(csp: string): Plugin {
   return {
     name: "second-brain-csp-meta",
+    apply: "build",
     transformIndexHtml() {
       return [
         {
@@ -108,10 +118,13 @@ export default defineConfig(({ mode }) => {
       devOptions: { enabled: false },
     }),
   ],
-  // `vite dev` also gets the real header, not just `vite preview` -- the goal
-  // is that CSP violations are caught in the same inner loop a change is
-  // made in, not discovered for the first time against a production build.
-  server: { headers: { "Content-Security-Policy": cspHeader } },
+  // `vite preview` (the built app) and the shipped meta tag both carry the
+  // real header -- `vite dev` deliberately does NOT. `@vitejs/plugin-react`
+  // injects an INLINE `<script>` preamble into the dev HTML for Fast Refresh,
+  // which `script-src 'self'` (no `unsafe-inline`) blocks outright: React
+  // never mounts, the app renders nothing, and no console error explains why
+  // -- found live, the hard way, not reasoned about in advance. CSP protects
+  // the shipped app; Vite's own dev-time tooling is not part of it.
   preview: { headers: { "Content-Security-Policy": cspHeader } },
   test: {
     globals: true,
