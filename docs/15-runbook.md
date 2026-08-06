@@ -79,7 +79,9 @@ cd web && npm run build               # dist/ → any static host, HTTPS require
 
 Before the first deploy:
 
-- [ ] `ALLOWED_ORIGIN` pinned to the real origin, not `*` (SB-010)
+- [ ] `ALLOWED_ORIGIN` **set** to the real origin (SB-010 built the
+      enforcement 2026-08-06; the env var itself is still unset everywhere —
+      this checklist item is about actually setting it at deploy time)
 - [ ] CSP headers configured at the host (SB-003 done for the app's own
       header/meta tag 2026-08-06; the host still needs to add `frame-ancestors`
       and `report-to`, which cannot live in the `<meta>` fallback)

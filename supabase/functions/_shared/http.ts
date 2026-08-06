@@ -1,17 +1,50 @@
 /** CORS, JSON responses, and error shaping shared by every Edge Function. */
 
-export const CORS_HEADERS: Record<string, string> = {
-  "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") ?? "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, accept-language",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Max-Age": "86400",
-};
+/**
+ * Read at call time, not cached at module load -- lets tests toggle it with
+ * `Deno.env.set`/`.delete` around each case (SB-010). No behaviour
+ * difference in production: an Edge Function's env does not change during
+ * its own lifetime.
+ */
+function allowedOrigin(): string | undefined {
+  return Deno.env.get("ALLOWED_ORIGIN") || undefined;
+}
 
+export function corsHeaders(): Record<string, string> {
+  return {
+    "Access-Control-Allow-Origin": allowedOrigin() ?? "*",
+    "Access-Control-Allow-Headers":
+      "authorization, x-client-info, apikey, content-type, accept-language",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Max-Age": "86400",
+  };
+}
+
+/** Kept for callers that just need the header set for a normal response. */
+export const CORS_HEADERS: Record<string, string> = corsHeaders();
+
+/**
+ * SB-010: `ALLOWED_ORIGIN` used to only decorate the CORS header -- every
+ * preflight got a 204 regardless of who asked, leaving the actual gate to
+ * whether the CALLING BROWSER honoured a mismatched
+ * `Access-Control-Allow-Origin`. Real protection for a well-behaved browser,
+ * but not a server-side gate. Now: when `ALLOWED_ORIGIN` is configured, a
+ * preflight from any other `Origin` (including none) is rejected here,
+ * before any CORS header naming the real origin is ever sent back.
+ *
+ * Unset (every local environment today) stays permissive -- matching the
+ * existing `*` default and docs/09-status-handoff.md's own framing that `*`
+ * is fine locally and wrong in production.
+ */
 export function preflight(req: Request): Response | null {
-  return req.method === "OPTIONS"
-    ? new Response(null, { status: 204, headers: CORS_HEADERS })
-    : null;
+  if (req.method !== "OPTIONS") return null;
+
+  const allowed = allowedOrigin();
+  if (allowed && req.headers.get("Origin") !== allowed) {
+    return new Response(null, { status: 403 });
+  }
+
+  return new Response(null, { status: 204, headers: corsHeaders() });
 }
 
 /**

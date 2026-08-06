@@ -10,6 +10,24 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — `ALLOWED_ORIGIN` now actually gates the preflight (SB-010)
+
+Before, `ALLOWED_ORIGIN` only decorated the CORS header value — every
+`OPTIONS` preflight still got a `204` no matter who asked, leaving
+enforcement entirely to the calling browser honouring a mismatched
+`Access-Control-Allow-Origin`. Now `preflight()` in `_shared/http.ts` rejects
+a foreign or missing `Origin` at `403`, before any header naming the real
+origin is ever sent back. Unset (every environment today) stays permissive.
+
+**The first `deno test` in this project** (`_shared/http.test.ts`, 5 cases,
+no framework import so it needs no network access) — proven the same way
+`check-rtl.mjs` was proven: the old, unguarded code was swapped back in and
+3 of 5 tests correctly failed, then the fix restored and all 5 passed. Wired
+into CI alongside `deno check`. Also confirmed live against the real local
+Edge Runtime after a full restart.
+
+Evidence: `docs/00-verification.md`, "SB-010 · Pin `ALLOWED_ORIGIN`".
+
 ### Added — strict Content-Security-Policy (SB-003)
 
 Load-bearing, not hardening: `supabase-js` keeps the session in

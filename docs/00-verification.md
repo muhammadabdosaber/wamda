@@ -553,6 +553,53 @@ reporting today is `console.error` client-side only — visible in DevTools,
 not centralized; a `report-to` collector is real future work, not attempted
 here, once SB-019 (structured logging) gives it somewhere to land.
 
+### SB-010 · Pin `ALLOWED_ORIGIN`
+
+**2026-08-06.** Before: `ALLOWED_ORIGIN` only decorated the CORS header value
+(`Deno.env.get("ALLOWED_ORIGIN") ?? "*"`) — every `OPTIONS` preflight still
+got a `204` regardless of who asked, so the real gate was entirely "does the
+calling browser honour a mismatched `Access-Control-Allow-Origin`". After:
+`preflight()` in `_shared/http.ts` rejects a foreign-or-missing `Origin` with
+`403` when `ALLOWED_ORIGIN` is configured, *before* any header naming the
+real origin goes back. Unset (every environment right now) stays permissive.
+
+**The first `deno test` in this project** (`supabase/functions/_shared/http.test.ts`,
+5 cases, no framework import so `deno test` needs no network access):
+
+| case | result |
+|---|---|
+| non-`OPTIONS` request | passed through untouched, regardless of `ALLOWED_ORIGIN` |
+| `ALLOWED_ORIGIN` unset, any Origin | `204`, `Access-Control-Allow-Origin: *` (local-dev default, unchanged) |
+| `ALLOWED_ORIGIN` set, matching Origin | `204` with the pinned origin echoed back |
+| `ALLOWED_ORIGIN` set, foreign Origin | **`403`**, no CORS header at all |
+| `ALLOWED_ORIGIN` set, missing Origin | **`403`**, same as foreign |
+
+**Proven against a real regression**, the same discipline `check-rtl.mjs`
+was held to: the pre-fix `preflight()` (module-level `CORS_HEADERS`, no
+origin check) was swapped back into `http.ts` and the suite run again —
+**3 of 5 tests failed correctly** (`expected 403, got 204`; `expected
+"https://app.example.com", got "*"`) — then the fix restored and all 5
+passed. An untested guard is not a guard; this one was tested failing first.
+
+```
+FAILED | 2 passed | 3 failed   -- against the OLD code
+ok     | 5 passed | 0 failed   -- against the fix
+```
+
+Wired into CI: `deno test --allow-env supabase/functions/_shared/http.test.ts`
+runs alongside `deno check` in the `functions` job.
+
+**Also confirmed live**, not just unit-tested: full `supabase stop && start`
+so the Edge Runtime picked up the change, then a real `OPTIONS` preflight
+against the running `enrich` function with `Origin: https://evil.example` and
+no `ALLOWED_ORIGIN` configured — `204`, `access-control-allow-origin: *`,
+matching the unset-default case exactly. The 14 real notes and the rest of
+the stack were unaffected by the restart. The `ALLOWED_ORIGIN`-configured
+rejection path was not additionally re-proven against the live container —
+setting it locally would have changed this worktree's CORS behavior for
+every other browser session using it, so the unit-test proof (which exercises
+the real `preflight()` function, not a mock) stands as evidence for that case.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

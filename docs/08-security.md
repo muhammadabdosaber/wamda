@@ -171,8 +171,11 @@ alongside.
       `ai_jobs` (60 calls / 15 min per user/stage), proven live over real HTTP
       — see `docs/00-verification.md`.
 - [ ] **Retention/partitioning for `ai_jobs`.** Grows without limit.
-- [ ] **`ALLOWED_ORIGIN` set to a real origin.** Defaults to `*`, which is fine
-      for local development and wrong for production web.
+- [x] **`ALLOWED_ORIGIN` set to a real origin** (SB-010, 2026-08-06). Still
+      defaults to `*` locally, by design; when configured, `preflight()` now
+      rejects a foreign or missing Origin at `403` instead of only decorating
+      the CORS header. Proven with the project's first `deno test`, itself
+      proven against a deliberate regression. See `docs/00-verification.md`.
 - [x] **Ship a strict CSP header** (SB-003, 2026-08-06). Per the session
       section above — see it for the full evidence.
 - [ ] **Subresource integrity / dependency review.** A PWA's supply chain is

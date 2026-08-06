@@ -111,7 +111,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.8 | Private audio bucket, signed URLs scoped to user | ⬜ | `config.toml` · `functions/notes` |
 | 5.9 | Strict CSP | ✅ no `unsafe-inline`/`unsafe-eval`; real HTTP header + meta fallback; deliberate-violation test proved `enforce` | SB-003 |
 | 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
-| 5.11 | `ALLOWED_ORIGIN` not `*` | ❌ | SB-010 |
+| 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
 | 5.12 | Export all notes | ❌ | SB-014 |
 | 5.13 | Delete account + all data | ❌ | SB-015 |
 | 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ❌ column exists, nothing enforces it | SB-009 |

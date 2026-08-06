@@ -41,6 +41,7 @@ blocked on.
 | SB-011 | Bundle the app fonts (Public Sans + Noto Sans Arabic) | — | S | **done** |
 | SB-001 | Schedule the sweep worker | M5 | M | **done** |
 | SB-003 | Strict CSP | M6 | M | **done** |
+| SB-010 | Pin `ALLOWED_ORIGIN` | M6 | S | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -230,7 +231,24 @@ so a single XSS is a full session compromise. See `docs/08-security.md`.
 - **Accept:** a `Content-Security-Policy` with no `unsafe-inline` and no
   `unsafe-eval` is served, the app still works, and violations are reported.
 
-### SB-010 · Pin `ALLOWED_ORIGIN` · `todo` · S
+### SB-010 · Pin `ALLOWED_ORIGIN` · `done` · S
+
+> **Done (2026-08-06).** `preflight()` in `_shared/http.ts` now rejects an
+> `OPTIONS` request with a foreign (or missing) `Origin` at `403` when
+> `ALLOWED_ORIGIN` is configured, instead of answering every preflight with
+> `204` regardless of who asked and leaving enforcement entirely to the
+> calling browser honouring a mismatched CORS header. Unset (every local
+> environment today) stays permissive, unchanged.
+>
+> **The first `deno test` in this project** (`_shared/http.test.ts`, 5 cases)
+> proves it, and was proven the way `check-rtl.mjs` was: the old code was
+> swapped back in and 3 of 5 tests failed correctly, then the fix restored and
+> all 5 passed. Wired into CI (`deno test --allow-env`) alongside `deno
+> check`. Also confirmed live against the real local Edge Runtime after a
+> full `supabase stop && start`: an `OPTIONS` preflight with a foreign
+> `Origin` still returns the unset-default `204`/`*`, matching the
+> unconfigured-locally case the test suite covers. Evidence:
+> `docs/00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`".
 
 Defaults to `*` today.
 
@@ -729,6 +747,7 @@ Only Chromium has ever run this app.
 | SB-001 | `pg_cron` sweep fired on its own timer; stranded `enriching` note → `queued`, no client | `00-verification.md` "SB-001 · A note recovered by the schedule" |
 | SB-002 | Rate gate proven in `verify.sql` and over real HTTP: 60 vendor attempts then a clean `429` on call 61 | `00-verification.md` "SB-002 · Per-user rate limit" |
 | SB-003 | Strict CSP served real (curl-confirmed), real cross-origin auth call succeeds, deliberate violation blocked + reported | `00-verification.md` "SB-003 · Strict CSP" |
+| SB-010 | Preflight rejects a foreign Origin; first `deno test` in the project, proven against a deliberate regression | `00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`" |
 
 ---
 

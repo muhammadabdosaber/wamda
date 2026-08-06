@@ -42,9 +42,9 @@ discovered after it is.
 
 | # | Weakness | Impact | Task |
 |---|---|---|---|
-| 1 | **No CSP.** `supabase-js` keeps the session in `localStorage` | one XSS is a full session compromise | SB-003 |
-| 2 | **No rate limiting** on `/enrich` and `/transcribe` | a runaway loop is a runaway vendor bill | SB-002 |
-| 3 | `ALLOWED_ORIGIN` defaults to `*` | any origin can call the functions | SB-010 |
+| 1 | ~~No CSP.~~ **Fixed 2026-08-06** — strict CSP, no `unsafe-inline`/`unsafe-eval`, proven against a deliberate violation | was: one XSS is a full session compromise | SB-003 |
+| 2 | ~~No rate limiting~~ on `/enrich` and `/transcribe`. **Fixed 2026-08-06** — 60 calls/15 min per user/stage, proven over 61 real HTTP calls | was: a runaway loop is a runaway vendor bill | SB-002 |
+| 3 | ~~`ALLOWED_ORIGIN` defaults to `*`.~~ **Fixed 2026-08-06** — a configured origin now rejects a foreign preflight at `403` | was: any origin can call the functions when configured | SB-010 |
 | 4 | **Audio retention not enforced** — `profiles.audio_retention_days` is read by nothing | voice kept longer than promised | SB-009 |
 | 5 | No account deletion | a user cannot remove their data | SB-015 |
 | 6 | No export | a user cannot retrieve their data | SB-014 |

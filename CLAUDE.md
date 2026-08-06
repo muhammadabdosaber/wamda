@@ -58,7 +58,8 @@ docker exec -i supabase_db_Second_Brain \
 ```
 
 Expect `ALL SCHEMA CHECKS PASSED`. If a function moved:
-`deno check supabase/functions/*/index.ts`.
+`deno check supabase/functions/*/index.ts`. If `_shared/*.ts` logic moved:
+`deno test --allow-env supabase/functions/_shared/*.test.ts`.
 
 **A new table needs an RLS policy, a table-level `GRANT`, and an assertion in
 `verify.sql` — in the same change.** Correct policies with no grant produce

@@ -158,7 +158,10 @@ Ordered by consequence, not effort.
 - [ ] **`ai_jobs` retention/partitioning.** Grows without limit.
 - [ ] **Audio deletion sweep.** `profiles.audio_retention_days` exists; nothing
       enforces it.
-- [ ] **`ALLOWED_ORIGIN`** defaults to `*`.
+- [x] **`ALLOWED_ORIGIN`** (SB-010, 2026-08-06). Still defaults to `*`
+      locally by design; when configured, a foreign or missing preflight
+      Origin is now rejected at `403`. Proven with the project's first
+      `deno test`, itself proven against a deliberate regression (`00-verification.md`).
 - [ ] **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
       Noto Sans Arabic first, but neither ships — currently falling back to a
       system face. `web/public/fonts/` now holds `amiri-400/700.woff2`, but

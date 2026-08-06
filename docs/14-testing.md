@@ -16,12 +16,13 @@
 
 ---
 
-## The four layers
+## The five layers
 
 | Layer | Tool | Runs where | Catches |
 |---|---|---|---|
 | Schema truth | `supabase/tests/verify.sql` | live Postgres | RLS holes, normalization, idempotency |
 | Function types | `deno check` | CI | wrong vendor API surface |
+| Function units | `deno test` | CI | pure-logic bugs in `_shared/*.ts` that need no DB or vendor |
 | Client units | `vitest` | CI | i18n, plurals, language resolution |
 | Client guards | `tool/check-rtl.mjs` | CI | physical CSS properties that break RTL |
 
@@ -60,6 +61,26 @@ said so.
 
 What it does **not** do: prove anything ran. `ScribeASR.transcribe` type-checks
 perfectly and has never seen a real response.
+
+### `deno test` — new with SB-010
+
+Added when `_shared/http.ts` grew its first piece of logic that is a pure
+function of a `Request` and an env var — no Postgres, no vendor, nothing that
+made every other backend behavior a "manual run, logged in
+`00-verification.md`" concern instead. `preflight()`'s origin gate (SB-010)
+is the first thing here: 5 cases, including a deliberately-missing `Origin`.
+
+**Proven against a real regression, the same discipline as `check-rtl.mjs`:**
+the old, unguarded `preflight()` was swapped back in and 3 of 5 tests failed
+correctly before the fix was restored — not run once and trusted.
+
+No test-framework import: `assert` helpers are ~5 lines written by hand in
+the test file, so `deno test` never needs network access to fetch a package.
+This is not (yet) a general pattern for every function — `enrich`/
+`transcribe`/`sweep` still call real vendors and a real database, which is
+exactly the class of thing this project already refuses to mock (see the
+"Vendor API calls" row below). Add a `*.test.ts` here only where the logic
+genuinely does not need either.
 
 ### `vitest` — 21 tests
 
