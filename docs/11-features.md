@@ -110,7 +110,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
 | 5.8 | Private audio bucket, signed URLs scoped to user | ⬜ | `config.toml` · `functions/notes` |
 | 5.9 | Strict CSP | ❌ **load-bearing** — session is in `localStorage` | SB-003 |
-| 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ❌ a runaway loop is a runaway bill | SB-002 |
+| 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
 | 5.11 | `ALLOWED_ORIGIN` not `*` | ❌ | SB-010 |
 | 5.12 | Export all notes | ❌ | SB-014 |
 | 5.13 | Delete account + all data | ❌ | SB-015 |

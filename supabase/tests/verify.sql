@@ -349,6 +349,54 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 7. Per-user rate limit gate (SB-002)
+-- ---------------------------------------------------------------------------
+-- rate_limit_hit() is the single count query both /enrich and /transcribe
+-- call before reaching the vendor. Proven here against a live count of real
+-- ai_jobs rows, not asserted from reading the SQL.
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+begin
+  delete from public.ai_jobs where user_id = alice and stage = 'enrich';
+
+  insert into public.ai_jobs (user_id, stage, status)
+  select alice, 'enrich', 'succeeded' from generate_series(1, 2);
+
+  if public.rate_limit_hit(alice, 'enrich', 3, 60) then
+    raise exception 'rate_limit_hit tripped early at 2 of a 3-call limit';
+  end if;
+
+  insert into public.ai_jobs (user_id, stage, status)
+  values (alice, 'enrich', 'succeeded');
+
+  if not public.rate_limit_hit(alice, 'enrich', 3, 60) then
+    raise exception 'rate_limit_hit did not trip at the 3rd of a 3-call limit';
+  end if;
+  raise notice 'PASS: rate_limit_hit trips exactly at the Nth call, not before';
+
+  -- A different stage for the same user must have its own counter.
+  if public.rate_limit_hit(alice, 'transcribe', 3, 60) then
+    raise exception 'rate_limit_hit leaked count across stages';
+  end if;
+  raise notice 'PASS: rate_limit_hit is scoped per stage, not per user alone';
+
+  -- Calls from outside the window must not count against a fresh window.
+  delete from public.ai_jobs where user_id = alice and stage = 'enrich';
+  insert into public.ai_jobs (user_id, stage, status, created_at)
+  select alice, 'enrich', 'succeeded', now() - interval '2 hours'
+  from generate_series(1, 5);
+
+  if public.rate_limit_hit(alice, 'enrich', 3, 60) then
+    raise exception 'rate_limit_hit counted calls from outside the window';
+  end if;
+  raise notice 'PASS: rate_limit_hit ignores calls outside the window';
+
+  delete from public.ai_jobs where user_id = alice and stage = 'enrich';
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

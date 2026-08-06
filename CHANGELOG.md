@@ -10,6 +10,48 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — per-user rate limit on `/enrich` and `/transcribe` (SB-002)
+
+Both endpoints called paid vendor APIs with no bound: a runaway client loop
+was a runaway bill. Closed with no new infrastructure — `ai_jobs` already
+records every attempt, so it is the counter.
+
+- **`public.rate_limit_hit(user_id, stage, limit, window_minutes)`**
+  (migration `20260806000100_rate_limit.sql`) — a single SQL function, the
+  same "one place, provable live" pattern as `notes_missing_embeddings`.
+  Counts a user's `ai_jobs` rows for a stage in the trailing window.
+  Pipeline-internal, not granted to `authenticated`.
+- **`supabase/functions/_shared/rateLimit.ts`** — `enforceRateLimit()` calls
+  it after note ownership is verified and before the pipeline runs. On a hit:
+  `HttpError(429, "rate_limited")`, plus its own `ai_jobs` row so the
+  rejection is itself observable. On a check failure: fails **open** — a
+  broken telemetry read must not itself block a legitimate call, the same
+  reasoning `recordJob` already uses.
+- **Threshold: 60 calls / 15 minutes, per user, per stage.** Sized so the
+  client's own sequential outbox replay (up to ~50 notes after a long offline
+  stretch, SB-024) clears it comfortably, while a genuine runaway loop still
+  trips it well short of real cost.
+- **Wired into both endpoints** — `enrich/index.ts` and `transcribe/index.ts`
+  — identically, right before `runEnrichment`/`runTranscription`.
+
+**Proven, not just written:**
+
+- `verify.sql` (live Postgres): trips exactly at the Nth call and not before;
+  counters are scoped per stage, not shared across a user's stages; calls
+  outside the window don't count.
+- **61 real sequential `POST /functions/v1/enrich` calls** against the running
+  local stack, under a locally-minted JWT for the real owner account (no
+  client session exists in this worktree). Calls 1–60 reached the vendor path
+  and failed on the missing key (`500 missing_configuration` — proof they got
+  that far); call 61 was rejected by the gate itself, before `runEnrichment`
+  was called (`429 rate_limited`). `ai_jobs` matched exactly: 60 + 1. The
+  note's own status was untouched throughout. Test rows deleted afterward.
+- **Not proven:** behavior under real concurrency (all 61 calls were
+  sequential) or real vendor latency (every call here failed fast). Recorded
+  honestly as a gap, not silently assumed away.
+
+Evidence: `docs/00-verification.md`, "SB-002 · Per-user rate limit".
+
 ### Verified — the sweep schedule recovered a stranded note on its own timer (SB-001)
 
 The claim every earlier sweep note deferred — *a `pg_cron` job fires by itself

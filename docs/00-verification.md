@@ -433,6 +433,61 @@ not left running" state the earlier `host.docker.internal` test settled on. The
 mechanism is proven; turning it on for real is one `vault.create_secret` pair
 plus a re-run of the migration, per `docs/09-status-handoff.md`.
 
+### SB-002 · Per-user rate limit on `/enrich` and `/transcribe`
+
+**2026-08-06, local stack.** `/enrich` and `/transcribe` were unbounded — a
+runaway client loop was a runaway vendor bill. The gate is `ai_jobs` itself
+(no new table): `public.rate_limit_hit(user_id, stage, limit, window_minutes)`
+(migration `20260806000100_rate_limit.sql`) counts a user's `ai_jobs` rows for
+a stage in the trailing window; `_shared/rateLimit.ts` calls it after note
+ownership is verified and before the pipeline is reached, and throws
+`HttpError(429, "rate_limited")` — with an `ai_jobs` row of its own — if the
+count is already at the limit. `LIMIT = 60`, `WINDOW_MINUTES = 15`, sized so
+the client's own sequential outbox replay (up to ~50 notes after a long
+offline stretch, SB-024) clears it, while a genuine runaway loop still trips
+it well short of real cost.
+
+**SQL layer, live Postgres (`verify.sql`, re-runnable):**
+
+| assertion | result |
+|---|---|
+| 2 of a 3-call limit | not tripped |
+| 3rd of a 3-call limit | **trips** |
+| a different stage, same user | **not** tripped (counters are per-stage) |
+| 5 calls from 2 hours ago, 60-minute window | not tripped (outside-window calls don't count) |
+
+**HTTP layer, real request path — not a mock.** No client in this worktree
+carries a session (no `VITE_SUPABASE_URL`/anon key configured here), so a
+local-dev JWT was minted by hand with the known local `JWT_SECRET`
+(`supabase status`) for the real owner (`eng.mohammadabdo@gmail.com`) — the
+standard way to drive a local GoTrue instance without a browser. Confirmed
+first against `/auth/v1/user` that it resolved to the real account, then fired
+**61 sequential `POST /functions/v1/enrich`** calls (`force: true`, so every
+call skips the enrichment cache and reaches the gate) against one of the
+owner's real notes, after clearing that user's `enrich`-stage `ai_jobs` rows
+from the trailing window so the count started at exactly 0:
+
+| calls | HTTP status | body |
+|---|---|---|
+| 1–60 | `500` × 60 | `{"error":{"code":"missing_configuration"}}` — this worktree has no `ANTHROPIC_API_KEY`, so the vendor path fails immediately, but it was **reached** (`missing_configuration` can only originate inside `runEnrichment`) |
+| **61** | **`429`** | **`{"error":{"code":"rate_limited"}}`** — the gate rejected it **before** `runEnrichment` was ever called |
+
+`ai_jobs` afterward showed exactly `60 × (enrich, failed, missing_configuration)`
++ `1 × (enrich, failed, rate_limited)` — the database and the HTTP responses
+agree on the same boundary. The note's own status was untouched by the
+burst: `queued` before and after, same as its steady state under SB-001's
+retry pass. All 61 test rows were deleted afterward; `/transcribe` reuses the
+identical gate (`enforceRateLimit(admin, user.id, "transcribe", noteId)`) and
+the per-stage isolation is already proven above, so it was not re-burst live.
+
+**What this does not prove:** a rate limit under real vendor latency and real
+concurrency — every call here failed fast (`missing_configuration`, no
+network round trip), and all 61 were sequential. Concurrent requests racing
+the same count-then-insert window could both read "under limit" and both
+proceed, over-admitting by a small amount; acceptable for a single-user
+product's runaway-loop guard, not proven safe at higher concurrency
+(`docs/14-testing.md`, "No load or concurrency testing").
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

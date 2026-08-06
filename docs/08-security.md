@@ -153,8 +153,9 @@ alongside.
 
 ## Open items before production
 
-- [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Currently
-      unbounded — a runaway client loop is a runaway bill.
+- [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002). Gate on
+      `ai_jobs` (60 calls / 15 min per user/stage), proven live over real HTTP
+      — see `docs/00-verification.md`.
 - [ ] **Retention/partitioning for `ai_jobs`.** Grows without limit.
 - [ ] **`ALLOWED_ORIGIN` set to a real origin.** Defaults to `*`, which is fine
       for local development and wrong for production web.

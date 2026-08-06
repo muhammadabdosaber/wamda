@@ -32,7 +32,7 @@ blocked on.
 |---|---|---|---|---|
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
-| SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | todo |
+| SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | **done** |
 | SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | **done** |
 | SB-033 | An answered suggestion must show it was answered | M1 | S | **done** |
 | SB-036 | Tasks screen — a filter over notes, not a container | M8 | M | **done** |
@@ -163,7 +163,24 @@ requests JSON by prompt and falls back to keeping prose on a parse failure.
 
 ## M6 — Hardening
 
-### SB-002 · Per-user rate limit · `todo` · M
+### SB-002 · Per-user rate limit · `done` · M
+
+> **Done, proven both in Postgres and over real HTTP (2026-08-06).** The
+> counter is `ai_jobs` itself — no new table. `public.rate_limit_hit()`
+> (migration `20260806000100`) counts a user's rows for a stage in a trailing
+> window; `_shared/rateLimit.ts` calls it before `runEnrichment`/
+> `runTranscription` and throws `429 rate_limited` (with its own `ai_jobs`
+> row) if the count is already at the limit (`60` calls / `15` minutes — sized
+> to clear the client's own ~50-note offline-replay burst, SB-024). `verify.sql`
+> proves the SQL boundary live (trips exactly at the Nth call, not before;
+> per-stage, not per-user; ignores calls outside the window). Then driven for
+> real: 61 sequential `POST /enrich` calls against a real note under a real
+> minted local JWT — calls 1–60 reached the vendor path and failed on the
+> missing key (`500 missing_configuration`), call 61 was rejected by the gate
+> **before** reaching it (`429 rate_limited`). `ai_jobs` matched the HTTP
+> responses exactly: 60 + 1. Not proven under concurrency — see
+> `docs/00-verification.md` "SB-002" for the honest gap. Evidence:
+> `docs/00-verification.md` "SB-002 · Per-user rate limit".
 
 `/enrich` and `/transcribe` are unbounded. A runaway client loop is a runaway
 vendor bill, and both endpoints call paid APIs.
@@ -678,6 +695,7 @@ Only Chromium has ever run this app.
 | SB-011 | Self-hosted Public Sans + Noto Sans Arabic; CDN font `<link>` removed | `00-verification.md` |
 | SB-032 | Non-`ready` notes stay visible (processing/failed), never absent | owner-reported; `CHANGELOG` |
 | SB-001 | `pg_cron` sweep fired on its own timer; stranded `enriching` note → `queued`, no client | `00-verification.md` "SB-001 · A note recovered by the schedule" |
+| SB-002 | Rate gate proven in `verify.sql` and over real HTTP: 60 vendor attempts then a clean `429` on call 61 | `00-verification.md` "SB-002 · Per-user rate limit" |
 
 ---
 

@@ -103,7 +103,7 @@ client open, and one real weekly digest exists in the database.
 
 ## M6 — Safe to leave running ⬜
 
-- [ ] Per-user rate limit on `/enrich` and `/transcribe` (SB-002)
+- [x] Per-user rate limit on `/enrich` and `/transcribe` (SB-002) — proven local-only; a hosted deploy still needs the runbook check below
 - [ ] Strict CSP (SB-003) — load-bearing, not hardening
 - [ ] `ALLOWED_ORIGIN` pinned (SB-010)
 - [ ] Export everything (SB-014) and delete everything (SB-015)

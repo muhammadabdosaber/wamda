@@ -81,8 +81,9 @@ Before the first deploy:
 
 - [ ] `ALLOWED_ORIGIN` pinned to the real origin, not `*` (SB-010)
 - [ ] CSP headers configured at the host (SB-003)
-- [ ] Rate limits in place (SB-002) — deploying a paid pipeline without them is
-      how a bill becomes a story
+- [ ] Rate limits in place (SB-002 done locally 2026-08-06; re-verify against
+      the hosted database, not just this checklist) — deploying a paid
+      pipeline without them is how a bill becomes a story
 - [ ] Auth redirect URLs and the OTP email template pointed at the real domain
 - [ ] `verify.sql` run against the hosted database, not just the local one
 
@@ -206,7 +207,8 @@ feeds the sweep.
 | Digest | Anthropic Batch API | never run |
 
 The one number that can move fast is enrichment, and the guard against it is
-per-user rate limiting, which does not exist yet.
+per-user rate limiting: 60 calls / 15 minutes per user per stage, on `/enrich`
+and `/transcribe` (SB-002, `docs/00-verification.md`).
 
 ## Health checks, when there is something to check
 

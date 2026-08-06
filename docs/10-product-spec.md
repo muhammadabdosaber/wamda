@@ -158,7 +158,9 @@ Ranked by what would actually kill the product.
    unverified, storage eviction under pressure unverified.
 4. **AI filing quality is merely okay.** A user who corrects every category is
    doing the organizing work the product promised to remove.
-5. **Cost runaway.** No per-user rate limit exists today (SB-002).
+5. **Cost runaway.** Mitigated (SB-002): a per-user, per-stage rate limit
+   (60 calls / 15 min) now gates `/enrich` and `/transcribe`, proven live —
+   `docs/00-verification.md`.
 
 ## Open product questions
 

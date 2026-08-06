@@ -12,6 +12,7 @@ import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
 import { authenticate, serviceClient, userClient } from "../_shared/supabase.ts";
 import { resolveLanguage, SUPPORTED } from "../_shared/language.ts";
 import { runTranscription } from "../_shared/pipeline.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -48,6 +49,7 @@ Deno.serve(async (req) => {
     if (!note.audio_path) throw new HttpError(409, "note_has_no_audio");
 
     const admin = serviceClient();
+    await enforceRateLimit(admin, user.id, "transcribe", noteId);
     const result = await runTranscription({
       admin,
       userId: user.id,

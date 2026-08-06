@@ -140,8 +140,13 @@ Ordered by consequence, not effort.
       proven live; a hosted run is SB-016. Unscheduled and secrets removed
       after — local `cron.job`/`vault.secrets` empty again. Evidence:
       `docs/00-verification.md`.
-- [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Unbounded today —
-      a runaway client loop is a runaway bill.
+- [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002,
+      2026-08-06). `ai_jobs`-backed gate (`public.rate_limit_hit()`, 60 calls /
+      15 min per user/stage), checked before the pipeline is reached. Proven
+      live: `verify.sql` for the SQL boundary, then 61 real sequential HTTP
+      calls against the running local stack — calls 1–60 reached the vendor
+      path, call 61 got a clean `429 rate_limited` before it did. Not proven
+      under concurrency. Evidence: `docs/00-verification.md`.
 - [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the
       session in `localStorage`, so one XSS is a full session compromise. See
       the session section in `docs/08-security.md`.
