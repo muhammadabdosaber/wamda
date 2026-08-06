@@ -132,7 +132,8 @@ What follows from that, and is therefore not optional here:
 
 - **A strict Content-Security-Policy is load-bearing, not hardening.** No
   `unsafe-inline`, no wildcard script sources. On a native client CSP would be
-  irrelevant; here it is the primary control protecting the session.
+  irrelevant; here it is the primary control protecting the session. **Done**
+  (SB-003, 2026-08-06) — see below.
 - **Never render note content as HTML.** React escapes by default, and no
   component uses `dangerouslySetInnerHTML`. Note text is user-authored and, for
   voice notes, model-authored — both are untrusted output.
@@ -144,6 +145,19 @@ What follows from that, and is therefore not optional here:
 Worth weighing honestly: if this threat model turns out to be unacceptable, it
 is an argument for a native wrapper, not for a code change — the ceiling here
 is set by the platform.
+
+**SB-003, done 2026-08-06.** `vite.config.ts` builds one CSP from
+`VITE_SUPABASE_URL` — no `unsafe-inline`, no `unsafe-eval`, no wildcard —
+served as a real header on `vite dev`/`vite preview` and baked as a `<meta>`
+fallback into the built HTML. Getting to zero `unsafe-inline` meant moving the
+app's only 4 inline `style={{...}}` props to CSS classes. Proven, not just
+configured: a real cross-origin auth call succeeded under `connect-src`; a
+deliberate `fetch()` to a disallowed origin was blocked and caught by a
+`securitypolicyviolation` listener (`main.tsx`) with `disposition: "enforce"`.
+`frame-ancestors` and `report-to` cannot live in a `<meta>` tag (spec
+limitation) — the served header carries `frame-ancestors 'self'`, but
+whatever host SB-016 deploys to must set both at the server layer; that gap is
+real, not silently worked around. Evidence: `docs/00-verification.md`.
 
 ## User rights
 
@@ -159,9 +173,8 @@ alongside.
 - [ ] **Retention/partitioning for `ai_jobs`.** Grows without limit.
 - [ ] **`ALLOWED_ORIGIN` set to a real origin.** Defaults to `*`, which is fine
       for local development and wrong for production web.
-- [ ] **Ship a strict CSP header.** Not yet configured. Per the session section
-      above, this is the main thing standing between an XSS and every note the
-      user has ever written.
+- [x] **Ship a strict CSP header** (SB-003, 2026-08-06). Per the session
+      section above — see it for the full evidence.
 - [ ] **Subresource integrity / dependency review.** A PWA's supply chain is
       its npm tree, and any package in it runs on the origin with access to
       `localStorage`. `npm audit` in CI at minimum.

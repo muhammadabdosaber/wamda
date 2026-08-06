@@ -40,7 +40,7 @@ blocked on.
 | SB-038 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | **done** |
 | SB-011 | Bundle the app fonts (Public Sans + Noto Sans Arabic) | — | S | **done** |
 | SB-001 | Schedule the sweep worker | M5 | M | **done** |
-| SB-003 | Strict CSP | M6 | M | todo |
+| SB-003 | Strict CSP | M6 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -190,7 +190,39 @@ vendor bill, and both endpoints call paid APIs.
 - **Accept:** the (N+1)th call inside the window returns 429 with a typed error
   and an `ai_jobs` row; the vendor is never called. Test proves it.
 
-### SB-003 · Strict CSP · `todo` · M
+### SB-003 · Strict CSP · `done` · M
+
+> **Done, proven against a real build and a real dev server (2026-08-06).**
+> One policy, built once in `vite.config.ts` from `VITE_SUPABASE_URL` so the
+> header and the meta tag baked into the shipped HTML can never drift apart:
+> `default-src 'self'` with no `unsafe-inline`, no `unsafe-eval`, no wildcard
+> — `script-src`, `style-src`, `img-src`, `font-src`, `worker-src` all
+> `'self'`; `connect-src` adds only the Supabase origin; `object-src 'none'`;
+> `base-uri`/`form-action 'self'`. Getting to zero `unsafe-inline` meant
+> removing the app's only 4 inline `style={{...}}` props (moved to CSS
+> classes, same computed values, checked live: `24px` etc.) — the alternative
+> was carrying an exception for four lines of margin.
+>
+> **Proven, not just configured:** `npm run build` then `vite preview` served
+> the header for real (`curl -I`, confirmed byte-for-byte); loaded in a
+> browser, signed in for real — a genuine cross-origin `POST .../auth/v1/otp`
+> to a *different* origin than the page succeeded under `connect-src`, no
+> violation. Then the guard was proven the way `check-rtl.mjs` was: a
+> deliberate violation. `fetch("https://example.com/")` from the page was
+> blocked (`Failed to fetch`), and the `securitypolicyviolation` listener
+> caught it: `{directive: "connect-src", blocked: "https://example.com/",
+> disposition: "enforce"}` — enforced, not report-only. Also re-verified on
+> `vite dev` (HMR, React Fast Refresh) with the same header active — nothing
+> in the dev inner loop needed a relaxation.
+>
+> **Honest gap:** `frame-ancestors` and `report-to` cannot live in a `<meta>`
+> CSP (the spec has browsers ignore them there), so the *served header*
+> carries `frame-ancestors 'self'` but the meta-tag fallback baked into the
+> built HTML does not. Whatever host SB-016 deploys to must set both at the
+> server layer. Violation reporting today is `console.error` client-side
+> (`securitypolicyviolation` in `main.tsx`) — visible, not centralized; a
+> `report-to` collector is future work once SB-019 gives it somewhere to land.
+> Evidence: `docs/00-verification.md` "SB-003 · Strict CSP".
 
 Load-bearing, not hardening: `supabase-js` keeps the session in `localStorage`,
 so a single XSS is a full session compromise. See `docs/08-security.md`.
@@ -696,6 +728,7 @@ Only Chromium has ever run this app.
 | SB-032 | Non-`ready` notes stay visible (processing/failed), never absent | owner-reported; `CHANGELOG` |
 | SB-001 | `pg_cron` sweep fired on its own timer; stranded `enriching` note → `queued`, no client | `00-verification.md` "SB-001 · A note recovered by the schedule" |
 | SB-002 | Rate gate proven in `verify.sql` and over real HTTP: 60 vendor attempts then a clean `429` on call 61 | `00-verification.md` "SB-002 · Per-user rate limit" |
+| SB-003 | Strict CSP served real (curl-confirmed), real cross-origin auth call succeeds, deliberate violation blocked + reported | `00-verification.md` "SB-003 · Strict CSP" |
 
 ---
 

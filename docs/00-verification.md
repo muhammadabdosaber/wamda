@@ -488,6 +488,71 @@ proceed, over-admitting by a small amount; acceptable for a single-user
 product's runaway-loop guard, not proven safe at higher concurrency
 (`docs/14-testing.md`, "No load or concurrency testing").
 
+### SB-003 · Strict CSP
+
+**2026-08-06, local build and dev server.** `web/vite.config.ts` builds one
+policy from `VITE_SUPABASE_URL` — `default-src 'self'`; `script-src`,
+`style-src`, `img-src`, `font-src`, `worker-src` all `'self'`; `connect-src
+'self' <supabase-origin>`; `object-src 'none'`; `base-uri`/`form-action
+'self'`. No `unsafe-inline`, no `unsafe-eval`, no wildcard, anywhere.
+
+**Getting to zero `unsafe-inline` required a real code change**, not just a
+header: the app had exactly 4 inline `style={{...}}` props (`Auth.tsx`,
+`Capture.tsx`), each rendering as a `style` attribute a strict `style-src`
+blocks the same as inline `<script>`. Moved to CSS classes
+(`.auth-fallback-hint`, `.capture-error`, `.capture-unsupported`,
+`.capture-pending`) carrying the exact literal values they replaced —
+confirmed live: `getComputedStyle(el).marginBlockStart === "24px"` for the
+`.auth-fallback-hint` case, matching the original inline value exactly.
+
+**Served for real, both places that matter:**
+
+| where | how checked | result |
+|---|---|---|
+| `npm run build` → `vite preview --port 4173` | `curl -I http://localhost:4173/` | `Content-Security-Policy:` header present, byte-identical to the policy in code, **including `frame-ancestors 'self'`** |
+| `vite dev` (port 5174, the daily inner loop) | same `curl -I` | same header present |
+| built `dist/index.html` | read the file | `<meta http-equiv="Content-Security-Policy" content="...">` injected at `head-prepend`, same policy **minus `frame-ancestors`** (the spec has browsers silently ignore it in a `<meta>` tag — omitted on purpose rather than shipped as dead weight) |
+
+**The app was actually used under the policy, not just loaded.** Against the
+`vite preview` build: clicked "تسجيل الدخول", typed a real email, submitted —
+a genuine cross-origin `POST http://127.0.0.1:54421/auth/v1/otp` (page served
+from `:4173`, API on `:54421` — different origins) returned `200`, no CSP
+violation. Confirms `connect-src` is scoped correctly, not just present.
+
+**Then the guard was proven the way `check-rtl.mjs` was proven** — a
+deliberate violation, per `docs/14-testing.md`'s own rule that an untested
+guard is not a guard:
+
+```js
+fetch("https://example.com/") // -> "Failed to fetch" -- blocked
+```
+
+and the `securitypolicyviolation` listener added in `main.tsx` caught it in
+the same breath:
+
+```json
+{ "directive": "connect-src", "blocked": "https://example.com/", "disposition": "enforce" }
+```
+
+`disposition: "enforce"` — not `"report"` — confirms this is a blocking
+policy, not a report-only one that would have let the request through.
+
+**Dev mode re-checked separately** (HMR, React Fast Refresh) with the same
+header live on `vite dev`: hot updates to the 4 edited files applied, the
+Vite HMR websocket (`ws://` back to the same origin) connected without a
+single `csp_violation` in console. Nothing in the daily inner loop needed a
+relaxation.
+
+**What this does not cover, stated honestly:** `frame-ancestors` and
+`report-to` cannot live in a `<meta>` CSP at all — the served header carries
+`frame-ancestors 'self'`, but the meta-tag fallback baked into the static
+build does not, so a host that serves the built files with no server-side
+header config (a plain static host) ships without clickjacking protection.
+Whatever host SB-016 picks must set both at its own header layer. Violation
+reporting today is `console.error` client-side only — visible in DevTools,
+not centralized; a `report-to` collector is real future work, not attempted
+here, once SB-019 (structured logging) gives it somewhere to land.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

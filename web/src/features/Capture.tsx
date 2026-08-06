@@ -214,7 +214,7 @@ export function Capture({
       {failed && (
         // Only ever the local write. `sync()` handles its own failures and
         // leaves the note queued, which is not something to alarm anyone about.
-        <p className="error-text" style={{ marginBlockStart: 14, textAlign: "center" }}>
+        <p className="error-text capture-error">
           {t.t("errorCaptureFailed")}
         </p>
       )}
@@ -222,7 +222,7 @@ export function Capture({
       {!canRecord && (
         // Honest degradation rather than a button that does nothing.
         // MediaRecorder is still absent or partial on some iOS versions.
-        <p className="muted" style={{ marginBlockStart: 12 }}>
+        <p className="muted capture-unsupported">
           {t.t("captureUnsupported")}
         </p>
       )}
@@ -239,7 +239,7 @@ export function Capture({
       {pending > 0 && (
         // Quiet, non-alarming. Never a red badge -- a badge turns "your phone
         // is offline" into something that reads as the user's failure.
-        <p className="muted" style={{ marginBlockStart: 20, textAlign: "center" }}>
+        <p className="muted capture-pending">
           {t.plural("pendingSync", pending)}
         </p>
       )}

@@ -10,6 +10,39 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — strict Content-Security-Policy (SB-003)
+
+Load-bearing, not hardening: `supabase-js` keeps the session in
+`localStorage`, so a single XSS is a full session compromise — CSP is the
+control actually protecting it, per `docs/08-security.md`.
+
+- **One policy, built once** in `web/vite.config.ts` from `VITE_SUPABASE_URL`,
+  applied to `vite dev`, `vite preview`, and injected as a `<meta>` tag into
+  the built HTML, so the three can never drift apart. No `unsafe-inline`, no
+  `unsafe-eval`, no wildcard: `default-src 'self'`; `connect-src` adds only
+  the Supabase origin; `object-src 'none'`; `base-uri`/`form-action 'self'`.
+- **Removed the app's only 4 inline styles** (`Auth.tsx`, `Capture.tsx`) to
+  actually reach zero `unsafe-inline` — moved to CSS classes carrying the
+  exact same values, not a design change.
+- **`securitypolicyviolation` listener** in `main.tsx` — console-visible
+  reporting, since a `<meta>` CSP cannot carry `report-to`.
+
+**Proven, not just configured:** header confirmed byte-for-byte via `curl -I`
+on both `vite dev` and a real `vite preview` build. A genuine cross-origin
+auth call (`POST .../auth/v1/otp`, different origin than the page) succeeded
+under `connect-src`. Then, matching how `check-rtl.mjs` was proven — a
+deliberate violation: `fetch("https://example.com/")` was blocked, and the
+violation listener caught it with `disposition: "enforce"`, confirming this
+blocks rather than merely reports. Dev mode (HMR, React Fast Refresh)
+re-checked separately under the same header — nothing needed relaxing.
+
+**Honest gap:** `frame-ancestors` and `report-to` cannot live in a `<meta>`
+tag at all (spec limitation) — the served header carries `frame-ancestors
+'self'`, the built HTML's fallback does not. Whatever host SB-016 deploys to
+must set both at its own header layer.
+
+Evidence: `docs/00-verification.md`, "SB-003 · Strict CSP".
+
 ### Added — per-user rate limit on `/enrich` and `/transcribe` (SB-002)
 
 Both endpoints called paid vendor APIs with no bound: a runaway client loop

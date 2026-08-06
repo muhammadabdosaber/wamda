@@ -14,6 +14,20 @@ createRoot(root).render(
   </StrictMode>,
 );
 
+// SB-003: make CSP violations visible instead of silently-blocked network
+// calls or dead buttons. A `<meta>` CSP cannot carry `report-to` (the spec
+// has browsers ignore that directive there), so this is the reporting
+// mechanism until a real host header can carry one -- console-visible today,
+// and a straightforward place to add a POST once SB-019 gives it somewhere
+// to land.
+window.addEventListener("securitypolicyviolation", (e) => {
+  console.error("csp_violation", {
+    directive: e.violatedDirective,
+    blocked: e.blockedURI,
+    source: e.sourceFile ? `${e.sourceFile}:${e.lineNumber}` : undefined,
+  });
+});
+
 // Drain the outbox whenever connectivity returns.
 //
 // This is the browser's substitute for a native background sync worker. It

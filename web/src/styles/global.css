@@ -412,6 +412,14 @@ body {
 .muted { color: var(--muted); font-size: 0.875rem; }
 .center { text-align: center; padding-block: 48px; color: var(--muted); }
 
+/* SB-003: a React `style={{...}}` prop renders as a `style` attribute, which
+   a strict CSP `style-src` (no `unsafe-inline`) blocks same as inline script.
+   These four carry the exact values they replace -- not a spacing cleanup. */
+.auth-fallback-hint { margin-block-start: 24px; }
+.capture-error      { margin-block-start: 14px; text-align: center; }
+.capture-unsupported { margin-block-start: 12px; }
+.capture-pending    { margin-block-start: 20px; text-align: center; }
+
 .banner {
   background: var(--accent-soft);
   color: var(--accent);

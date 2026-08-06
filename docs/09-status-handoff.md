@@ -147,9 +147,14 @@ Ordered by consequence, not effort.
       calls against the running local stack — calls 1–60 reached the vendor
       path, call 61 got a clean `429 rate_limited` before it did. Not proven
       under concurrency. Evidence: `docs/00-verification.md`.
-- [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the
-      session in `localStorage`, so one XSS is a full session compromise. See
-      the session section in `docs/08-security.md`.
+- [x] **Strict CSP** (SB-003, 2026-08-06). No `unsafe-inline`/`unsafe-eval`,
+      real header on `vite dev`/`preview` plus a `<meta>` fallback in the
+      built HTML. Proven, not just configured: a real cross-origin auth call
+      succeeded under `connect-src`; a deliberate disallowed `fetch()` was
+      blocked and caught by a `securitypolicyviolation` listener with
+      `disposition: "enforce"`. `frame-ancestors`/`report-to` can't live in
+      `<meta>` — whatever host SB-016 deploys to must set those at the server
+      layer. See `docs/00-verification.md` and `docs/08-security.md`.
 - [ ] **`ai_jobs` retention/partitioning.** Grows without limit.
 - [ ] **Audio deletion sweep.** `profiles.audio_retention_days` exists; nothing
       enforces it.

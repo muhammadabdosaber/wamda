@@ -80,7 +80,9 @@ cd web && npm run build               # dist/ → any static host, HTTPS require
 Before the first deploy:
 
 - [ ] `ALLOWED_ORIGIN` pinned to the real origin, not `*` (SB-010)
-- [ ] CSP headers configured at the host (SB-003)
+- [ ] CSP headers configured at the host (SB-003 done for the app's own
+      header/meta tag 2026-08-06; the host still needs to add `frame-ancestors`
+      and `report-to`, which cannot live in the `<meta>` fallback)
 - [ ] Rate limits in place (SB-002 done locally 2026-08-06; re-verify against
       the hosted database, not just this checklist) — deploying a paid
       pipeline without them is how a bill becomes a story
