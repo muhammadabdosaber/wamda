@@ -43,6 +43,7 @@ blocked on.
 | SB-003 | Strict CSP | M6 | M | **done** |
 | SB-010 | Pin `ALLOWED_ORIGIN` | M6 | S | **done** |
 | SB-004 | `ai_jobs` retention | M6 | S | **done** |
+| SB-009 | Enforce audio retention | M6 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -277,7 +278,31 @@ Grows without limit; it takes a row per stage per note per attempt.
 - **Accept:** rows older than a stated window are removed on a schedule, and the
   window is written in `docs/02-database-schema.md`.
 
-### SB-009 · Enforce audio retention · `todo` · M
+### SB-009 · Enforce audio retention · `done` · M
+
+> **Done, proven end to end with a real upload and a real delete
+> (2026-08-07).** `public.notes_audio_expired()` (migration
+> `20260807000200`) finds candidates per-user (`audio_retention_days` is not
+> a global cutoff); `sweep` deletes the actual Storage object via the Storage
+> API — not a raw SQL delete on `storage.objects`, which would only remove
+> the metadata row and orphan the bytes — then clears `notes.audio_path`.
+> Reuses the existing sweep schedule; no new cron/Vault wiring needed.
+>
+> **SQL boundary proven in `verify.sql`:** a note 40 days past a 30-day
+> retention window is flagged, one from yesterday is not.
+>
+> **Then proven live, for real bytes:** uploaded an actual object to the
+> `audio` bucket via the Storage API, attached it to a note backdated 40
+> days, restarted the stack, and `POST /sweep` returned `audio_purged: 1`.
+> Confirmed three ways: `storage.objects` row count for that path went to
+> `0`; a direct `GET` on the deleted object returned `400` — the bytes are
+> actually gone, not just the metadata; `notes.audio_path` is empty while
+> `raw_text` and `status` are byte-for-byte unchanged. A second `sweep` call
+> returned `audio_purged: 0` (idempotent). A control note created *today*
+> with real audio was swept over twice and its object survived both times —
+> the boundary holds on both sides. Test data removed afterward; the
+> owner's 14 notes and his 2 real audio objects were never touched.
+> Evidence: `docs/00-verification.md` "SB-009 · Enforce audio retention".
 
 `profiles.audio_retention_days` exists and nothing reads it. Storing a user's
 voice longer than promised is a privacy failure, not a cleanup task.
@@ -764,6 +789,7 @@ Only Chromium has ever run this app.
 | SB-003 | Strict CSP served real (curl-confirmed), real cross-origin auth call succeeds, deliberate violation blocked + reported | `00-verification.md` "SB-003 · Strict CSP" |
 | SB-010 | Preflight rejects a foreign Origin; first `deno test` in the project, proven against a deliberate regression | `00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`" |
 | SB-004 | `purge_old_ai_jobs()` scheduled daily; `verify.sql` proves old rows go, recent ones stay | `00-verification.md` "SB-004 · `ai_jobs` retention" |
+| SB-009 | Real audio object uploaded and deleted via the Storage API; `400` on re-fetch proves the bytes are gone, not just the row | `00-verification.md` "SB-009 · Enforce audio retention" |
 
 ---
 

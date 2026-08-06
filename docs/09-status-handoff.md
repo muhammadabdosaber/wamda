@@ -160,8 +160,10 @@ Ordered by consequence, not effort.
       against real inserted rows in `verify.sql`; the schedule is left
       running, unlike SB-001's sweep, since nothing about it is unsafe against
       real data. Partitioning not attempted — not needed at this scale.
-- [ ] **Audio deletion sweep.** `profiles.audio_retention_days` exists; nothing
-      enforces it.
+- [x] **Audio deletion sweep** (SB-009, 2026-08-07). `sweep` deletes the real
+      Storage object per-user via the Storage API and clears `audio_path`;
+      proven on a real upload/delete, confirmed with a `400` on re-fetch.
+      Reuses the existing sweep schedule. See `docs/00-verification.md`.
 - [x] **`ALLOWED_ORIGIN`** (SB-010, 2026-08-06). Still defaults to `*`
       locally by design; when configured, a foreign or missing preflight
       Origin is now rejected at `403`. Proven with the project's first

@@ -10,6 +10,34 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — audio retention actually enforced (SB-009)
+
+`profiles.audio_retention_days` existed since the first migration and
+nothing had ever read it — storing a user's voice longer than promised is a
+privacy failure, not a cleanup task.
+
+- **`public.notes_audio_expired()`** (migration `20260807000200_audio_retention.sql`)
+  finds notes whose audio has outlived their own owner's setting — a
+  per-user join, since retention is not a single global cutoff.
+- **`sweep` now consumes it**: deletes the object from the `audio` bucket via
+  the **Storage API**, then clears `notes.audio_path`. Deliberately not a raw
+  SQL delete on `storage.objects` — that removes only the metadata row and
+  orphans the bytes, the opposite of the goal. Reuses the existing sweep
+  schedule; no new cron or Vault wiring needed.
+- The note **survives with its transcript** — only `audio_path` is touched.
+
+**Proven with a real upload and a real delete, not a mock:** uploaded an
+actual object to the bucket via the Storage REST API, attached it to a note
+backdated 40 days past the 30-day default, restarted the stack, and `POST
+/sweep` returned `audio_purged: 1`. Confirmed three ways: the
+`storage.objects` row is gone; a direct `GET` on the deleted object returned
+`400` — the bytes themselves are gone, not just the catalog row; the note's
+`raw_text` and `status` are unchanged. A second `sweep` call returned
+`audio_purged: 0` (idempotent). A control note captured *today* with real
+audio survived two sweep passes untouched — the boundary holds both ways.
+
+Evidence: `docs/00-verification.md`, "SB-009 · Enforce audio retention".
+
 ### Added — `ai_jobs` retention (SB-004)
 
 `ai_jobs` takes a row per stage per note per attempt and grew without limit.

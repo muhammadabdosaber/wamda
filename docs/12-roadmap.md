@@ -107,7 +107,7 @@ client open, and one real weekly digest exists in the database.
 - [x] Strict CSP (SB-003) — load-bearing, not hardening; done and proven local-only, a hosted deploy still needs `frame-ancestors`/`report-to` at the host's header layer (SB-016)
 - [x] `ALLOWED_ORIGIN` pinned (SB-010) — preflight rejects a foreign Origin when configured; a hosted deploy (SB-016) still needs to actually set the env var
 - [ ] Export everything (SB-014) and delete everything (SB-015)
-- [ ] Audio retention enforcement (SB-009)
+- [x] Audio retention enforcement (SB-009) — proven on a real upload and a real delete
 - [x] `ai_jobs` retention (SB-004) — 90-day purge, daily `pg_cron`, proven live
 - [ ] Deployed to a real Supabase project (SB-016)
 

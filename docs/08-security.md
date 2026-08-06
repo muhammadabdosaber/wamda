@@ -183,7 +183,8 @@ alongside.
 - [ ] **Subresource integrity / dependency review.** A PWA's supply chain is
       its npm tree, and any package in it runs on the origin with access to
       `localStorage`. `npm audit` in CI at minimum.
-- [ ] **Verify audio deletion actually runs** at the retention horizon. The
-      column exists; the sweep does not yet.
+- [x] **Verify audio deletion actually runs** (SB-009, 2026-08-07). `sweep`
+      now enforces it. Proven with a real upload and a real delete — direct
+      `GET` on the removed object returned `400`. See `docs/00-verification.md`.
 - [ ] **Rotate the local anon/service keys** before any non-local deployment —
       the ones in `supabase start` output are the well-known development keys.

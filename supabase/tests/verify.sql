@@ -430,6 +430,57 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 9. Audio retention query (SB-009)
+-- ---------------------------------------------------------------------------
+-- notes_audio_expired() only finds candidates -- the actual Storage delete
+-- needs the Storage API, not SQL, and is exercised live (00-verification.md).
+-- This proves the per-user boundary: audio_retention_days differs by user,
+-- so it cannot be a single global cutoff.
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  retention_days integer;
+  expired_ids uuid[];
+begin
+  select audio_retention_days into retention_days from public.profiles where id = alice;
+
+  delete from public.notes where user_id = alice and client_id in (
+    '44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555');
+
+  -- Expired: captured well past this user's own retention window.
+  insert into public.notes (user_id, client_id, source, status, input_language, audio_path, client_created_at)
+  values (alice, '44444444-4444-4444-4444-444444444444', 'voice', 'ready', 'ar',
+          alice::text || '/expired-test.webm',
+          now() - make_interval(days => retention_days + 10));
+
+  -- Not expired: captured yesterday.
+  insert into public.notes (user_id, client_id, source, status, input_language, audio_path, client_created_at)
+  values (alice, '55555555-5555-5555-5555-555555555555', 'voice', 'ready', 'ar',
+          alice::text || '/fresh-test.webm',
+          now() - interval '1 day');
+
+  select array_agg(note_id) into expired_ids
+    from public.notes_audio_expired(100)
+   where note_id in (
+     select id from public.notes where user_id = alice and client_id in (
+       '44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555'));
+
+  if expired_ids is null or array_length(expired_ids, 1) <> 1 then
+    raise exception 'notes_audio_expired flagged % of alice''s 2 test notes, expected exactly 1',
+      coalesce(array_length(expired_ids, 1), 0);
+  end if;
+  if expired_ids[1] <> (select id from public.notes where client_id = '44444444-4444-4444-4444-444444444444') then
+    raise exception 'notes_audio_expired flagged the wrong note';
+  end if;
+
+  raise notice 'PASS: notes_audio_expired flags only the note past its owner''s retention window';
+
+  delete from public.notes where user_id = alice and client_id in (
+    '44444444-4444-4444-4444-444444444444', '55555555-5555-5555-5555-555555555555');
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

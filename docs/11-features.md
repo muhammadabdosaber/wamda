@@ -114,7 +114,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
 | 5.12 | Export all notes | ❌ | SB-014 |
 | 5.13 | Delete account + all data | ❌ | SB-015 |
-| 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ❌ column exists, nothing enforces it | SB-009 |
+| 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ✅ `sweep` deletes the real Storage object per-user; proven on a real upload, `400` on re-fetch confirms actual byte deletion | SB-009 |
 | 5.15 | `notes.action_dismissed_at` | 🟡 applied to the local database; nowhere else exists yet | migration `20260802000100` |
 | 5.16 | Column-scoped update grant on `notes` | ✅ client limited to `archived_at`/`action_dismissed_at`/`completed_at`/`updated_at`; `status` rejected — asserted in `verify.sql` | migration `20260804000200` (SB-023) |
 

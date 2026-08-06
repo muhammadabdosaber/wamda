@@ -133,9 +133,19 @@ queries that never touch them.
 content (`docs/08-security.md`) — so unlike everything else in this schema it
 has no reason to be kept forever. **Rows older than 90 days are deleted daily**
 by `public.purge_old_ai_jobs()`, scheduled via `pg_cron` at 03:00 UTC
-(migration `20260807000100_ai_jobs_retention.sql`, SB-004). No other table has
-a retention policy: notes and their enrichments are the product's memory and
-are kept until the user deletes them (SB-015).
+(migration `20260807000100_ai_jobs_retention.sql`, SB-004).
+
+**Audio is retained per user**, `profiles.audio_retention_days` (default 30).
+`public.notes_audio_expired()` (migration `20260807000200_audio_retention.sql`,
+SB-009) finds notes whose audio has outlived their own owner's setting; the
+`sweep` Edge Function consumes it on the same schedule as everything else it
+sweeps, deletes the Storage object via the Storage API (a raw SQL delete on
+`storage.objects` would only remove the metadata and orphan the bytes), and
+clears `notes.audio_path`. The note survives with its transcript — `raw_text`
+is the durable artifact.
+
+No other table has a retention policy: notes and their enrichments are the
+product's memory and are kept until the user deletes them (SB-015).
 
 ## Verification
 

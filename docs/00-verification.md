@@ -628,6 +628,48 @@ from leaving this running against real data (it only ever deletes rows past
 the window, and nothing here is anywhere close to it), so there was no reason
 to turn it off after proving it.
 
+### SB-009 · Enforce audio retention
+
+**2026-08-07, local stack, real bytes.** `profiles.audio_retention_days`
+existed since the first migration and nothing had ever read it.
+`public.notes_audio_expired()` (`20260807000200_audio_retention.sql`) finds
+notes whose audio has outlived their own owner's setting — a per-user join,
+since retention is not a single global cutoff. `sweep` now consumes it: for
+each candidate, deletes the actual object from the `audio` bucket via the
+**Storage API**, then clears `notes.audio_path`. Deliberately not a raw SQL
+delete on `storage.objects` — that would remove only the metadata row and
+orphan the bytes, the opposite of the privacy goal.
+
+**SQL boundary, `verify.sql`:** a note backdated 40 days past a 30-day
+retention window is flagged by `notes_audio_expired()`; one from yesterday is
+not. `ALL SCHEMA CHECKS PASSED`.
+
+**Then proven with a real upload and a real delete — not a mock:**
+
+1. Uploaded a real object to the `audio` bucket via `POST
+   /storage/v1/object/audio/<user_id>/<note_id>.webm` (Storage REST API,
+   service role) — confirmed present in `storage.objects` first.
+2. Attached it to a test note, `client_created_at` backdated 40 days.
+3. Restarted the stack so the Edge Runtime ran the new code (the documented
+   stale-code gotcha), then `POST /functions/v1/sweep` for real:
+   `{"unstuck":0,"retried":0,"embedded":0,"audio_purged":1}`.
+
+| check | result |
+|---|---|
+| `storage.objects` row for that path | `0` — gone |
+| direct `GET` on the deleted object | **`400`** — the bytes themselves are gone, not just the catalog row |
+| `notes.audio_path` | empty |
+| `notes.raw_text`, `status` | byte-for-byte unchanged — the note survives with its transcript |
+| second `sweep` call | `audio_purged: 0` — idempotent, nothing left to do |
+
+**The other side of the boundary, also proven live, not assumed:** a second
+test note captured *today* with a real uploaded audio object was swept over
+twice (once alongside the expired note, once alone) and its object survived
+both times — `storage.objects` count stayed `1`, `audio_path` stayed set.
+
+Test notes and objects removed afterward. The owner's 14 real notes and his 2
+real audio objects were confirmed present, untouched, before and after.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by
