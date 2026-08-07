@@ -36,7 +36,7 @@
 | Prompt caching | **Measured**, not estimated — 2169 cached tokens/call |
 | Embeddings / semantic search | **Blocked** — no Cohere key |
 | Voice / transcription | **Blocked** — no ElevenLabs key |
-| Weekly digest | Written, never executed |
+| Weekly digest | Schedule built and proven live; blocked on `ANTHROPIC_API_KEY` for a real run |
 | English (phase 2) | Wired, deliberately disabled |
 
 Full evidence ledger: `docs/00-verification.md`.
@@ -173,15 +173,29 @@ Ordered by consequence, not effort.
       locally by design; when configured, a foreign or missing preflight
       Origin is now rejected at `403`. Proven with the project's first
       `deno test`, itself proven against a deliberate regression (`00-verification.md`).
-- [ ] **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
-      Noto Sans Arabic first, but neither ships — currently falling back to a
-      system face. `web/public/fonts/` now holds `amiri-400/700.woff2`, but
-      **nothing references them** — there is still no `@font-face`. SB-011 was
-      held pending the redesign's typeface choice; the redesign has landed and
-      chose Plus Jakarta Sans, Inter, and JetBrains Mono, **none of which carry
-      Arabic glyphs**. So it answered nothing here, and the hold can lift.
-- [ ] **Digest never run**, and its Batch-API-plus-structured-outputs
-      combination is unverified.
+- [x] **`ai_jobs` retention** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, proven against real inserted rows in `verify.sql`.
+- [x] **Audio retention enforced** (SB-009, 2026-08-07). Real Storage object
+      uploaded and deleted via the Storage API; `400` on re-fetch proves the
+      bytes are gone, not just the row.
+- [x] **Export everything** (SB-014, 2026-08-07). `GET /export`, RLS-scoped,
+      proven against the owner's real 14 notes and a fresh disposable user.
+- [x] **Delete everything** (SB-015, 2026-08-07). `POST /delete-account`,
+      full cycle proven on a disposable user across all 10 tables plus real
+      Storage bytes.
+- [x] **Offline archive/dismiss queue** (SB-028, 2026-08-07). Proven with
+      `kong` genuinely stopped, not simulated; queued write survives reload
+      and drains correctly on reconnect. Surfaced and fixed a real bug from
+      SB-003 along the way — see that entry and `00-verification.md`.
+- [x] **Arabic font bundled** (SB-011). Public Sans (redesign's Latin face,
+      no Arabic glyphs) paired with self-hosted Noto Sans Arabic, split by
+      `unicode-range`. The Google Fonts CDN `<link>` (an offline-first
+      violation) is gone.
+- [ ] **Digest schedule built and proven live** (SB-017, 2026-08-07) — both
+      `pg_cron` jobs fire on their own timer and reach the real function.
+      **Still blocked**: the task's actual accept line (a real
+      `digest_batches` row) needs `ANTHROPIC_API_KEY`, which this worktree
+      does not have.
 - [x] **Screenshot captured**, for the capture screen at 375×812 in both colour
       schemes — which is how the dark-mode contrast bug in the theme port was
       found at all. Notes, search, digest, and auth have still never been
@@ -253,6 +267,41 @@ will fix — they need a decision, not a lookup:
   appearing in the timeline, which is strong. Do not remove that without a
   replacement that is as convincing. See SB-037.
 
-Progress: **SB-031a (theme port) is done and verified.** SB-036 (Tasks screen),
-SB-037 (open the note from a task), and SB-038 (`completed_at`) are open in
-`docs/13-tasks.md` with their scope already worked out.
+**Done.** SB-031a (theme), SB-036 (Tasks screen), SB-037 (open the note from a
+task), SB-038 (`completed_at`), SB-033 (answered-suggestion feedback), and
+SB-011 (fonts) are all closed — see `docs/13-tasks.md` "Done". The two
+redesign-adjacent items still open are **SB-032** (done — a note that fails
+enrichment stays visible) and **SB-027** (a real destination for accepted
+suggestions — agreed with the owner, deliberately deferred, see below).
+
+## What's actually left (as of 2026-08-07)
+
+Everything reachable without a vendor key or the owner's own account/design
+input is done. What remains, grouped by why it's not done:
+
+**Blocked on API keys the owner has to supply** (no code work possible until
+then):
+- SB-005/006/008 — Cohere key → embeddings, semantic search, cross-lingual
+  retrieval test (the single highest-value unknown in the project)
+- SB-007/012/013 — ElevenLabs key → real transcription, phone testing, WER
+- SB-017/018/034 — `ANTHROPIC_API_KEY` → digest actually running, model
+  cost/quality comparison
+
+**Blocked on the owner's own account/infra:**
+- SB-016 — deploy to a real hosted Supabase project
+
+**Deliberately deferred, agreed with the owner:**
+- SB-027 — destination for accepted suggestions (task/calendar). Owner
+  decided: build the real thing, sequenced after design feedback, not the
+  cheap relabel. He said he may adjust design/colours and add features next —
+  start there before touching this.
+
+**Open, no blocker, just not yet started** (fair game for the next session):
+- SB-019 — structured logging/alerting (M, scope still vague — worth
+  narrowing with the owner first)
+- SB-020 — instrument the success metrics from `docs/10-product-spec.md` (M,
+  same caveat)
+- SB-022 — Safari/Firefox testing (S, needs real Safari/Firefox — only
+  Chromium tooling was available this session)
+- SB-035 — one end-to-end test (M, deliberately the one place a
+  browser-automation dependency is worth adding)
