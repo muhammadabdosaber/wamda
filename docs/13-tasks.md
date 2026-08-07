@@ -831,14 +831,26 @@ nothing here that a later redesign would waste, and the hold can lift. Go and
 finish SB-011 with the Amiri files already sitting in `web/public/fonts/`, or
 record the decision not to.
 
-### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `todo` · M
+### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `done` · M
 
-> **Unblocked as of 2026-08-07** — this worktree now has a working
-> `ANTHROPIC_API_KEY` (see the SB-017/018 evidence in
-> `docs/00-verification.md` for how the "missing" key was actually just
-> absent from this worktree's checkout, not from the project). Not yet
-> attempted — this needs 20 curated real notes and a genuine side-by-side,
-> not something to fold into an unrelated task.
+> **Done (2026-08-07). Decision: stay on Opus 5, not Haiku 4.5.** Ran the
+> real production prompt/schema through both models against the owner's
+> 12 real text notes (all real notes with `raw_text`; the other 2 are
+> voice notes with no transcript yet, blocked on SB-007). Measured, not
+> estimated: `category` agreed 58.3%, `suggested_action` agreed only
+> 25.0%, and Haiku classified three near-duplicate real notes (the same
+> haircut-with-مالك event, captured three times) as `task`/`event`/`event`
+> — disagreeing with *itself*, not just Opus, which called all three
+> `task`. Relative-date **day** resolution was correct on both models for
+> every note (6/6 "بكرة" notes) — no hard date bug either way — but Haiku
+> defaulted to `00:00:00` where Opus inferred a real time from context.
+> Cost was 4.26x cheaper for Haiku as measured (not the ~5x estimate) —
+> and won't reach even that in practice for burst captures, since Haiku
+> 4.5's prompt-cache minimum (4,096 tokens, verified against Anthropic's
+> current docs) is nearly 8x Opus 5's (512 tokens), so this system prompt
+> (~2,169 tokens) never caches on Haiku at all, while Opus 5 caches from
+> the second call on. Full comparison table and methodology:
+> `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5 (SB-034)".
 
 There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
 `40f0a14`, kept from a worktree that was about to be deleted), whose message
@@ -912,6 +924,7 @@ Only Chromium has ever run this app.
 | SB-028 | Dismiss with the backend genuinely down: immediate UI update, queued in IndexedDB, replayed correctly on reconnect, durable across reload | `00-verification.md` "SB-028" |
 | SB-017 | `digest-enqueue` fired on its own timer, real Anthropic Batch submission, real row in `digest_batches` | `00-verification.md` "SB-017" |
 | SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
+| SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
 
 ---
 

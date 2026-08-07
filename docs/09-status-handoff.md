@@ -32,7 +32,7 @@
 | Edge Functions (5) | **Done, type-checked**; `notes` + `enrich` run for real |
 | React PWA client | **Done, verified in a browser** — 21 tests, RTL guard, build |
 | Auth (email OTP) | **Done, verified end to end** via local mail catcher |
-| AI enrichment | **Done, run against Claude Opus 5** — real Arabic output |
+| AI enrichment | **Done, run against Claude Opus 5** — real Arabic output; Haiku 4.5 measured and rejected (SB-034) |
 | Prompt caching | **Measured**, not estimated — 2169 cached tokens/call |
 | Embeddings / semantic search | **Blocked** — no Cohere key |
 | Voice / transcription | **Blocked** — no ElevenLabs key |
@@ -307,11 +307,6 @@ then):
 - SB-005/006/008 — Cohere key → embeddings, semantic search, cross-lingual
   retrieval test (the single highest-value unknown in the project)
 - SB-007/012/013 — ElevenLabs key → real transcription, phone testing, WER
-
-**Unblocked, not yet started** (`ANTHROPIC_API_KEY` turned out to already be
-real — it just wasn't copied into this worktree; see "Operational gotchas"):
-- SB-034 — Opus 5 vs Haiku 4.5 comparison on 20 real notes. SB-017/018 (the
-  digest schedule) used this same key and are now done — see below.
 
 **Blocked on the owner's own account/infra:**
 - SB-016 — deploy to a real hosted Supabase project

@@ -10,6 +10,25 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Decided — staying on Claude Opus 5 for enrichment, not Haiku 4.5 (SB-034)
+
+An abandoned branch had already swapped the model for a ~5x cost estimate
+but never checked output quality and never merged. Measured it for real:
+ran the production prompt/schema through both models against the owner's
+12 real notes. `suggested_action` agreed only 25% of the time, and Haiku
+classified three retries of the *same real event* (a haircut) as
+`task`/`event`/`event` — inconsistent with itself, not just with Opus,
+which called all three `task` correctly. Cost was 4.26x cheaper for Haiku
+as measured (not the ~5x estimated) — Haiku 4.5's prompt-cache minimum
+(4,096 tokens, confirmed against Anthropic's docs) is higher than the
+system prompt itself (~2,169 tokens), so Haiku never benefits from caching
+at all here, while Opus 5 (512-token minimum) does from the second call on.
+
+Per the task's own standing rule — don't switch on price alone when a
+wrong category means the user re-files things themselves — `ENRICHMENT_MODEL`
+stays `claude-opus-5`. Full comparison: `docs/04-ai-pipeline.md` "Model
+choice: Opus 5 vs Haiku 4.5 (SB-034)".
+
 ### Fixed — weekly digest silently stored fence-wrapped JSON as prose (SB-018)
 
 The digest's `collect` step (`supabase/functions/digest/index.ts`) asks the

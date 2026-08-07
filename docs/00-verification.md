@@ -889,6 +889,78 @@ exercised (once, by accident, which is what surfaced the bug worth fixing).
 
 **SB-018 is now `done`.**
 
+### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5
+
+**2026-08-07, local stack, real key.** An abandoned branch
+(`archive/sweep-worker-haiku-variant`) had already swapped
+`ENRICHMENT_MODEL` to Haiku 4.5 for the ~5x cost estimate but never had
+output quality checked, and never merged. This task ran the real
+production prompt (`_shared/enrichment.ts`, copied verbatim into a
+standalone script) and schema through both models, in parallel, against
+the owner's 12 real text notes (`eng.mohammadabdo@gmail.com`; the other 2
+of the 14 total notes are voice notes with no `raw_text` yet, out of
+scope — blocked on SB-007). Real API calls, real cost, no synthetic data:
+24 calls total, `$0.1747` combined.
+
+Request shapes matched each model's real constraints, not a naive
+"swap the model string": Opus 5 kept `thinking: adaptive`,
+`output_config.effort`, and the refusal-fallback beta; Haiku 4.5 dropped
+all three (confirmed via the abandoned branch's own commit message that
+Haiku 4.5 rejects them with `400`). Structured output
+(`output_config.format`, JSON schema) worked on both.
+
+| Field | Agreement (12 notes) |
+|---|---|
+| `category` | 7/12 = 58.3% |
+| `priority` | 10/12 = 83.3% |
+| `suggested_action` | 3/12 = 25.0% |
+| relative-date day correct | 12/12 = 100%, both models |
+
+**The specific risk the task named — a wrong category — showed up as
+self-inconsistency, which is worse than simple disagreement with Opus.**
+Three notes are real retries of the same real event (a haircut with
+مالك, worded slightly differently each capture: `08041e8e`, `cd4e6e6d`,
+`a6887370`). Opus classified all three `task`. Haiku classified them
+`task`, `event`, `event` — flip-flopping on near-identical input from the
+*same model*, not just diverging from Opus's judgment.
+
+**Date-day resolution held on both models for all 6 notes containing "بكرة"**
+— no hard date bug on either side, contrary to what the task brief
+worried about. What differed was the *time* component: Opus consistently
+inferred a contextually plausible time (matching an explicitly stated
+"12 الظهر" correctly, and picking sensible defaults — 9am, noon, evening —
+where none was stated); Haiku defaulted to `00:00:00` in most of those
+cases, a placeholder rather than an inference.
+
+**Cost, measured over the same 12-note run:**
+
+| | Opus 5 | Haiku 4.5 |
+|---|---|---|
+| Avg cost/note | $0.01179 | $0.00277 |
+| Avg latency | 7026 ms | 3922 ms |
+| Cache engaged | Yes, from call 2 on | **No — 0/12 calls, any call** |
+
+**Secondary finding, verified against Anthropic's current docs
+(`platform.claude.com/docs/en/build-with-claude/prompt-caching`), not
+assumed:** minimum cacheable prompt length is 512 tokens for Opus 5 but
+4,096 tokens for Haiku 4.5. The system prompt (~2,169 tokens) clears
+Opus 5's bar and misses Haiku's — every one of Haiku's 12 calls showed
+`cache_creation_input_tokens: 0` and `cache_read_input_tokens: 0`, while
+Opus 5 wrote the cache on its first call and read it on the other 11.
+Measured cost ratio: **4.26x**, not the ~5x the task's own estimate
+assumed — and the real-world gap narrows further for a user who captures
+notes in bursts, since only Opus 5 benefits from that pattern at this
+prompt length.
+
+**Decision: stay on `claude-opus-5`.** Per the task's own instruction —
+"do not switch on price alone; a wrong category is the failure mode that
+makes the user file things himself, which is the product failing" — a 75%
+disagreement rate on `suggested_action` plus demonstrated
+self-inconsistency on a real repeated event is that failure mode, measured,
+not a marginal quality gap. `ENRICHMENT_MODEL` unchanged. Full table and
+reasoning: `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5
+(SB-034)".
+
 ### SB-028 · Queue archive/dismiss while offline
 
 **2026-08-07, local stack, a real disconnected backend, not a flag.**

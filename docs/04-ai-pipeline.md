@@ -158,3 +158,80 @@ Prompt caching removes roughly 60% of what the uncached input would cost. At
 `ai_jobs.cost_usd` records this per call, so the number above is checkable
 rather than assumed. If volume grows, `ENRICHMENT_MODEL` is one constant —
 prompts and schema are model-agnostic.
+
+## Model choice: Opus 5 vs Haiku 4.5 (SB-034)
+
+**Decision: stay on Opus 5. Measured, 2026-08-07, not estimated.**
+
+An abandoned branch (`archive/sweep-worker-haiku-variant`, 2026-08-02) had
+already swapped `ENRICHMENT_MODEL` to `claude-haiku-4-5` for the ~5x cost
+estimate, but never merged and never had output quality checked against it.
+This ran the exact production prompt and schema through both models, in
+parallel, against the owner's real 12 real text notes (excluding 2 voice
+notes with no transcript yet) — not synthetic data. Haiku's request shape
+matches the abandoned branch: no `thinking`, no `output_config.effort`, no
+refusal-fallback beta (Haiku 4.5 rejects all three with `400`); structured
+output via `output_config.format` works on both.
+
+| Field | Agreement | 
+|---|---|
+| `category` | 7/12 = 58.3% |
+| `priority` | 10/12 = 83.3% |
+| `suggested_action` | 3/12 = 25.0% |
+| relative-date **day** resolved correctly (6 notes said "بكرة") | 12/12 = 100% (both models, no day-level bugs) |
+
+**The specific risk named in this task's own brief — a wrong category — is
+real, not hypothetical.** Three of the twelve notes are near-duplicate
+captures of the same real event (retries of "عايز احلق شعري انا و مالك
+بكره" / haircut with مالك tomorrow, worded slightly differently each time).
+Opus called all three `task`, consistently. Haiku called them `task`,
+`event`, `event` — **disagreeing with itself** across near-identical input,
+not just with Opus. `suggested_action` showed the same pattern more broadly
+(25% agreement) — Haiku defaulted to `none` or `review_later` on several
+notes Opus classified as actionable.
+
+**Date-*day* resolution held on both models** — every "بكرة" note landed on
+the correct calendar day regardless of model. What differed was *time*:
+Opus picked contextually plausible times (a stated "12 الظهر" was read
+correctly by both; where no time was stated, Opus inferred one — 9am, noon,
+evening — while Haiku defaulted to `00:00:00` in most of those cases, a
+placeholder rather than a real estimate). Not a correctness bug, but a
+quality gap on the one field this task flagged as most likely to break.
+
+**Cost, measured, not the ~5x estimate:**
+
+| | Opus 5 | Haiku 4.5 |
+|---|---|---|
+| Avg cost/note (this run) | $0.01179 | $0.00277 |
+| Avg latency | 7026 ms | 3922 ms |
+| Prompt cache engaged? | Yes — from the 2nd call on (2169-token system prompt clears Opus 5's 512-token cache minimum) | **No — 0 of 12 calls**, any call |
+
+**Secondary finding: Haiku 4.5 cannot cache this prompt at its current
+length.** Verified against Anthropic's current docs
+(`platform.claude.com/docs/en/build-with-claude/prompt-caching`): the
+minimum cacheable prompt length is **512 tokens for Opus 5** but **4,096
+tokens for Haiku 4.5** — nearly 8x higher. The enrichment system prompt is
+~2,169 tokens: comfortably above Opus 5's minimum, comfortably below
+Haiku's. Every Haiku call in this run paid full input price
+(`cache_creation_input_tokens` and `cache_read_input_tokens` both `0` on
+all 12 calls); Opus 5 paid full price once and read from cache on the
+other 11. Measured **4.26x** cheaper for Haiku here — real, but short of
+the ~5x estimate, and the gap narrows further for a user who captures in
+bursts (a realistic ADHD capture pattern), since only Opus benefits from
+that.
+
+**Not switching.** Per this task's own standing instruction — "do not
+switch on price alone; a wrong category is the failure mode that makes the
+user file things himself, which is the product failing" — a 75%
+disagreement rate on `suggested_action` and self-inconsistent categorization
+of the same real event is exactly that failure mode, not a marginal
+quality difference. `ENRICHMENT_MODEL` stays `claude-opus-5`. Revisit only
+if the prompt is deliberately re-tuned for Haiku (the current examples and
+phrasing were shaped against Opus's behavior, not Haiku's) — swapping the
+constant alone is not enough, and this run is evidence of that, not just an
+assertion.
+
+Raw comparison data (12 notes × 2 models, full enrichment output, token
+usage, and cost per call) is not committed — it's a one-off local
+comparison run, not something the schema or app depends on — but the
+methodology above is reproducible against the same 12 notes at any time.
