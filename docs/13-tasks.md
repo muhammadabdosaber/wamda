@@ -47,10 +47,11 @@ blocked on.
 | SB-014 | Export everything | M6 | M | **done** |
 | SB-015 | Delete everything | M6 | M | **done** |
 | SB-028 | Queue archive/dismiss while offline | — | S | **done** |
+| SB-017 | Schedule the weekly digest | M5 | S | **done** |
+| SB-018 | Run the digest once, for real | M5 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
-| SB-017 | Schedule the weekly digest | M5 | S | **blocked** (mechanism proven; needs `ANTHROPIC_API_KEY`) |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -153,41 +154,48 @@ audio and the signed-URL upload to Storage worked. Both notes then failed at
 > secrets removed afterward. Evidence: `docs/00-verification.md` "SB-001 · A
 > note recovered by the schedule".
 
-### SB-017 · Schedule the weekly digest · `blocked` · S
+### SB-017 · Schedule the weekly digest · `done` · S
 
-> **Mechanism built and proven live (2026-08-07); the task's own accept line
-> is blocked on `ANTHROPIC_API_KEY`, same as SB-018/SB-034.** Migration
-> `20260807000300_digest_schedule.sql` mirrors SB-001 exactly: two `pg_cron`
-> jobs, `digest-enqueue` (Saturdays 03:00 UTC) and `digest-collect` (every 6
-> hours — enqueue is once a week, but the Batch API can take up to 24h, so
-> collect keeps polling), both conditional on two Vault secrets, both reading
-> them live at call time rather than baking them into the stored job text.
+> **Done, proven live with a real vendor call (2026-08-07).** First proof
+> attempt (same day, earlier) had both `digest-enqueue`/`digest-collect` fire
+> on their own fast-forwarded timer and reach the real function, but this
+> worktree had no working `ANTHROPIC_API_KEY` — `requireEnv` threw before
+> either action ran, so `net._http_response` showed `500
+> missing_configuration`. Root cause turned out not to be a missing key at
+> all: the real key was in the main checkout's `supabase/functions/.env` the
+> whole time, but that file is gitignored (correctly — it holds real
+> secrets) and a `git worktree` only carries tracked files, so it was never
+> copied into this worktree. Copied it over, `supabase stop && start` from
+> this worktree to load it.
 >
-> With the secrets set, both jobs were temporarily fast-forwarded to `* * *
-> * *`, and **both fired on their own timer within the next minute** —
-> `cron.job_run_details` shows `succeeded` for each, and `net._http_response`
-> shows the real `digest` function was reached (`500 missing_configuration`
-> — this worktree has no working key, so `requireEnv` throws before either
-> action's logic runs). Restored to the real cadence, then unscheduled and
-> both secrets removed, matching SB-001's precedent: nothing useful comes
-> from leaving a keyless job to fail on a timer forever locally.
->
-> **What is NOT proven, and is this task's actual accept line:** a real row
-> in `digest_batches`. That needs `enqueue` to reach a real Anthropic Batch
-> API call, which needs the key. Evidence: `docs/00-verification.md` "SB-017".
-
-Same gap, same mechanism.
+> With the real key in place, `digest-enqueue` was fast-forwarded again and
+> fired on its own timer: `cron.job_run_details` `succeeded`,
+> `net._http_response` **`200 {"enqueued":1,"batch_id":"msgbatch_01Y1n9WqfVPGuUwZ1h35Ksjp",...}"`**
+> — a real Anthropic Message Batches submission built from the owner's own
+> 10 real enriched notes from the past week, and a real row landed in
+> `digest_batches` (`status: submitted`). This is the task's actual accept
+> line, now met without a manual invocation. Restored to the real weekly
+> cadence afterward. Evidence: `docs/00-verification.md` "SB-017".
 
 - **Accept:** a digest row appears in `digest_batches` on schedule without a
-  manual invocation.
+  manual invocation. ✅
 
-### SB-018 · Run the digest once, for real · `todo` · M
+### SB-018 · Run the digest once, for real · `done` · M
 
-Batch API + structured outputs is an **unverified combination**; the code
-requests JSON by prompt and falls back to keeping prose on a parse failure.
+> **Done (2026-08-07).** The unverified combination broke on the first real
+> run, exactly as suspected: the model wrapped its JSON in a ` ```json `
+> fence, `JSON.parse` threw, and the fallback caught fenced JSON as raw
+> prose. Fixed (`digest/index.ts` now strips a fence before parsing),
+> re-run for real, and a second batch parsed cleanly into the full
+> `{headline, themes, open_loops, wins, suggestion}` shape from the owner's
+> real 10 enriched notes. Verified in the actual client too — `Digest.tsx`
+> pre-existed and was untested with real data until now; it rendered
+> correctly under RTL with zero console errors, signed in as the real
+> owner via local OTP. Evidence: `docs/00-verification.md` "SB-018",
+> `docs/04-ai-pipeline.md` "Stage 6".
 
 - **Accept:** one real weekly digest exists, generated from at least a week of
-  real notes; the fallback path is exercised deliberately at least once.
+  real notes; the fallback path is exercised deliberately at least once. ✅
 
 ## M6 — Hardening
 
@@ -825,6 +833,13 @@ record the decision not to.
 
 ### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `todo` · M
 
+> **Unblocked as of 2026-08-07** — this worktree now has a working
+> `ANTHROPIC_API_KEY` (see the SB-017/018 evidence in
+> `docs/00-verification.md` for how the "missing" key was actually just
+> absent from this worktree's checkout, not from the project). Not yet
+> attempted — this needs 20 curated real notes and a genuine side-by-side,
+> not something to fold into an unrelated task.
+
 There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
 `40f0a14`, kept from a worktree that was about to be deleted), whose message
 reads *"switch enrichment to Haiku 4.5"*. Someone tried this and it never
@@ -895,6 +910,8 @@ Only Chromium has ever run this app.
 | SB-014 | `/export` proven against the owner's real 14 notes; cross-user isolation proven fresh with a disposable user | `00-verification.md` "SB-014/015" |
 | SB-015 | Full deletion cycle on a disposable user: 10 tables to zero, real audio bytes confirmed gone, owner's account untouched | `00-verification.md` "SB-014/015" |
 | SB-028 | Dismiss with the backend genuinely down: immediate UI update, queued in IndexedDB, replayed correctly on reconnect, durable across reload | `00-verification.md` "SB-028" |
+| SB-017 | `digest-enqueue` fired on its own timer, real Anthropic Batch submission, real row in `digest_batches` | `00-verification.md` "SB-017" |
+| SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
 
 ---
 

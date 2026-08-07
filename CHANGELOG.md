@@ -10,6 +10,37 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — weekly digest silently stored fence-wrapped JSON as prose (SB-018)
+
+The digest's `collect` step (`supabase/functions/digest/index.ts`) asks the
+model for JSON but the Batch API has no structured-outputs equivalent to
+enforce it. First real run: the model wrapped valid JSON in a ` ```json `
+fence, `JSON.parse` threw, and the existing fallback (correctly, by design)
+kept the raw text rather than dropping the week — but that meant the fence
+and all ended up stored as the digest's single `headline` field.
+
+- Strip a ` ```(json)? ... ``` ` fence before parsing; fall through to the
+  old raw-text fallback only if what's left still doesn't parse.
+- Re-run for real: a second batch parsed cleanly into
+  `{headline, themes, open_loops, wins, suggestion}` from the owner's real
+  notes, and the (previously never-exercised) `Digest.tsx` screen rendered
+  it correctly in a real signed-in session.
+
+Evidence: `docs/00-verification.md` "SB-018", `docs/04-ai-pipeline.md`
+"Stage 6".
+
+### Closed — SB-017 and SB-018 (weekly digest), for real
+
+SB-017 had proven the schedule mechanism but was blocked on
+`ANTHROPIC_API_KEY`, which turned out to not actually be missing — it was
+sitting in the main checkout's `supabase/functions/.env` (gitignored, so a
+`git worktree` never gets a copy) the whole time. Copied it into this
+worktree, reloaded the stack, and both tasks closed with real evidence: a
+real Anthropic Batch submission from `digest-enqueue` firing on its own
+schedule, and a real collected digest a user can actually read. See
+`docs/09-status-handoff.md` "Operational gotchas" for the worktree-`.env`
+trap, recorded so it doesn't cost time again.
+
 ### Added — archive and dismiss now queue while offline (SB-028)
 
 `archiveNote`, `dismissNoteAction`, and `restoreNoteAction` were direct

@@ -128,6 +128,18 @@ Batch results arrive in **arbitrary order**, so they are keyed by `custom_id`
 (`user__language`), never by index. The batch handle outlives the submitting
 process, which is why `digest_batches` exists as a table.
 
+**Observed for real (2026-08-07), the risk this stage's own code comment
+flagged:** Batches has no structured-outputs equivalent, and the model wraps
+its JSON in a ` ```json ` fence even though the prompt asks for JSON alone —
+the first real run parsed as a failure and fell all the way to the
+raw-text fallback (`{"headline": "```json\n{...}\n```"}`). Fixed by stripping
+a fence before `JSON.parse`, re-run for real, second batch parsed cleanly
+into the full `{headline, themes, open_loops, wins, suggestion}` shape. Model
+output itself, once parsed, matched the prompt's intent well on real data:
+calm tone, no scolding, one concrete suggestion, correctly identified a
+repeated note ("حلاقة الشعر مع مالك") as a pattern worth surfacing rather than
+four unrelated items.
+
 ## Cost
 
 Claude Opus 5 at $5 / $25 per MTok:

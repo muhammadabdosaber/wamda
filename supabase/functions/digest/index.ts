@@ -162,14 +162,21 @@ Deno.serve(async (req) => {
           const text = result.result.message.content.find((b) => b.type === "text");
           if (!text || text.type !== "text") continue;
 
+          // Observed for real (2026-08-07): the model wraps its JSON in a
+          // ```json fence even though the prompt asks for JSON alone and
+          // nothing about the request constrains the schema (Batches has no
+          // structured-outputs equivalent). Strip a fence if present before
+          // parsing, so the common case doesn't fall through to the raw-text
+          // fallback below.
+          const fenced = text.text.match(/```(?:json)?\s*([\s\S]*?)```/);
+          const jsonText = fenced ? fenced[1] : text.text;
+
           let content: unknown;
           try {
-            content = JSON.parse(text.text);
+            content = JSON.parse(jsonText);
           } catch {
-            // The digest prompt requests JSON but is not schema-constrained
-            // (Batches + structured outputs is a combination worth verifying
-            // before relying on). Keep the prose rather than dropping a whole
-            // week of review on a parse failure.
+            // Still not parseable JSON. Keep the prose rather than dropping
+            // a whole week of review on a parse failure.
             content = { headline: text.text };
           }
 

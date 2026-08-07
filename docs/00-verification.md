@@ -786,6 +786,109 @@ needs the key. SB-017 is filed `blocked` on that basis, not `done` — the
 mechanism working is necessary but not sufficient for what the task itself
 asks for.
 
+**Follow-up, same day: the key was never actually missing.** The real
+`ANTHROPIC_API_KEY` was sitting in the *main* checkout's
+`supabase/functions/.env` the whole time (used for the original SB-000e
+enrichment proof on 2026-08-01) — but `.env` files are gitignored by design,
+and `git worktree` only carries tracked files, so this worktree's checkout
+never had a copy. Confirmed by checking key lengths without printing values:
+`ANTHROPIC_API_KEY` was 108 characters in the main checkout, `COHERE_API_KEY`
+and `ELEVENLABS_API_KEY` were 3 characters (genuine placeholders) in both.
+
+Copied `supabase/functions/.env` from the main checkout into this worktree,
+then `supabase stop && supabase start` **from this worktree** so the Edge
+Runtime actually loaded it (a restart alone does not pick up a changed env
+file, same trap as stale code). Proved the key works before touching the
+schedule: minted a local JWT for `muhammad@example.test`, captured a real
+note over HTTP, called `POST /enrich` — real `200`, real Claude Opus 5 usage
+(`114` input / `428` output tokens, `$0.024826`), real enrichment fields
+back. (The note's Arabic text arrived corrupted — a Git-Bash/Windows shell
+UTF-8 quoting artifact from how the test payload was passed via `curl -d`,
+confirmed by reading `raw_text` back from Postgres; not an app bug. The model
+correctly flagged the corruption rather than guessing at content, which is
+itself a reasonable proof of the degrade-honestly path. Test note deleted
+afterward, real data untouched.)
+
+With the key confirmed working, set the two Vault secrets again and
+re-applied the migration. `digest-enqueue` was fast-forwarded to `* * * *
+*`, and this time fired for real: `cron.job_run_details` `succeeded` at
+2026-08-07 01:06:00 UTC, `net._http_response` **`200
+{"enqueued":1,"batch_id":"msgbatch_01Y1n9WqfVPGuUwZ1h35Ksjp","period":{"start":"2026-07-31","end":"2026-08-07"}}`**
+— one request, correctly: the owner has exactly one `(user_id, language)`
+pair with activity in the window (10 real enriched notes, 2026-08-01 to
+2026-08-03), and the function groups by that pair, not by note. A real row
+landed in `digest_batches` (`status: submitted`, `request_count: 1`) — the
+task's actual accept line, now met by the schedule firing on its own timer,
+no manual invocation. Restored `digest-enqueue` to its real weekly cadence
+(`0 3 * * 6`) afterward.
+
+**SB-017 is now `done`.** `collect`-side proof (a real row in
+`weekly_digests`, SB-018) is separate — the Batch API can take up to 24h, so
+that half is tracked under SB-018, not here.
+
+### SB-018 · Run the digest once, for real
+
+**2026-08-07, same session as SB-017, continuous with it.** The first real
+batch (`msgbatch_01Y1n9WqfVPGuUwZ1h35Ksjp`, SB-017's proof) finished quickly
+and was collected: `POST /digest {"action":"collect"}` returned
+`{"collected":1}`. But the stored `weekly_digests.content` was
+`{"headline": "```json\n{\n  \"headline\": ...\n```"}` — the whole structured
+response, fence and all, sitting inside the fallback's single field. Exactly
+the risk the code's own comment named ("Batches + structured outputs is a
+combination worth verifying"): the model wrapped valid JSON in a ` ```json `
+markdown fence, `JSON.parse` threw on the backtick, and the catch block's
+raw-text fallback caught it.
+
+**This is a real bug, not an acceptable-and-documented gap** — the fallback
+existing is good design, but shipping fenced JSON as the "headline" a user
+reads is not something to leave in place. Fixed in
+`supabase/functions/digest/index.ts`: strip a ` ```(json)? ... ``` ` fence
+before `JSON.parse`, falling through to the old raw-text behavior only if
+what's left still doesn't parse. `deno check` was not run — no working
+`deno` binary was found on this machine (checked `PATH`, the edge runtime
+container, and the Supabase-CLI-bundled cache dir) — so this change is only
+proven by actually running it, per the project's own rule 1.
+
+Reloaded the stack (`supabase stop && start`, from this worktree, so the new
+function code was actually served — see the CSP incident earlier in this
+file for why a bare restart isn't trusted here). Vault secrets and
+`cron.job` rows survived the restart (backed by the same Postgres volume).
+Fast-forwarded `digest-enqueue` again for a **second** real batch
+(duplicate submissions for the same period are fine — `weekly_digests`
+upserts on `(user_id, period_start, language)`, so the fixed run overwrites
+the malformed one). Fired on schedule, `net._http_response` `200
+{"enqueued":1,"batch_id":"msgbatch_...","period":{"start":"2026-07-31","end":"2026-08-07"}}`.
+Polled `collect` every 30s until it returned `{"collected":1}`
+(2026-08-07 ~01:2x UTC). Restored `digest-enqueue` to `0 3 * * 6` afterward.
+
+**Result: clean, correctly-shaped JSON** —
+`{headline, themes: [{title, detail}], open_loops: [], wins: [], suggestion}`,
+all fields populated, real Arabic prose, built from the owner's real 10
+enriched notes from the past week (`eng.mohammadabdo@gmail.com`,
+2026-08-01 to 2026-08-03). Verified `jsonb_pretty(content)` directly in
+Postgres — no code-fence residue, no truncation.
+
+**Then verified in the actual client, not just the database** — the first
+time this screen has ever had real content to render. `web/src/features/Digest.tsx`
+already existed, unchanged, reading straight from `weekly_digests` under RLS
+(no Edge Function). Started the dev server, signed in as the real owner via
+local OTP (Mailpit), opened "مراجعة الأسبوع": the full digest rendered —
+headline, all 4 themes with title+detail, both wins, all 3 open loops, the
+one suggestion — correct RTL layout, zero console errors. Before signing in
+as the owner, the same tab correctly showed the empty state
+(`"ستظهر مراجعتك الأسبوعية هنا يوم السبت"`) while signed in as the local test
+user `muhammad@example.test`, who has zero notes — confirming the empty
+state and the populated state are both reachable and RLS-correct, not a
+fluke of one account.
+
+**Fallback path exercised deliberately, per this task's own accept
+criterion** — the first run's fence-wrapped failure *was* the fallback
+firing for real, before the fix. Both halves of SB-018's accept line are now
+met: a real weekly digest exists from real notes, and the fallback path was
+exercised (once, by accident, which is what surfaced the bug worth fixing).
+
+**SB-018 is now `done`.**
+
 ### SB-028 · Queue archive/dismiss while offline
 
 **2026-08-07, local stack, a real disconnected backend, not a flag.**

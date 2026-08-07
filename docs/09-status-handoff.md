@@ -36,15 +36,24 @@
 | Prompt caching | **Measured**, not estimated — 2169 cached tokens/call |
 | Embeddings / semantic search | **Blocked** — no Cohere key |
 | Voice / transcription | **Blocked** — no ElevenLabs key |
-| Weekly digest | Schedule built and proven live; blocked on `ANTHROPIC_API_KEY` for a real run |
+| Weekly digest | **Done, run for real** — real Anthropic Batch call, real digest, rendered live in the client |
 | English (phase 2) | Wired, deliberately disabled |
 
 Full evidence ledger: `docs/00-verification.md`.
 
 ## The blocking point
 
-Two vendor keys in `supabase/functions/.env` are still placeholders. This is
-the single thing standing between the current state and a complete product.
+Two vendor keys — `COHERE_API_KEY` and `ELEVENLABS_API_KEY` — are still
+3-character placeholders in `supabase/functions/.env`. This is the single
+thing standing between the current state and a complete product.
+
+`ANTHROPIC_API_KEY` is real and working (used for enrichment since
+2026-08-01, and for the weekly digest since 2026-08-07) — but it lives only
+in the *main* checkout's `supabase/functions/.env`, which is gitignored, so
+every fresh `git worktree` starts without it. If a session reports this key
+as "missing", check whether it's actually just absent from that worktree's
+checkout before assuming it needs to be re-obtained — see "A new `git
+worktree` has no vendor keys" below.
 
 **`COHERE_API_KEY`** — without it:
 - `note_embeddings` is empty; no note is semantically searchable
@@ -121,12 +130,13 @@ Ordered by consequence, not effort.
       failing the deploy — the same "written, not yet turned on" state the
       vendor keys are already in.
 
-      **`digest`'s schedule is now built too** (SB-017, migration
-      `20260807000300_digest_schedule.sql`), same two-secret pattern, its own
-      URL secret. Both `digest-enqueue` and `digest-collect` were proven to
-      fire on their own timer and reach the real function; the vendor key
-      still blocks the part that matters (a real `digest_batches` row), so
-      SB-017 is filed `blocked`, not `done`. See `docs/00-verification.md`.
+      **`digest`'s schedule is built and now proven for real** (SB-017/018,
+      migration `20260807000300_digest_schedule.sql`), same two-secret
+      pattern, its own URL secret. `digest-enqueue` fired on its own timer
+      and reached the real function with a real key, producing a real
+      Anthropic Batch submission and a real row in `digest_batches`; a real
+      `weekly_digests` row followed and rendered correctly in the client.
+      Both SB-017 and SB-018 are `done`. See `docs/00-verification.md`.
 
       Verified locally: extensions install, the conditional correctly
       no-ops without secrets, and — with Vault secrets pointed at a local
@@ -191,17 +201,30 @@ Ordered by consequence, not effort.
       no Arabic glyphs) paired with self-hosted Noto Sans Arabic, split by
       `unicode-range`. The Google Fonts CDN `<link>` (an offline-first
       violation) is gone.
-- [ ] **Digest schedule built and proven live** (SB-017, 2026-08-07) — both
-      `pg_cron` jobs fire on their own timer and reach the real function.
-      **Still blocked**: the task's actual accept line (a real
-      `digest_batches` row) needs `ANTHROPIC_API_KEY`, which this worktree
-      does not have.
+- [x] **Weekly digest, run for real** (SB-017/018, 2026-08-07). Both
+      `pg_cron` jobs fire on their own timer; a real Anthropic Batch call
+      produced a real digest from the owner's real notes, correctly
+      rendered in the client. Found and fixed a real bug along the way — the
+      model wraps JSON in a code fence, breaking the naive parse; see
+      `docs/00-verification.md` "SB-018".
 - [x] **Screenshot captured**, for the capture screen at 375×812 in both colour
       schemes — which is how the dark-mode contrast bug in the theme port was
       found at all. Notes, search, digest, and auth have still never been
       looked at.
 
 ## Operational gotchas
+
+**A new `git worktree` has no vendor keys, even if they exist elsewhere on
+the machine.** `supabase/functions/.env` is gitignored by design (it holds
+real secrets) — `git worktree` only carries tracked files, so a fresh
+worktree's copy is simply absent, not empty. This looks exactly like "the key
+was never obtained" and cost real time on 2026-08-07 before being traced: the
+real `ANTHROPIC_API_KEY` was sitting in the *main* checkout the whole time.
+Fix: `cp` the file from a checkout that has it, then `supabase stop &&
+supabase start` **from the worktree you copied it into** — a restart alone
+does not reload the Edge Runtime's env. Check key length before assuming a
+key is real or placeholder (`grep '^KEY=' .env | cut -d= -f2` piped to
+`wc -c`) — this repo's placeholders are 3 characters, real keys are 100+.
 
 **The local Edge Runtime serves stale compiled code after an edit**, and
 `docker restart supabase_edge_runtime_*` does **not** clear it — the container
@@ -284,8 +307,11 @@ then):
 - SB-005/006/008 — Cohere key → embeddings, semantic search, cross-lingual
   retrieval test (the single highest-value unknown in the project)
 - SB-007/012/013 — ElevenLabs key → real transcription, phone testing, WER
-- SB-017/018/034 — `ANTHROPIC_API_KEY` → digest actually running, model
-  cost/quality comparison
+
+**Unblocked, not yet started** (`ANTHROPIC_API_KEY` turned out to already be
+real — it just wasn't copied into this worktree; see "Operational gotchas"):
+- SB-034 — Opus 5 vs Haiku 4.5 comparison on 20 real notes. SB-017/018 (the
+  digest schedule) used this same key and are now done — see below.
 
 **Blocked on the owner's own account/infra:**
 - SB-016 — deploy to a real hosted Supabase project
