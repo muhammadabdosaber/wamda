@@ -18,6 +18,16 @@ export const ar = {
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
 
+  // The idle capture screen: a heading, a decorative (non-interactive) mark,
+  // and two cards that choose HOW to capture. Picking "نص" swaps this screen
+  // for the textarea; picking "صوت" starts recording directly.
+  captureIdleTitle: "التقاط سريع",
+  captureIdleSubtitle: "التقط أفكارك بوضوح وهدوء.",
+  captureCardVoiceLabel: "صوت",
+  captureCardVoiceHint: "سجّل ملاحظة",
+  captureCardTextLabel: "نص",
+  captureCardTextHint: "اكتب أفكارك",
+
   notesTitle: "ملاحظاتي",
   notesEmpty: "لا توجد ملاحظات بعد. ابدأ بفكرة واحدة.",
   // On a note that is durable on this device but has not reached the server

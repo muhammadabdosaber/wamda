@@ -19,6 +19,13 @@ export const en: Messages = {
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
 
+  captureIdleTitle: "Quick capture",
+  captureIdleSubtitle: "Capture your thoughts, clearly and calmly.",
+  captureCardVoiceLabel: "Voice",
+  captureCardVoiceHint: "Record a note",
+  captureCardTextLabel: "Text",
+  captureCardTextHint: "Write your thoughts",
+
   notesTitle: "My notes",
   notesEmpty: "No notes yet. Start with one thought.",
   notesPendingSync: "Saved on your device",
