@@ -8,7 +8,7 @@ import type { Messages, PluralKey } from "./ar";
  * key discovered in production.
  */
 export const en: Messages = {
-  appTitle: "Second Brain",
+  appTitle: "Wamda",
 
   captureHint: "What's on your mind?",
   captureVoice: "Record",
@@ -18,6 +18,13 @@ export const en: Messages = {
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
+
+  captureIdleTitle: "Quick capture",
+  captureIdleSubtitle: "Capture your thoughts, clearly and calmly.",
+  captureCardVoiceLabel: "Voice",
+  captureCardVoiceHint: "Record a note",
+  captureCardTextLabel: "Text",
+  captureCardTextHint: "Write your thoughts",
 
   notesTitle: "My notes",
   notesEmpty: "No notes yet. Start with one thought.",
