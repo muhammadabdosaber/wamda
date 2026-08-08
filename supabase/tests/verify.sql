@@ -481,6 +481,48 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 10. Pipeline failures are queryable by note id, no ad hoc SQL (SB-019)
+-- ---------------------------------------------------------------------------
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  note_uuid uuid;
+  hit_count integer;
+  found_error text;
+begin
+  select id into note_uuid from public.notes
+   where client_id = '33333333-3333-3333-3333-333333333333';
+
+  delete from public.ai_jobs where note_id = note_uuid;
+
+  -- enrich failed once, then succeeded on retry -- must NOT read as "currently failing".
+  insert into public.ai_jobs (user_id, note_id, stage, status, attempt, error_code, created_at)
+  values
+    (alice, note_uuid, 'enrich', 'failed',    1, 'vendor_timeout', now() - interval '2 minutes'),
+    (alice, note_uuid, 'enrich', 'succeeded', 2, null,             now() - interval '1 minute');
+
+  -- embed failed and was never retried -- must read as currently failing.
+  insert into public.ai_jobs (user_id, note_id, stage, status, attempt, error_code, created_at)
+  values (alice, note_uuid, 'embed', 'failed', 1, 'missing_configuration', now());
+
+  select count(*) into hit_count from public.failed_ai_jobs where note_id = note_uuid;
+  if hit_count <> 1 then
+    raise exception 'failed_ai_jobs showed % row(s) for the test note, expected exactly 1 (a stage that failed then succeeded must not appear)',
+      hit_count;
+  end if;
+
+  select error_code into found_error from public.failed_ai_jobs where note_id = note_uuid;
+  if found_error <> 'missing_configuration' then
+    raise exception 'failed_ai_jobs surfaced the wrong stage: error_code = %, expected missing_configuration', found_error;
+  end if;
+
+  raise notice 'PASS: failed_ai_jobs surfaces only stages whose latest attempt is still failing, filterable by note_id';
+
+  delete from public.ai_jobs where note_id = note_uuid;
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

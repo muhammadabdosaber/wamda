@@ -318,9 +318,6 @@ then):
   start there before touching this.
 
 **Open, no blocker, just not yet started** (fair game for the next session):
-- SB-019 — queryable pipeline failures over `ai_jobs` (S, **scoped with the
-  owner 2026-08-08**: views only, no alerting/push, `ai_jobs` only — see
-  `docs/13-tasks.md`)
 - SB-020 — instrument the success metrics from `docs/10-product-spec.md` (M,
   **scoped with the owner 2026-08-08**: SQL views checked manually in
   Studio; capture latency included, not deferred — see `docs/13-tasks.md`)

@@ -1009,6 +1009,44 @@ dev` via the same `transformIndexHtml` hook `vite build` uses) scoped to
 `vite preview` and the shipped `dist/index.html` — the surfaces SB-003's
 original proof actually rested on — were never affected.
 
+### SB-019 · Queryable pipeline failures over `ai_jobs`
+
+**Done (2026-08-08).** Scoped with the owner first (`docs/13-tasks.md`): a
+view, not alerting — no push/email channel, and the functions' scattered
+`console.log`/`console.error` calls stay free-text, out of scope. `ai_jobs`
+already carried `note_id`/`stage`/`status`/`error_code` on every attempt; the
+gap was only that nobody had a query for "what's currently broken" without
+writing one by hand.
+
+`public.failed_ai_jobs` (migration `20260808000100_failed_ai_jobs_view.sql`)
+returns one row per note+stage whose **most recent attempt** is `failed` — a
+stage that failed once and later succeeded on retry must not appear, or the
+view is noise instead of a punch list. Deliberately not granted to
+`authenticated`: the intended reader is the owner via Supabase Studio, which
+connects as the Postgres superuser and bypasses RLS entirely; exposing this
+to the client role later would first need `security_invoker` on the view, or
+`ai_jobs`'s own RLS (correctly scoped to `user_id`) would be silently
+bypassed for every other authenticated user too.
+
+**Proven wrong on purpose first**, the same discipline as `check-rtl.mjs` and
+SB-010's tests: swapped in a naive version of the view (`status = 'failed'`
+with no "latest attempt" logic) and it incorrectly showed 2 rows for a test
+note where one stage had failed then succeeded on retry — caught by exactly
+the assertion meant to catch it (`ERROR: BROKEN VIEW CAUGHT: failed_ai_jobs
+showed 2 row(s), expected exactly 1`). Restored the real view and `verify.sql`
+passed clean again, `ALL SCHEMA CHECKS PASSED`.
+
+**Then read against real data, not just the test fixture:** the owner's live
+`ai_jobs` table already had 15 real failing note+stage pairs sitting in it
+from earlier sessions — 10 `missing_configuration` (the pre-fix ANTHROPIC_API_KEY
+gap and every embed call, still blocked on SB-005/the Cohere key), 3
+`embedding_failed`, 2 `transcription_failed` (blocked on SB-007) — all
+correctly surfaced by `select * from failed_ai_jobs`, filterable by `note_id`
+or `stage` with no other SQL needed. Applied to the live local database with
+`supabase migration up --local` — not `supabase db reset`, which the
+runbook's own quickstart uses but would have wiped the owner's real notes;
+confirmed the note count was unchanged (15, before and after) throughout.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

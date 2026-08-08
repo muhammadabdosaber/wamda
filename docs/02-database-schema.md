@@ -147,6 +147,17 @@ is the durable artifact.
 No other table has a retention policy: notes and their enrichments are the
 product's memory and are kept until the user deletes them (SB-015).
 
+## Operational views
+
+`public.failed_ai_jobs` (migration `20260808000100_failed_ai_jobs_view.sql`,
+SB-019) — one row per note+stage whose **latest** attempt in `ai_jobs` is
+`failed`; a stage that failed once and later succeeded on retry does not
+appear. Filter by `note_id` or `stage` directly. Not granted to
+`authenticated` — the reader is the owner via Supabase Studio (connects as
+the Postgres superuser, bypasses RLS); granting it to the client role would
+first need `security_invoker` on the view, or `ai_jobs`'s own per-user RLS
+would be silently bypassed.
+
 ## Verification
 
 `supabase/tests/verify.sql` asserts, against a live database:

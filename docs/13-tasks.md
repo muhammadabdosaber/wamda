@@ -49,6 +49,7 @@ blocked on.
 | SB-028 | Queue archive/dismiss while offline | — | S | **done** |
 | SB-017 | Schedule the weekly digest | M5 | S | **done** |
 | SB-018 | Run the digest once, for real | M5 | M | **done** |
+| SB-019 | Queryable pipeline failures over `ai_jobs` | — | S | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -683,7 +684,18 @@ this needs a decision rather than a copy-paste.
 - **Note:** hold until the redesign (SB-031) picks a typeface — shipping a font
   the design then replaces is wasted bytes twice.
 
-### SB-019 · Queryable pipeline failures over `ai_jobs` · `todo` · S
+### SB-019 · Queryable pipeline failures over `ai_jobs` · `done` · S
+
+> **Done (2026-08-08).** `public.failed_ai_jobs` (migration
+> `20260808000100_failed_ai_jobs_view.sql`) — one row per note+stage whose
+> latest attempt is still failed, filterable by `note_id` or `stage`.
+> Deliberately broken to prove the "latest attempt only" logic actually
+> matters (a naive version showed a retried-then-succeeded stage as still
+> failing; caught, restored, re-verified). Read against the owner's real
+> `ai_jobs` data: 15 real currently-failing note+stage pairs surfaced
+> correctly, all attributable to known blockers (missing vendor keys).
+> Applied with `supabase migration up --local`, not `db reset`, to avoid
+> wiping real data. Evidence: `docs/00-verification.md` "SB-019".
 
 > **Scoped with the owner, 2026-08-08.** Narrowed from "structured logging and
 > alerting" after checking what already exists: `ai_jobs`
@@ -965,6 +977,7 @@ Only Chromium has ever run this app.
 | SB-028 | Dismiss with the backend genuinely down: immediate UI update, queued in IndexedDB, replayed correctly on reconnect, durable across reload | `00-verification.md` "SB-028" |
 | SB-017 | `digest-enqueue` fired on its own timer, real Anthropic Batch submission, real row in `digest_batches` | `00-verification.md` "SB-017" |
 | SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
+| SB-019 | `failed_ai_jobs` view; deliberately broken and caught before trusting it; 15 real currently-failing note+stage pairs surfaced from live data | `00-verification.md` "SB-019" |
 | SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
 
 ---

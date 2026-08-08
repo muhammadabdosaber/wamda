@@ -10,6 +10,17 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — `failed_ai_jobs`, a queryable view of currently-failing pipeline stages (SB-019)
+
+Scoped with the owner first: a view, not push alerting; `ai_jobs` only, the
+functions' `console.log` calls stay free-text. Shows one row per note+stage
+whose *latest* attempt is failed — a stage that failed then succeeded on
+retry does not appear. Proven wrong on purpose first: a naive version
+without the "latest attempt" logic was caught showing a fixed stage as still
+broken, before the real view was verified clean. Read against the owner's
+real `ai_jobs` data: 15 currently-failing note+stage pairs, all attributable
+to known blockers (missing Cohere/ElevenLabs keys).
+
 ### Decided — staying on Claude Opus 5 for enrichment, not Haiku 4.5 (SB-034)
 
 An abandoned branch had already swapped the model for a ~5x cost estimate
