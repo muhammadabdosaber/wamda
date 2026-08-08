@@ -10,6 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Decided — revised the enrichment cost target from < $0.015 to < $0.02
+
+Root-caused the SB-020 finding first: split the 14 real successful `enrich`
+calls by cache hit/miss — hits average $0.0094, misses $0.0220, a ~12.5x
+rate difference on the cached system prompt (`PRICING.cacheWrite` vs
+`cacheRead`, `_shared/pipeline.ts`). Anthropic's cache TTL is 5 minutes, and
+this product's own design (capture whenever a thought occurs, ADR-0001)
+spreads real notes through the day, so most `enrich` calls land outside any
+5-minute window and pay the cache-write price. The old $0.015 target was a
+2-note best-case spot-measurement (SB-000f) from calls fired seconds apart.
+$0.02 is set at the measured cache-miss price, not a discount off it, so the
+current $0.018827 average now reads as under target honestly. No change to
+the enrichment model or prompt — Opus 5 stays (SB-034 already tested and
+rejected a cheaper model on quality grounds); this is a target correction,
+not a quality tradeoff.
+
 ### Added — success metrics: capture latency, stuck notes, cost per note (SB-020)
 
 Scoped with the owner first: SQL views checked manually in Studio, no new

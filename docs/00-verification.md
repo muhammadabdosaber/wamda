@@ -1129,6 +1129,15 @@ against seeded `ai_jobs` rows.
   (~$0.02) than the cache-hit one. Not something SB-020 itself should fix —
   flagged here as a real finding, decision on whether to revise the target
   or attempt to change the usage pattern belongs to the owner.
+
+  **Decision, 2026-08-08 (owner):** target revised from `< $0.015` to
+  `< $0.02`, set at the measured cache-miss price rather than a discount off
+  it — so the $0.018827 average now reads as **under target**, honestly,
+  without touching the enrichment model or prompt. No quality tradeoff was
+  made to hit this: Opus 5 stays the enrichment model (see SB-034, which
+  already tested and rejected swapping in a cheaper model on quality
+  grounds), and no prompt or caching behaviour changed. `docs/10-product-spec.md`
+  "Success metrics" reflects the new target.
 - `capture_latency_stats` had **0 measured notes** before the browser test
   above: every one of the owner's 15 real notes predates this
   instrumentation. The metric only starts accumulating from here forward.
