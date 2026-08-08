@@ -157,12 +157,23 @@ Deno.serve(async (req) => {
       throw new HttpError(400, "text_required");
     }
 
+    // SB-020: the client's own measured IndexedDB-durable latency, forwarded
+    // as-is. Not trusted for anything but a metrics view -- an absent or
+    // malformed value just means one fewer data point, never a rejected
+    // capture.
+    const latencyRaw = body.capture_latency_ms;
+    const captureLatencyMs =
+      typeof latencyRaw === "number" && Number.isFinite(latencyRaw) && latencyRaw >= 0
+        ? Math.round(latencyRaw)
+        : null;
+
     const { data: noteId, error } = await supabase.rpc("capture_note", {
       p_client_id: clientId,
       p_source: source,
       p_language: language,
       p_raw_text: body.text ?? null,
       p_client_created: body.client_created_at ?? new Date().toISOString(),
+      p_capture_latency_ms: captureLatencyMs,
     });
 
     if (error) {

@@ -50,6 +50,7 @@ blocked on.
 | SB-017 | Schedule the weekly digest | M5 | S | **done** |
 | SB-018 | Run the digest once, for real | M5 | M | **done** |
 | SB-019 | Queryable pipeline failures over `ai_jobs` | — | S | **done** |
+| SB-020 | Instrument the success metrics | — | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -718,7 +719,20 @@ this needs a decision rather than a copy-paste.
   note currently stuck on a failed stage with its error code, no ad hoc SQL
   needed beyond that one query. Assertion in `verify.sql`.
 
-### SB-020 · Instrument the success metrics · `todo` · M
+### SB-020 · Instrument the success metrics · `done` · M
+
+> **Done (2026-08-08).** `stuck_notes`, `note_cost`/`cost_summary`, and
+> `capture_latency_stats` (migration `20260808000200_success_metrics.sql`) —
+> deliberately broken and caught once (`stuck_notes` missing its
+> `archived_at` exclusion), then verified end to end in a real browser:
+> signed in as the owner, captured a real note, watched
+> `capture_latency_ms = 73` land in Postgres and `capture_latency_stats` pick
+> it up. Read against real data: **2 real notes stuck 38.6 hours**
+> (product-spec target is 0), average enrichment cost **$0.018827** across 11
+> real notes (above the $0.015 target). Found and fixed a real
+> `create or replace function` bug along the way — adding a parameter without
+> dropping the old signature first left two ambiguous overloads. Evidence:
+> `docs/00-verification.md` "SB-020".
 
 > **Scoped with the owner, 2026-08-08.** Narrowed after checking
 > `docs/10-product-spec.md`'s three named metrics against what exists:
@@ -978,6 +992,7 @@ Only Chromium has ever run this app.
 | SB-017 | `digest-enqueue` fired on its own timer, real Anthropic Batch submission, real row in `digest_batches` | `00-verification.md` "SB-017" |
 | SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
 | SB-019 | `failed_ai_jobs` view; deliberately broken and caught before trusting it; 15 real currently-failing note+stage pairs surfaced from live data | `00-verification.md` "SB-019" |
+| SB-020 | `stuck_notes`/`note_cost`/`capture_latency_stats`; verified in a real browser (73ms capture, landed in Postgres); real findings: 2 notes stuck 38.6h, avg enrich cost $0.0188 (above $0.015 target) | `00-verification.md` "SB-020" |
 | SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
 
 ---

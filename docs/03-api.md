@@ -44,6 +44,9 @@ Two rules that matter:
   "source": "text" | "voice",
   "text": "…",               // required when source = text
   "client_created_at": "2026-08-01T09:12:00Z",
+  "capture_latency_ms": 73,  // optional, SB-020 — client-measured IndexedDB
+                              // write duration; a bad/absent value costs a
+                              // metrics sample, never a rejected capture
   "lang": "ar" }
 
 // 201

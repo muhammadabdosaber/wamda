@@ -10,6 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — success metrics: capture latency, stuck notes, cost per note (SB-020)
+
+Scoped with the owner first: SQL views checked manually in Studio, no new
+page, no digest folding. Capture latency (open → durable) is newly
+instrumented client-side — `outbox.ts` times its own IndexedDB write and
+sends it on sync; `stuck_notes` and `note_cost`/`cost_summary` are views
+over data `ai_jobs`/`notes` already carried. Verified in a real browser
+end to end (73 ms captured, landed in Postgres, picked up by the view
+immediately) and deliberately broken once (`stuck_notes` missing its
+archived-note exclusion, caught before trusting it). Two real findings:
+2 notes have been stuck 38.6 hours, and average enrichment cost ($0.0188
+over 11 real notes) is above the $0.015 target. Also fixed a real bug
+found along the way: `create or replace function` with an added parameter
+creates an ambiguous overload instead of replacing the function unless the
+old signature is dropped first.
+
 ### Added — `failed_ai_jobs`, a queryable view of currently-failing pipeline stages (SB-019)
 
 Scoped with the owner first: a view, not push alerting; `ai_jobs` only, the

@@ -158,6 +158,22 @@ the Postgres superuser, bypasses RLS); granting it to the client role would
 first need `security_invoker` on the view, or `ai_jobs`'s own per-user RLS
 would be silently bypassed.
 
+**Success metrics** (migration `20260808000200_success_metrics.sql`, SB-020),
+same not-granted-to-`authenticated` reasoning as above:
+
+- `public.capture_latency_stats` — one row: count/avg/p50/p95/max of
+  `notes.capture_latency_ms`, the client's own measured IndexedDB-write
+  duration (`web/src/data/outbox.ts` `capture()`), against the product
+  spec's p95 < 3 s target.
+- `public.stuck_notes` — notes outside a terminal state (`draft`, `queued`,
+  `transcribing`, `enriching`) for over an hour, excluding archived notes.
+  A different, more generous threshold than `sweep`'s own 10-minute
+  `STUCK_MINUTES` — that one exists to recover a killed worker fast, this one
+  is the product metric for "is the pipeline keeping up".
+- `public.note_cost` / `public.cost_summary` — per-note and aggregate spend
+  from `ai_jobs.cost_usd`, split into `enrich_cost_usd` (the product spec's
+  named metric) and `total_cost_usd` (every stage).
+
 ## Verification
 
 `supabase/tests/verify.sql` asserts, against a live database:

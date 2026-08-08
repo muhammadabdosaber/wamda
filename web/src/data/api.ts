@@ -105,6 +105,7 @@ export async function captureNote(note: OutboxNote): Promise<string> {
       source: note.source,
       text: note.text ?? null,
       client_created_at: note.capturedAt,
+      capture_latency_ms: note.captureLatencyMs ?? null,
     },
     note.language,
   );

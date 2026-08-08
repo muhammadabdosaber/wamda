@@ -1047,6 +1047,74 @@ or `stage` with no other SQL needed. Applied to the live local database with
 runbook's own quickstart uses but would have wiped the owner's real notes;
 confirmed the note count was unchanged (15, before and after) throughout.
 
+### SB-020 · Instrument the success metrics
+
+**Done (2026-08-08).** Scoped with the owner first (`docs/13-tasks.md`): SQL
+views checked manually in Supabase Studio, no new page in `web/`, no folding
+into the digest. Two of the three named metrics
+(`docs/10-product-spec.md`) were near-free — `stuck_notes` and
+`note_cost`/`cost_summary` are views over data `notes`/`ai_jobs` already
+carried. Capture latency (open → durable) had zero instrumentation
+anywhere — the owner chose to include it rather than defer it.
+
+**Capture latency, instrumented for real:** `web/src/data/outbox.ts`
+`capture()` times its own IndexedDB `put()` (the exact write ADR-0001 calls
+the durability guarantee) with `performance.now()`, stores the result on the
+`OutboxNote`, and a second `put()` attaches it — deliberately **not**
+awaited, so the durability-critical path costs exactly the one write it cost
+before this change; losing the field to a killed tab costs a metrics sample,
+never the thought. `capture_note` (migration `20260808000200_success_metrics.sql`)
+gained a sixth, defaulted parameter to receive it. **A real
+`create or replace function` bug surfaced immediately**: adding a parameter
+to an existing function without dropping the old signature first creates an
+*overload*, not a replacement — `capture_note(...) is not unique` on the
+very first `verify.sql` run after the migration applied clean. Fixed with an
+explicit `drop function if exists ... (uuid, note_source, text, text,
+timestamptz)` before the new `create or replace`, confirmed exactly one
+`capture_note` remained (`\df public.capture_note`), migration file corrected
+to match (it had only been applied locally, never committed).
+
+**Verified against a real browser, not just `verify.sql`:** signed in as
+`muhammad@example.test` via real OTP (Mailpit), captured a real note ("SB-020
+capture latency guard check note"), and read it straight back out of
+Postgres: `capture_latency_ms = 73`, `status = ready` — the full path (client
+timing → outbox → sync → `notes` Edge Function → `capture_note` RPC →
+column) worked end to end, and enrichment still completed on the real
+`ANTHROPIC_API_KEY`. `capture_latency_stats` picked it up immediately
+(`notes_measured: 1, avg_ms: 73, p95_ms: 73`). No console errors. Test note
+and its enrichment/tags removed afterward — the owner's 15 real notes were
+never touched, confirmed by count before and after.
+
+**Proven wrong on purpose**, same discipline as `check-rtl.mjs` and SB-019:
+swapped in a `stuck_notes` missing the `archived_at is null` filter and it
+incorrectly flagged a 3-hour-old archived note as stuck
+(`ERROR: BROKEN VIEW CAUGHT: stuck_notes flagged an archived note`); restored
+the real view, `verify.sql` passed clean again, `ALL SCHEMA CHECKS PASSED`.
+`verify.sql` also asserts `capture_latency_stats`' percentiles against a
+known fixture (100/200/300/400 ms → `p95_ms = 385` exactly, matching
+`percentile_cont`'s documented interpolation) and `note_cost`/`cost_summary`
+against seeded `ai_jobs` rows.
+
+**Read against real data — two honest findings, not just "it works":**
+- `stuck_notes`: **2 real notes** have been sitting in `queued` for **2,318
+  minutes (~38.6 hours)** — both from the pre-key-fix period
+  (`missing_configuration`), never picked up by a retry that could succeed.
+  Real evidence the product-spec target of 0 is not currently met, and
+  exactly the kind of thing this task was supposed to surface.
+- `cost_summary`: average enrichment cost across 11 real notes is
+  **$0.018827**, above the product spec's `< $0.015` target (and above the
+  earlier $0.008–0.011 spot-measurement from SB-000f, which was 2 notes).
+  Not investigated further here — instrumenting the number was this task's
+  job, not explaining every data point — but worth a look before trusting
+  the earlier estimate.
+- `capture_latency_stats` had **0 measured notes** before the browser test
+  above: every one of the owner's 15 real notes predates this
+  instrumentation. The metric only starts accumulating from here forward.
+
+Applied with `supabase migration up --local`, not `db reset`, for the same
+reason as SB-019. `npm run verify` (typecheck, RTL guard, 22 tests, build)
+passed clean after the client changes.
+
 ### The owner's own test session
 
 The first time the product was driven by the person it is for, rather than by

@@ -523,6 +523,142 @@ begin
 end
 $$;
 
+-- ---------------------------------------------------------------------------
+-- 11. Success metrics (SB-020)
+-- ---------------------------------------------------------------------------
+-- 11a. capture_note stores the client-measured latency.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+
+do $$
+declare
+  new_note_id uuid;
+  stored_latency integer;
+begin
+  new_note_id := public.capture_note(
+    '66666666-6666-6666-6666-666666666666'::uuid,
+    'text'::public.note_source, 'ar', 'latency test note', now(), 123);
+
+  select capture_latency_ms into stored_latency from public.notes where id = new_note_id;
+  if stored_latency <> 123 then
+    raise exception 'capture_note did not store capture_latency_ms: got %, expected 123', stored_latency;
+  end if;
+  raise notice 'PASS: capture_note stores capture_latency_ms (%)', stored_latency;
+end
+$$;
+commit;
+
+delete from public.notes where client_id = '66666666-6666-6666-6666-666666666666';
+
+-- 11b. capture_latency_stats -- percentile_cont(0.95) is deterministic on a
+-- known set (100, 200, 300, 400): interpolated position 0.95*(4-1) = 2.85,
+-- so 300 + 0.85*(400-300) = 385 exactly.
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  stats record;
+begin
+  delete from public.notes where user_id = alice and capture_latency_ms is not null;
+
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text, client_created_at, capture_latency_ms)
+  select alice, gen_random_uuid(), 'text', 'ready', 'ar', 'latency fixture', now(), ms
+  from unnest(array[100, 200, 300, 400]) as ms;
+
+  select * into stats from public.capture_latency_stats;
+
+  if stats.notes_measured <> 4 or stats.avg_ms <> 250 or stats.p95_ms <> 385 or stats.max_ms <> 400 then
+    raise exception 'capture_latency_stats wrong: measured=%, avg=%, p95=%, max=% (expected 4, 250, 385, 400)',
+      stats.notes_measured, stats.avg_ms, stats.p95_ms, stats.max_ms;
+  end if;
+  raise notice 'PASS: capture_latency_stats (avg % ms, p95 % ms over % notes)',
+    stats.avg_ms, stats.p95_ms, stats.notes_measured;
+
+  delete from public.notes where user_id = alice and capture_latency_ms is not null;
+end
+$$;
+
+-- 11c. stuck_notes: docs/10-product-spec.md's own ">1h outside a terminal
+-- state" -- a genuinely stuck note appears, a fresh in-flight one and an
+-- old-but-archived one do not.
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  stuck_hit boolean;
+  fresh_hit boolean;
+  archived_hit boolean;
+begin
+  delete from public.notes where user_id = alice and client_id in (
+    '77777777-7777-7777-7777-777777777777',
+    '88888888-8888-8888-8888-888888888888',
+    '99999999-9999-9999-9999-999999999999');
+
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text, client_created_at, updated_at)
+  values
+    (alice, '77777777-7777-7777-7777-777777777777', 'text', 'enriching', 'ar', 'stuck', now() - interval '2 hours', now() - interval '2 hours'),
+    (alice, '88888888-8888-8888-8888-888888888888', 'text', 'enriching', 'ar', 'fresh', now() - interval '5 minutes', now() - interval '5 minutes'),
+    (alice, '99999999-9999-9999-9999-999999999999', 'text', 'queued',    'ar', 'archived-old', now() - interval '3 hours', now() - interval '3 hours');
+
+  update public.notes set archived_at = now()
+   where user_id = alice and client_id = '99999999-9999-9999-9999-999999999999';
+
+  select exists(select 1 from public.stuck_notes s join public.notes n on n.id = s.note_id where n.client_id = '77777777-7777-7777-7777-777777777777') into stuck_hit;
+  select exists(select 1 from public.stuck_notes s join public.notes n on n.id = s.note_id where n.client_id = '88888888-8888-8888-8888-888888888888') into fresh_hit;
+  select exists(select 1 from public.stuck_notes s join public.notes n on n.id = s.note_id where n.client_id = '99999999-9999-9999-9999-999999999999') into archived_hit;
+
+  if not stuck_hit then
+    raise exception 'stuck_notes missed a note enriching for 2 hours';
+  end if;
+  if fresh_hit then
+    raise exception 'stuck_notes flagged a note only 5 minutes into enriching';
+  end if;
+  if archived_hit then
+    raise exception 'stuck_notes flagged an archived note';
+  end if;
+  raise notice 'PASS: stuck_notes flags only a non-terminal note past 1 hour, not fresh or archived ones';
+
+  delete from public.notes where user_id = alice and client_id in (
+    '77777777-7777-7777-7777-777777777777',
+    '88888888-8888-8888-8888-888888888888',
+    '99999999-9999-9999-9999-999999999999');
+end
+$$;
+
+-- 11d. note_cost / cost_summary sum ai_jobs.cost_usd correctly, split by stage.
+do $$
+declare
+  alice uuid := '11111111-1111-1111-1111-111111111111';
+  note_uuid uuid;
+  row_cost record;
+begin
+  select id into note_uuid from public.notes
+   where client_id = '33333333-3333-3333-3333-333333333333';
+
+  delete from public.ai_jobs where note_id = note_uuid;
+
+  insert into public.ai_jobs (user_id, note_id, stage, status, cost_usd)
+  values
+    (alice, note_uuid, 'enrich', 'succeeded', 0.010000),
+    (alice, note_uuid, 'embed',  'succeeded', 0.000050);
+
+  select * into row_cost from public.note_cost where note_id = note_uuid;
+
+  if row_cost.enrich_cost_usd <> 0.010000 or row_cost.total_cost_usd <> 0.010050 then
+    raise exception 'note_cost wrong: enrich=%, total=% (expected 0.010000, 0.010050)',
+      row_cost.enrich_cost_usd, row_cost.total_cost_usd;
+  end if;
+  raise notice 'PASS: note_cost splits enrich cost ($%) from total cost ($%)',
+    row_cost.enrich_cost_usd, row_cost.total_cost_usd;
+
+  if not exists (select 1 from public.cost_summary where notes_with_cost >= 1) then
+    raise exception 'cost_summary returned no rows';
+  end if;
+  raise notice 'PASS: cost_summary aggregates across notes';
+
+  delete from public.ai_jobs where note_id = note_uuid;
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

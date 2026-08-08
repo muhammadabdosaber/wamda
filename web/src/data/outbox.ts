@@ -28,6 +28,16 @@ export interface OutboxNote {
   capturedAt: string;
   serverId?: string;
   attempts: number;
+  /**
+   * SB-020: wall-clock duration of the IndexedDB write below (open the
+   * outbox connection -> `put()` resolves), i.e. capture latency as this
+   * app defines it (ADR-0001: capture latency is storage latency, not
+   * network latency). Measured here rather than by the caller so it covers
+   * exactly the write this app promises is durable, nothing more. Sent to
+   * the server on sync, whenever that ends up happening -- this field
+   * travels with the note through an arbitrarily long offline stretch.
+   */
+  captureLatencyMs?: number;
 }
 
 /**
@@ -81,6 +91,9 @@ export async function capture(input: {
   text?: string;
   audio?: Blob;
 }): Promise<OutboxNote> {
+  const start = performance.now();
+  const database = await db();
+
   const note: OutboxNote = {
     // The client_id is minted HERE, offline, and is what makes replay
     // idempotent server-side. Letting the server assign the id would turn
@@ -94,7 +107,16 @@ export async function capture(input: {
     ...(input.audio !== undefined ? { audio: input.audio } : {}),
   };
 
-  await (await db()).put("outbox", note);
+  await database.put("outbox", note);
+  note.captureLatencyMs = Math.round(performance.now() - start);
+
+  // A second write to attach the measurement, deliberately NOT awaited: the
+  // note is already durable after the put above, which is the only promise
+  // this function's caller may block on (SB-024 -- capture latency is
+  // storage latency). Losing this one field to a killed tab costs a metrics
+  // sample, not a thought.
+  void database.put("outbox", note);
+
   return note;
 }
 
