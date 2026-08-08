@@ -961,6 +961,33 @@ not a marginal quality gap. `ENRICHMENT_MODEL` unchanged. Full table and
 reasoning: `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5
 (SB-034)".
 
+**2026-08-09, Sonnet 5 added to the comparison, same real stack, real key.**
+Re-ran all three models (Opus 5, Sonnet 5, Haiku 4.5) fresh, together, on
+the same owner's 12 real text notes, so the Sonnet numbers are directly
+comparable rather than mixed with SB-034's two-day-old Opus/Haiku run: 36
+real API calls, real cost. Sonnet 5 tracked Opus at 83.3% on `category` and
+`priority`, 75.0% on `suggested_action` (vs Haiku's 75.0%/58.3%/33.3%), and
+— the specific test that broke Haiku — classified all three haircut-retry
+notes (`08041e8e`, `cd4e6e6d`, `a6887370`) as `task`, matching Opus
+exactly and staying self-consistent where Haiku again flip-flopped
+(task/task/event). Cost: $0.00665/note vs Opus's $0.00985/note — a flat
+~0.6x from Sonnet's per-token price, holding regardless of cache hit/miss
+because Sonnet's 1,024-token cache minimum (unlike Haiku's 4,096) clears
+this ~2,169-token prompt (11/12 cache hits, same as Opus).
+
+**Incidental finding, not this run's subject:** re-running Opus 5 fresh on
+`cd4e6e6d` returned `category: task`; the *production* `note_enrichments`
+row for that same note, from its real capture, reads `category: event`.
+Same model, same prompt, same text — two different answers across two real
+calls. Not a determinism guarantee to assume elsewhere in this project.
+
+**No `ENRICHMENT_MODEL` change made.** This extends SB-034's evidence base
+with a legitimate middle option — closer to Opus on every quality axis
+measured, no self-inconsistency, ~1.5x cheaper — but switching is a product
+call on an ~17–25% ambiguous-note disagreement rate, not something decided
+here. Full tables: `docs/04-ai-pipeline.md` "Adding Sonnet 5 to the
+comparison (2026-08-09)".
+
 ### SB-028 · Queue archive/dismiss while offline
 
 **2026-08-07, local stack, a real disconnected backend, not a flag.**

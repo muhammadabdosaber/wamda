@@ -1,5 +1,9 @@
 # 4. AI Pipeline (Arabic-first)
 
+> **Arabic translation:** [`04-ai-pipeline.ar.md`](04-ai-pipeline.ar.md) — full,
+> requested by the owner to read the model comparison below. This file is the
+> source of truth; the translation is not auto-updated on every edit here.
+
 Six stages. Each takes `(input, language)`, is independently retryable, and
 records shape/cost — never content — in `ai_jobs`.
 
@@ -230,6 +234,66 @@ if the prompt is deliberately re-tuned for Haiku (the current examples and
 phrasing were shaped against Opus's behavior, not Haiku's) — swapping the
 constant alone is not enough, and this run is evidence of that, not just an
 assertion.
+
+### Adding Sonnet 5 to the comparison (2026-08-09)
+
+**Measured, not estimated.** Re-ran the SB-034 methodology fresh — same real
+production prompt/schema copied verbatim into a standalone script, same
+owner's 12 real text notes, all three models (Opus 5, Sonnet 5, Haiku 4.5)
+called in the same run so the numbers are directly comparable, rather than
+mixing this run's Sonnet data against SB-034's original Opus/Haiku numbers
+from two days earlier. Sonnet request shape matches Opus's (`thinking:
+adaptive`, `output_config.effort: "medium"`) — Sonnet 5 accepts both; only
+Haiku drops them, same reasoning as SB-034.
+
+| Field | Sonnet 5 vs Opus 5 | Haiku 4.5 vs Opus 5 |
+|---|---|---|
+| `category` | 10/12 = 83.3% | 9/12 = 75.0% |
+| `priority` | 10/12 = 83.3% | 7/12 = 58.3% |
+| `suggested_action` | 9/12 = 75.0% | 4/12 = 33.3% |
+
+**The haircut-retry test that broke Haiku in SB-034 does not break Sonnet.**
+Same three near-duplicate captures (`08041e8e`, `cd4e6e6d`, `a6887370`):
+Opus 5 → task, task, task. Sonnet 5 → task, task, task — self-consistent,
+matching Opus exactly. Haiku 4.5 → task, task, **event** — still
+self-inconsistent on this exact case, reproducing SB-034's finding two days
+later on a fresh run. Sonnet's 2 category disagreements with Opus were on
+genuinely ambiguous notes (a placeholder note reading literally "ملاحظة"
+["note"]; a plan to play a game after finishing chores, which Opus read as
+`personal`/`event` and Sonnet read as `task` both times) — a difference in
+judgment on ambiguous input, not the same-input-different-answer failure
+mode this task was scoped to catch.
+
+**Cost — a real, structural advantage, not a caching artifact.** Sonnet 5's
+per-token price is a flat 0.6x of Opus 5's ($3/$15 vs $5/$25 per MTok), and
+unlike Haiku, Sonnet's prompt-cache minimum (1,024 tokens) clears this
+~2,169-token system prompt, so it caches exactly like Opus does (11/12 calls
+hit cache, same as Opus). That means the ~0.6x saving holds regardless of
+cache hit or miss — it is not contingent on a bursty capture pattern the
+way Haiku's now-invalidated ~4.26x estimate was.
+
+| | Opus 5 | Sonnet 5 | Haiku 4.5 |
+|---|---|---|---|
+| Avg cost/note (this run) | $0.00985 | $0.00665 | $0.00286 |
+| Avg latency | 6061 ms | 5782 ms | 4263 ms |
+| Cache hits | 11/12 | 11/12 | 0/12 |
+
+**One incidental finding, not this task's subject:** re-running Opus 5 fresh
+on `cd4e6e6d` returned `task`, matching SB-034's original write-up — but the
+*production* `note_enrichments` row for that same note (from whenever it was
+actually captured through the app) reads `category = event`. Same model,
+same prompt, same input text, two different classifications across two real
+calls. Opus 5 is highly consistent, not perfectly deterministic — worth
+knowing when reading any single stored enrichment as ground truth, but not
+a reason to revisit the SB-034 decision on its own.
+
+**Not a decision — a data point for the owner.** Sonnet 5 lands meaningfully
+closer to Opus than Haiku does on every quality axis measured here, and
+survives the specific self-consistency test that Haiku failed, at ~1.5x
+cheaper than Opus. Whether that's worth the remaining ~17–25% disagreement
+rate on ambiguous notes is a product call, not an engineering one — this
+section exists to make that call an informed one, not to make it.
+`ENRICHMENT_MODEL` is unchanged (`claude-opus-5`) pending that decision.
 
 Raw comparison data (12 notes × 2 models, full enrichment output, token
 usage, and cost per call) is not committed — it's a one-off local
