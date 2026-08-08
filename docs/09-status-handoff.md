@@ -318,11 +318,16 @@ then):
   start there before touching this.
 
 **Open, no blocker, just not yet started** (fair game for the next session):
-- SB-019 — structured logging/alerting (M, scope still vague — worth
-  narrowing with the owner first)
+- SB-019 — queryable pipeline failures over `ai_jobs` (S, **scoped with the
+  owner 2026-08-08**: views only, no alerting/push, `ai_jobs` only — see
+  `docs/13-tasks.md`)
 - SB-020 — instrument the success metrics from `docs/10-product-spec.md` (M,
-  same caveat)
+  **scoped with the owner 2026-08-08**: SQL views checked manually in
+  Studio; capture latency included, not deferred — see `docs/13-tasks.md`)
 - SB-022 — Safari/Firefox testing (S, needs real Safari/Firefox — only
   Chromium tooling was available this session)
 - SB-035 — one end-to-end test (M, deliberately the one place a
-  browser-automation dependency is worth adding)
+  browser-automation dependency is worth adding). **The owner is doing this
+  one himself** — an earlier session attempt was stopped mid-task on
+  request and its partial changes (Playwright dep, `web/e2e/`) discarded so
+  he could start clean.

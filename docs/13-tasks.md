@@ -683,17 +683,58 @@ this needs a decision rather than a copy-paste.
 - **Note:** hold until the redesign (SB-031) picks a typeface — shipping a font
   the design then replaces is wasted bytes twice.
 
-### SB-019 · Structured logging and alerting · `todo` · M
+### SB-019 · Queryable pipeline failures over `ai_jobs` · `todo` · S
 
-- **Accept:** function logs are queryable by note id and stage, and a failed
-  stage is discoverable without reading raw logs.
+> **Scoped with the owner, 2026-08-08.** Narrowed from "structured logging and
+> alerting" after checking what already exists: `ai_jobs`
+> (`20260801000200_enums_and_tables.sql`) already carries `note_id`, `stage`,
+> `status`, `error_code`, `latency_ms`, `cost_usd` on every enrich/transcribe/
+> embed/digest attempt — the raw data this task wanted is already there.
+> Decided:
+> - **No alerting/push.** Queryable only — a view you check, not something
+>   that pings you. No new send channel (email/Slack) for this pass.
+> - **Views over `ai_jobs` only.** The scattered `console.log`/`console.error`
+>   calls in the functions stay as free text; not worth restructuring them
+>   for this pass. Accepted gap: a failure before an `ai_jobs` row is written
+>   (e.g. `unhandled_error` in `_shared/http.ts`) is not covered — still only
+>   visible in raw Docker/function logs.
+
+- **Do:** a migration adding one or two views/functions over `ai_jobs` —
+  e.g. `failed_ai_jobs` (latest failed attempt per note+stage, with
+  `error_code`) and something queryable by a single `note_id`.
+- **Accept:** `select * from failed_ai_jobs` (or equivalent) surfaces every
+  note currently stuck on a failed stage with its error code, no ad hoc SQL
+  needed beyond that one query. Assertion in `verify.sql`.
 
 ### SB-020 · Instrument the success metrics · `todo` · M
 
-Every metric in `docs/10-product-spec.md` is currently unmeasured.
+> **Scoped with the owner, 2026-08-08.** Narrowed after checking
+> `docs/10-product-spec.md`'s three named metrics against what exists:
+> - **Stuck-note count** and **cost per note** are near-free — `notes.status`
+>   + `updated_at` and `ai_jobs.cost_usd` already hold what's needed; this is
+>   just views, same shape as SB-019.
+> - **Capture latency (open → durable)** has zero instrumentation today —
+>   it's the metric with the tightest target (p95 < 3 s) and was previously
+>   only ever spot-measured by hand (SB-024: "95 ms with 8 queued", not
+>   persisted). **Owner chose to include it**, not defer it.
+> - **Surface: SQL views, opened manually in Supabase Studio.** No new page
+>   in `web/`, no folding into the digest — smallest surface that still
+>   answers "visible without running SQL by hand" (Studio's table view reads
+>   a view without anyone typing a query).
 
-- **Accept:** capture latency, stuck-note count, and cost per note are visible
-  somewhere without running SQL by hand.
+- **Do:**
+  - `capture_latency_ms` — add a nullable column to `notes` (client already
+    knows this number per `Capture.tsx`/SB-024's measurement point) sent
+    once, in the same payload the client already POSTs on sync. No new
+    table, no new network round trip.
+  - Views: `capture_latency_p95` (rolling window), `stuck_notes` (status not
+    terminal, `updated_at` older than the sweep's own stuck threshold —
+    reuse `sweep/index.ts`'s existing cutoff logic rather than inventing a
+    second one), `cost_per_note` (sum of `ai_jobs.cost_usd` grouped by
+    `note_id`, and an overall average).
+- **Accept:** all three numbers readable from Supabase Studio's table/view
+  browser with no query typed; each view's boundary case covered in
+  `verify.sql` the same way SB-004/SB-009 covered their retention windows.
 
 ### SB-021 · Audit the note detail view · `done` · S
 
