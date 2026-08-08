@@ -1104,9 +1104,31 @@ against seeded `ai_jobs` rows.
 - `cost_summary`: average enrichment cost across 11 real notes is
   **$0.018827**, above the product spec's `< $0.015` target (and above the
   earlier $0.008–0.011 spot-measurement from SB-000f, which was 2 notes).
-  Not investigated further here — instrumenting the number was this task's
-  job, not explaining every data point — but worth a look before trusting
-  the earlier estimate.
+
+  **Investigated 2026-08-08, root cause found.** Split the 14 real successful
+  `enrich` rows by `cached_tokens` (`_shared/pipeline.ts`'s own
+  `PRICING.cacheWrite = 6.25`/M vs `PRICING.cacheRead = 0.5`/M — a 12.5x
+  difference on the ~2169-token system prompt): **8 cache hits averaged
+  $0.009359, 6 cache misses averaged $0.022039** — cost-per-call roughly
+  doubles on a miss, exactly reproducing `costUsd()`'s formula by hand
+  (e.g. a miss with `input=83, output=293, cached=0` costs $0.021296 only if
+  ~2169 tokens were billed as `cache_creation_input_tokens` at 6.25/M — the
+  math is exact, not approximate). Anthropic's cache TTL is 5 minutes;
+  SB-000f's $0.008–0.011 figure was measured from 3 calls fired seconds
+  apart in one test session — the *best case*, not a representative one.
+  This product's own design (ADHD-first, capture whenever a thought occurs,
+  ADR-0001) means real notes are naturally spread through the day, so most
+  individual `enrich` calls land outside any 5-minute window and pay the
+  cache-write price. Two notes (`a6887370`, `cd4e6e6d`) were also enriched
+  2–3 times roughly a second apart — almost certainly manual re-invocation
+  while testing, not independent real captures — which further inflates
+  `note_cost`'s per-note total for those two rows specifically, since it
+  sums every attempt. Net: **the $0.015 target assumed caching would land
+  consistently; for this product's actual usage pattern it mostly won't**,
+  and the honest steady-state figure is closer to the cache-miss price
+  (~$0.02) than the cache-hit one. Not something SB-020 itself should fix —
+  flagged here as a real finding, decision on whether to revise the target
+  or attempt to change the usage pattern belongs to the owner.
 - `capture_latency_stats` had **0 measured notes** before the browser test
   above: every one of the owner's 15 real notes predates this
   instrumentation. The metric only starts accumulating from here forward.

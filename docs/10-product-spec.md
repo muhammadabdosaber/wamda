@@ -149,7 +149,7 @@ Supabase Studio, no dashboard yet. The rest still have no analytics.
 | Capture latency (open → durable) | p95 < 3 s | Longer than this and the thought is lost | Instrumented, but only 1 real sample so far (73 ms) — every pre-2026-08-08 note predates the column |
 | Notes lost | **0** | Principle 2; any loss is a P0 | Not instrumented |
 | Notes stuck outside a terminal state > 1 h | 0 | The sweep worker's reason to exist | Instrumented — **2 real notes at 38.6 h** as of 2026-08-08, both from before the vendor-key fix |
-| Enrichment cost per note | < $0.015 | Early spot-measurement (2 notes, SB-000f): $0.008–0.011 | Instrumented — **$0.018827 average over 11 real notes** as of 2026-08-08, above target; not yet investigated |
+| Enrichment cost per note | < $0.015 | Early spot-measurement (2 notes, SB-000f): $0.008–0.011 | Instrumented — **$0.018827 average over 11 real notes**, above target. **Root cause found:** the target assumed prompt caching (5-min TTL) lands consistently; it doesn't for this product's actual usage (notes captured throughout the day, not in bursts) — real cache hits average $0.0094/call, misses $0.0220/call. `docs/00-verification.md` "SB-020" |
 | Search: user finds intended note in top 5 | > 80% | Needs a real corpus (~100 notes) | Not instrumented; blocked on SB-005/006 too |
 | Unedited AI categories | > 70% | If the user constantly corrects, filing failed | Not instrumented |
 | Weekly digest opened | > 50% of weeks | Below this, the digest is not worth its cost | Not instrumented |
