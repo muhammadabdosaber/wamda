@@ -1,5 +1,9 @@
 # 4. AI Pipeline (Arabic-first)
 
+> **Arabic translation:** [`04-ai-pipeline.ar.md`](04-ai-pipeline.ar.md) — full,
+> requested by the owner to read the model comparison below. This file is the
+> source of truth; the translation is not auto-updated on every edit here.
+
 Six stages. Each takes `(input, language)`, is independently retryable, and
 records shape/cost — never content — in `ai_jobs`.
 
