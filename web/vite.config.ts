@@ -85,16 +85,16 @@ export default defineConfig(({ mode }) => {
       registerType: "autoUpdate",
       includeAssets: ["icon.svg"],
       manifest: {
-        name: "الدماغ الثاني",
-        short_name: "الدماغ الثاني",
+        name: "ومضة",
+        short_name: "ومضة",
         description: "التقط أفكارك بسرعة، ودع الذكاء الاصطناعي ينظّمها.",
         // The manifest is what makes the installed app open in Arabic RTL
         // from the launcher. Omit these two and the OS renders the app name
         // and splash screen left-to-right regardless of the page's own dir.
         lang: "ar",
         dir: "rtl",
-        theme_color: "#1b3022",
-        background_color: "#f9faf8",
+        theme_color: "#334155",
+        background_color: "#f8fafc",
         display: "standalone",
         start_url: "/",
         icons: [

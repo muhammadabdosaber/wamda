@@ -7,7 +7,7 @@
  * enforced by the compiler rather than by discipline.
  */
 export const ar = {
-  appTitle: "الدماغ الثاني",
+  appTitle: "ومضة",
 
   captureHint: "ما الذي يدور في بالك؟",
   captureVoice: "سجّل صوتيًا",

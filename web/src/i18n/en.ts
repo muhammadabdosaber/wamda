@@ -8,7 +8,7 @@ import type { Messages, PluralKey } from "./ar";
  * key discovered in production.
  */
 export const en: Messages = {
-  appTitle: "Second Brain",
+  appTitle: "Wamda",
 
   captureHint: "What's on your mind?",
   captureVoice: "Record",
