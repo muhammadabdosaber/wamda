@@ -33,6 +33,8 @@ Two rules that matter:
 | `POST` | `/enrich` | Enrichment + embedding + relations (stages 3–5). |
 | `POST` | `/search` | Hybrid / semantic / lexical retrieval. |
 | `POST` | `/digest` | `{action: "enqueue" \| "collect"}` — cron-triggered. |
+| `GET` | `/export` | Every note, enrichment, and tag the caller owns. |
+| `POST` | `/delete-account` | Irreversible. Requires `confirm_email`. |
 
 ### `POST /notes`
 
@@ -42,6 +44,9 @@ Two rules that matter:
   "source": "text" | "voice",
   "text": "…",               // required when source = text
   "client_created_at": "2026-08-01T09:12:00Z",
+  "capture_latency_ms": 73,  // optional, SB-020 — client-measured IndexedDB
+                              // write duration; a bad/absent value costs a
+                              // metrics sample, never a rejected capture
   "lang": "ar" }
 
 // 201
@@ -74,6 +79,76 @@ a long scroll that is the difference between a 30 KB and a 900 KB response.
 `lexical` mode skips the embedding call entirely — a keyword search should not
 pay an embedding round trip. See `docs/04-ai-pipeline.md` for the fusion.
 
+### `GET /export`
+
+Runs entirely under the caller's own client (RLS), never the service role —
+the same reasoning `GET /notes` already uses, except here it is the whole
+point: there is no `user_id` filter anywhere in the function because RLS is
+the reason no other user's data is reachable, not a `.eq()` someone could
+forget. Not paginated, and — unlike the timeline — includes `raw_text` and
+archived notes. A data export that truncates bodies or drops archived notes
+silently is not a complete export.
+
+```jsonc
+// 200
+{
+  "exported_at": "2026-08-07T12:00:00.000Z",
+  "user_id": "uuid",
+  "notes": [
+    {
+      "id": "uuid", "client_id": "uuid", "source": "text" | "voice",
+      "status": "queued" | "ready" | "failed" | "…",
+      "input_language": "ar", "detected_language": "ar" | null,
+      "raw_text": "…" | null,
+      "client_created_at": "…", "created_at": "…",
+      "archived_at": "…" | null, "completed_at": "…" | null,
+      "enrichments": [
+        { "language": "ar", "title": "…" | null, "summary": "…",
+          "category": "task", "priority": "normal",
+          "suggested_action": "create_task", "action_due_at": "…" | null,
+          "context": { "people": [], "places": [], "artifacts": [], "open_questions": [] },
+          "model": "claude-opus-5" }
+      ],
+      "tags": [ { "slug": "…", "labels": { "ar": "…" } } ]
+    }
+  ]
+}
+```
+
+`enrichments` is an array, not a single object — a note can carry more than
+one row (`note_enrichments`'s unique key is `(note_id, language,
+prompt_version)`), and a complete export does not pick one arbitrarily.
+Deliberately excludes `note_embeddings` (an internal artifact, not something
+a human exports) and `ai_jobs`/`weekly_digests` (telemetry and derived
+content, out of this task's scope — SB-014 names notes, enrichments, and
+tags specifically).
+
+### `POST /delete-account`
+
+```jsonc
+// request
+{ "confirm_email": "the caller's own email, typed back exactly" }
+
+// 200
+{ "deleted": true }
+
+// 400 — wrong or missing confirm_email
+{ "error": { "code": "confirmation_mismatch" } }
+```
+
+Irreversible, so this endpoint **is** the confirmation step, not a
+placeholder for one a UI adds later — it refuses to act unless the email
+matches the caller's own authenticated session exactly (fetched server-side,
+never trusted from the request body alone).
+
+The deletion itself is one call, `auth.admin.deleteUser()`, which cascades
+through every table with `references auth.users (id) on delete cascade` —
+notes, enrichments, tags (and labels through them), embeddings, relations,
+digests, `ai_jobs`, `profiles`. That cascade already existed
+(`docs/08-security.md`); this endpoint's own job is the Storage audio
+objects, which no Postgres FK reaches, deleted first so a failure there
+leaves the account — and the ability to retry — intact.
+
 ### Errors
 
 ```json
@@ -96,6 +171,8 @@ occasionally row data.
 | `note_has_no_text` / `note_has_no_audio` | 409 |
 | `enrichment_refused` | 422 |
 | `transcription_failed` / `embedding_failed` | 502 |
+| `rate_limited` | 429 |
+| `confirmation_mismatch` | 400 |
 | `internal_error` | 500 |
 
 ## Idempotency

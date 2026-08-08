@@ -60,93 +60,91 @@
 }
 
 /*
- * THEME: "Serene Cognitive Architecture: Forest Edition".
+ * THEME: "Cool Slate".
  *
- * Ported from the DESIGN.md that ships beside each screen under docs/design,
- * byte-identical across all three. Its YAML front-matter is authoritative; its
- * prose is not -- the prose names two colours (#8A9A5B, #A9BA9D) that appear
- * in neither the tokens nor the markup. See docs/design/README.md.
+ * Ported from a 4-swatch palette the owner supplied for a rebrand (2026-08-08),
+ * replacing the previous "Serene Cognitive Architecture: Forest Edition"
+ * theme. Same discipline as that earlier port (docs/design/README.md):
+ * **theme only**. The palette's own reference swatch names "Plus Jakarta
+ * Sans" for type, which is ignored for the same reason the last export's
+ * fonts were -- it carries no Arabic glyphs. The self-hosted Public Sans +
+ * Noto Sans Arabic pairing (SB-011) stays.
  *
- * Every ratio in a comment below is measured, not estimated.
+ * Only 4 colours were supplied: Primary #334155, Secondary #E2E8F0,
+ * Tertiary #94A3B8, Neutral #F8FAFC. These are exactly Tailwind's Slate
+ * 700/200/400/50 -- so every token this palette does not name directly is
+ * filled in from the SAME scale (Slate 100/300/600/800/900) rather than an
+ * invented colour, the same way the previous theme derived its dark mode
+ * from a role already inside its own token set. Every ratio below is
+ * computed from the hex values (WCAG relative luminance), not estimated.
+ * `--danger*` is untouched -- the palette does not name an error colour, and
+ * changing what "failed" looks like was not part of this request.
  */
 :root {
-  --bg: #f9faf8;              /* background            */
-  --surface: #ffffff;         /* surface-container-lowest -- cards */
-  --surface-sunken: #f3f4f2;  /* surface-container-low -- de-emphasised cards */
-  --text: #191c1b;            /* on-surface           16.40:1 on --bg */
-  --muted: #434843;           /* on-surface-variant    8.93:1 on --bg */
-  --accent: #1b3022;          /* primary-container    14.07:1 against white */
-  --accent-strong: #061b0e;   /* primary -- hover only */
-  --accent-soft: #d0e9d4;     /* primary-fixed -- chips, banners, tints */
-  --on-accent: #ffffff;       /* on-primary           14.07:1 on --accent */
-  --border: #c3c8c1;          /* outline-variant */
-  --danger: #ba1a1a;          /* error                 6.17:1 on --bg */
-  --danger-soft: #ffdad6;     /* error-container */
-  --danger-ink: #93000a;      /* on-error-container    7.24:1 on --danger-soft */
-  --on-danger: #ffffff;       /* on-error              6.46:1 on --danger */
-  --secondary: #56642b;       /* design's `secondary` -- the high-priority rail */
+  --bg: #f8fafc;               /* Neutral (given)                          */
+  --surface: #ffffff;          /* cards, header                            */
+  --surface-sunken: #f1f5f9;   /* Slate 100 -- de-emphasised cards         */
+  --text: #334155;             /* Primary (given)        9.89:1 on --bg    */
+  --muted: #475569;            /* Slate 600              7.20:1 on --bg    */
+  --accent: #334155;           /* Primary (given)                          */
+  --accent-strong: #1e293b;    /* Slate 800 -- hover only                  */
+  --accent-soft: #e2e8f0;      /* Secondary (given) -- chips, tabs, tints  */
+  --on-accent: #ffffff;        /* 10.35:1 on --accent                      */
+  --border: #cbd5e1;           /* Slate 300                                */
+  --danger: #ba1a1a;
+  --danger-soft: #ffdad6;
+  --danger-ink: #93000a;
+  --on-danger: #ffffff;
+  --secondary: #94a3b8;        /* Tertiary (given) -- the high-priority rail */
 
-  /* The export layers opacity on top of these (`/80`, `opacity-70`), which
-     drops its own chip labels to 3.98:1 and its inactive nav to 3.19:1 --
-     below AA for 12px text, and worst on Arabic, where the glyphs are denser.
-     The tokens are ported; the opacity is not. */
-
-  /* 0.5rem is the design's stated standard: "soft-square" rather than pill.
-     Squarer than what this file carried before (10/16/22). */
+  /* 0.5rem stays the standard: "soft-square" rather than pill. Layout tokens
+     are unaffected by a colour-only rebrand. */
   --radius-sm: 4px;
   --radius: 8px;
   --radius-lg: 12px;
 
-  /* The design's own spacing scale, so a gap is never an invented number. */
   --stack-sm: 12px;
   --stack-md: 24px;
   --stack-lg: 48px;
   --gutter: 24px;
 
-  /* DESIGN.md calls for tonal layering over drop shadows, and a card carries a
-     border as its real edge. But --surface (#ffffff) against --bg (#f9faf8) is
-     a 1.03:1 step, and --border against --bg is 1.65:1, so with neither the
-     card has no visible boundary at all. Both, kept faint: the border does the
-     work, the shadow only separates. Tinted toward the accent rather than
-     neutral grey -- a grey shadow on a tinted background reads as dirt. */
-  --shadow-sm: 0 1px 2px rgba(27, 48, 34, 0.06);
-  --shadow-md: 0 4px 16px rgba(27, 48, 34, 0.10);
+  /* Tinted toward the new primary rather than the old green, so a grey shadow
+     on a slate-tinted surface still doesn't read as dirt. */
+  --shadow-sm: 0 1px 2px rgba(51, 65, 85, 0.08);
+  --shadow-md: 0 4px 16px rgba(51, 65, 85, 0.12);
 
   --ease: 160ms ease;
 
-  /* Arabic glyphs carry ascenders, descenders, and diacritics that clip at
-     the ~1.2 line height Latin-first defaults assume. The design specifies
-     1.33 (label-sm) to 1.5 (body-md); its SIZES are ported, its line-heights
-     are not, for the same reason they were set here in the first place. */
+  /* Unrelated to the palette swap -- Arabic diacritics still clip at a
+     Latin-first line height. */
   --line-height: 1.65;
 
   color-scheme: light dark;
 }
 
 /*
- * The export ships no dark palette -- it is `class="light"` with an empty
- * `darkMode: "class"`. This one is derived rather than invented: Material's
- * `inverse-primary` IS the primary role under dark, and the token set already
- * carries it as #b4cdb8. Surfaces are the design's greens taken down, not the
- * previous neutral slate, so the two modes read as one product.
+ * Dark mode: the same Slate scale read from the other end, the way the
+ * previous theme's dark mode was Forest's own inverse role rather than an
+ * invented palette. Slate 900/800 for surfaces, Slate 200/400 for text --
+ * the exact given colours, just reassigned to the roles dark mode needs.
  */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #101410;
-    --surface: #18201a;         /* text 13.23:1, muted 7.48:1 */
-    --surface-sunken: #141a15;
-    --text: #e3e6e1;
-    --muted: #a8b0a6;
-    --accent: #b4cdb8;          /* inverse-primary       9.81:1 on --surface */
-    --accent-strong: #d0e9d4;   /* primary-fixed */
-    --accent-soft: #23302b;
-    --on-accent: #061b0e;       /* 10.56:1 -- white here would be 1.70:1 */
-    --border: #3a443c;
-    --danger: #ffb4ab;          /* 9.81:1 -- #ba1a1a is unreadable on dark */
+    --bg: #0f172a;              /* Slate 900 */
+    --surface: #1e293b;         /* Slate 800 */
+    --surface-sunken: #182234;  /* between 800/900 -- no named step there */
+    --text: #e2e8f0;            /* Secondary (given), reused as dark text */
+    --muted: #94a3b8;           /* Tertiary (given), reused as dark muted */
+    --accent: #cbd5e1;          /* Slate 300 -- light enough to read as "primary" on dark */
+    --accent-strong: #f8fafc;   /* Neutral (given) -- hover, lighter still */
+    --accent-soft: #334155;     /* Primary (given), reused as a dark tint */
+    --on-accent: #0f172a;       /* 11.9:1 on --accent -- white would be too flat */
+    --border: #334155;          /* Primary (given), reused as a dark border */
+    --danger: #ffb4ab;
     --danger-soft: #93000a;
     --danger-ink: #ffdad6;
-    --on-danger: #690005;       /*  7.72:1 -- same trap */
-    --secondary: #bdce89;       /* secondary-fixed-dim -- #56642b is too dark on dark */
+    --on-danger: #690005;
+    --secondary: #64748b;       /* Slate 500 -- lighter than light mode's Tertiary so the rail still reads on dark */
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.30);
     --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.40);
@@ -364,6 +362,121 @@ body {
   50% { opacity: 0.35; }
 }
 
+/* ---- capture: idle screen ---- */
+/* The default view of the Capture tab: a heading, a decorative mark, and two
+   cards that choose HOW to capture. Text-align: center is direction-neutral
+   (not banned by check-rtl.mjs -- only left/right are), so this reads
+   correctly mirrored under RTL with no per-direction rule needed. */
+.capture-idle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding-block-start: var(--stack-sm);
+}
+
+.capture-idle-title { margin: 0; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+.capture-idle-subtitle { margin: 8px 0 0; color: var(--muted); }
+
+/* The breathing mark. Purely decorative -- see the comment beside its JSX --
+   so the rings and the circle are spans, never a button. Motion is stripped
+   globally under prefers-reduced-motion (see the top of this file), so this
+   needs no reduced-motion rule of its own. */
+.capture-plus-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 168px;
+  block-size: 168px;
+  margin-block: var(--stack-lg) 0;
+}
+
+.capture-plus-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  animation: capture-ring 2.6s ease-out infinite;
+}
+.capture-plus-ring-delay { animation-delay: 1.3s; }
+.capture-plus-ring-danger { border-color: var(--danger); }
+
+@keyframes capture-ring {
+  0% { transform: scale(0.68); opacity: 0.55; }
+  100% { transform: scale(1.35); opacity: 0; }
+}
+
+.capture-plus {
+  position: relative;
+  z-index: 1;
+  inline-size: 92px;
+  block-size: 92px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--on-accent);
+  box-shadow: var(--shadow-md);
+}
+
+/* The one clickable variant of the mark -- recording started from the idle
+   voice card, where there is no other stop control on screen. */
+.capture-plus-recording {
+  border: 0;
+  cursor: pointer;
+  background: var(--danger);
+  color: var(--on-danger);
+  transition: transform var(--ease);
+}
+.capture-plus-recording:hover { filter: brightness(0.95); }
+.capture-plus-recording:active { transform: scale(0.96); }
+.capture-plus-recording:focus-visible { outline: 2px solid var(--danger); outline-offset: 3px; }
+
+.capture-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  inline-size: 100%;
+  margin-block-start: var(--stack-lg);
+}
+
+.capture-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding-block: 22px 18px;
+  padding-inline: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: box-shadow var(--ease), border-color var(--ease), transform var(--ease);
+}
+.capture-card:hover:not(:disabled) { border-color: var(--accent); box-shadow: var(--shadow-md); }
+.capture-card:active:not(:disabled) { transform: scale(0.98); }
+.capture-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.capture-card:disabled { opacity: 0.45; cursor: default; }
+
+.capture-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 44px;
+  block-size: 44px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.capture-card-label { font-weight: 600; font-size: 0.95rem; }
+.capture-card-hint { font-size: 0.8125rem; color: var(--muted); }
+
 /* ---- notes ---- */
 .card {
   background: var(--surface);
@@ -411,6 +524,14 @@ body {
 
 .muted { color: var(--muted); font-size: 0.875rem; }
 .center { text-align: center; padding-block: 48px; color: var(--muted); }
+
+/* SB-003: a React `style={{...}}` prop renders as a `style` attribute, which
+   a strict CSP `style-src` (no `unsafe-inline`) blocks same as inline script.
+   These four carry the exact values they replace -- not a spacing cleanup. */
+.auth-fallback-hint { margin-block-start: 24px; }
+.capture-error      { margin-block-start: 14px; text-align: center; }
+.capture-unsupported { margin-block-start: 12px; }
+.capture-pending    { margin-block-start: 20px; text-align: center; }
 
 .banner {
   background: var(--accent-soft);

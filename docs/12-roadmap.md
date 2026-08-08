@@ -88,27 +88,35 @@ Needs ~100 real notes. Tuning against three test notes is theatre.
 
 **Exit:** >80% of a written set of 20 real recall attempts hit in the top 5.
 
-## M5 — It runs without you ⬜
+## M5 — It runs without you 🟡
 
 The pipeline currently only advances when a client is open.
 
-- [ ] `pg_cron` + `pg_net` schedule for `sweep` (SB-001)
-- [ ] `pg_cron` schedule for the weekly `digest`
-- [ ] Service role key in Vault, not in a migration
+- [x] `pg_cron` + `pg_net` schedule for `sweep` (SB-001) — proven live, a
+      stranded note recovered with no client open; left unscheduled locally
+      afterward (nothing safe to leave running against a keyless stack)
+- [x] `pg_cron` schedule for the weekly `digest` (SB-017) — mechanism proven
+      live the same way; blocked on `ANTHROPIC_API_KEY` for the part that
+      actually matters (a real `digest_batches` row)
+- [x] Service role key in Vault, not in a migration — true by construction in
+      both schedules above; a stray `format(...)` draft that would have
+      baked the digest key into `cron.job`'s stored text was caught before
+      it was ever applied (`docs/00-verification.md`)
 - [ ] First digest actually executed — Batch API + structured outputs is
-      unverified and the fallback path matters
+      unverified and the fallback path matters (SB-018, blocked on the same key)
 
 **Exit:** a note deliberately stranded in `enriching` is recovered without any
-client open, and one real weekly digest exists in the database.
+client open — **done, 2026-08-06.** One real weekly digest existing in the
+database is still open (SB-018).
 
 ## M6 — Safe to leave running ⬜
 
-- [ ] Per-user rate limit on `/enrich` and `/transcribe` (SB-002)
-- [ ] Strict CSP (SB-003) — load-bearing, not hardening
-- [ ] `ALLOWED_ORIGIN` pinned (SB-010)
-- [ ] Export everything (SB-014) and delete everything (SB-015)
-- [ ] Audio retention enforcement (SB-009)
-- [ ] `ai_jobs` retention (SB-004)
+- [x] Per-user rate limit on `/enrich` and `/transcribe` (SB-002) — proven local-only; a hosted deploy still needs the runbook check below
+- [x] Strict CSP (SB-003) — load-bearing, not hardening; done and proven local-only, a hosted deploy still needs `frame-ancestors`/`report-to` at the host's header layer (SB-016)
+- [x] `ALLOWED_ORIGIN` pinned (SB-010) — preflight rejects a foreign Origin when configured; a hosted deploy (SB-016) still needs to actually set the env var
+- [x] Export everything (SB-014) and delete everything (SB-015) — both proven with real data and a full deletion cycle
+- [x] Audio retention enforcement (SB-009) — proven on a real upload and a real delete
+- [x] `ai_jobs` retention (SB-004) — 90-day purge, daily `pg_cron`, proven live
 - [ ] Deployed to a real Supabase project (SB-016)
 
 **Exit:** the app can be left running for a month unattended without an

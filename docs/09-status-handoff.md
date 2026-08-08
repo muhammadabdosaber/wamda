@@ -32,19 +32,28 @@
 | Edge Functions (5) | **Done, type-checked**; `notes` + `enrich` run for real |
 | React PWA client | **Done, verified in a browser** — 21 tests, RTL guard, build |
 | Auth (email OTP) | **Done, verified end to end** via local mail catcher |
-| AI enrichment | **Done, run against Claude Opus 5** — real Arabic output |
+| AI enrichment | **Done, run against Claude Opus 5** — real Arabic output; Haiku 4.5 measured and rejected (SB-034) |
 | Prompt caching | **Measured**, not estimated — 2169 cached tokens/call |
 | Embeddings / semantic search | **Blocked** — no Cohere key |
 | Voice / transcription | **Blocked** — no ElevenLabs key |
-| Weekly digest | Written, never executed |
+| Weekly digest | **Done, run for real** — real Anthropic Batch call, real digest, rendered live in the client |
 | English (phase 2) | Wired, deliberately disabled |
 
 Full evidence ledger: `docs/00-verification.md`.
 
 ## The blocking point
 
-Two vendor keys in `supabase/functions/.env` are still placeholders. This is
-the single thing standing between the current state and a complete product.
+Two vendor keys — `COHERE_API_KEY` and `ELEVENLABS_API_KEY` — are still
+3-character placeholders in `supabase/functions/.env`. This is the single
+thing standing between the current state and a complete product.
+
+`ANTHROPIC_API_KEY` is real and working (used for enrichment since
+2026-08-01, and for the weekly digest since 2026-08-07) — but it lives only
+in the *main* checkout's `supabase/functions/.env`, which is gitignored, so
+every fresh `git worktree` starts without it. If a session reports this key
+as "missing", check whether it's actually just absent from that worktree's
+checkout before assuming it needs to be re-obtained — see "A new `git
+worktree` has no vendor keys" below.
 
 **`COHERE_API_KEY`** — without it:
 - `note_embeddings` is empty; no note is semantically searchable
@@ -119,9 +128,15 @@ Ordered by consequence, not effort.
       safe to run more than once. Until those two secrets exist, the
       migration raises a NOTICE and leaves the job unscheduled instead of
       failing the deploy — the same "written, not yet turned on" state the
-      vendor keys and `digest` are already in. `digest` still has no
-      schedule at all; the same two-secret pattern (with its own URL secret)
-      would wire it the same way.
+      vendor keys are already in.
+
+      **`digest`'s schedule is built and now proven for real** (SB-017/018,
+      migration `20260807000300_digest_schedule.sql`), same two-secret
+      pattern, its own URL secret. `digest-enqueue` fired on its own timer
+      and reached the real function with a real key, producing a real
+      Anthropic Batch submission and a real row in `digest_batches`; a real
+      `weekly_digests` row followed and rendered correctly in the client.
+      Both SB-017 and SB-018 are `done`. See `docs/00-verification.md`.
 
       Verified locally: extensions install, the conditional correctly
       no-ops without secrets, and — with Vault secrets pointed at a local
@@ -129,30 +144,87 @@ Ordered by consequence, not effort.
       `cron.schedule` registered the job and manually firing its exact
       command returned a real `200` from `sweep`. The test job and secrets
       were removed afterward; nothing from that test is left scheduled.
-- [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Unbounded today —
-      a runaway client loop is a runaway bill.
-- [ ] **Strict CSP.** Load-bearing, not hardening: `supabase-js` keeps the
-      session in `localStorage`, so one XSS is a full session compromise. See
-      the session section in `docs/08-security.md`.
-- [ ] **`ai_jobs` retention/partitioning.** Grows without limit.
-- [ ] **Audio deletion sweep.** `profiles.audio_retention_days` exists; nothing
-      enforces it.
-- [ ] **`ALLOWED_ORIGIN`** defaults to `*`.
-- [ ] **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
-      Noto Sans Arabic first, but neither ships — currently falling back to a
-      system face. `web/public/fonts/` now holds `amiri-400/700.woff2`, but
-      **nothing references them** — there is still no `@font-face`. SB-011 was
-      held pending the redesign's typeface choice; the redesign has landed and
-      chose Plus Jakarta Sans, Inter, and JetBrains Mono, **none of which carry
-      Arabic glyphs**. So it answered nothing here, and the hold can lift.
-- [ ] **Digest never run**, and its Batch-API-plus-structured-outputs
-      combination is unverified.
+
+      **SB-001 closed (2026-08-06).** The gap that remained — proving the
+      *schedule*, not a hand-fired command — is now closed. With the two
+      secrets set, `sweep-worker` (`*/5`) fired on its own timer and returned a
+      note stranded in `enriching` to `queued` with no client open:
+      `cron.job_run_details` runid 3 `succeeded` at 18:35:00 UTC,
+      `net._http_response` `200 {"unstuck":1,...}`. The follow-on retry still
+      fails enrich/embed for want of vendor keys, so only the unstick arm is
+      proven live; a hosted run is SB-016. Unscheduled and secrets removed
+      after — local `cron.job`/`vault.secrets` empty again. Evidence:
+      `docs/00-verification.md`.
+- [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002,
+      2026-08-06). `ai_jobs`-backed gate (`public.rate_limit_hit()`, 60 calls /
+      15 min per user/stage), checked before the pipeline is reached. Proven
+      live: `verify.sql` for the SQL boundary, then 61 real sequential HTTP
+      calls against the running local stack — calls 1–60 reached the vendor
+      path, call 61 got a clean `429 rate_limited` before it did. Not proven
+      under concurrency. Evidence: `docs/00-verification.md`.
+- [x] **Strict CSP** (SB-003, 2026-08-06). No `unsafe-inline`/`unsafe-eval`,
+      real header on `vite dev`/`preview` plus a `<meta>` fallback in the
+      built HTML. Proven, not just configured: a real cross-origin auth call
+      succeeded under `connect-src`; a deliberate disallowed `fetch()` was
+      blocked and caught by a `securitypolicyviolation` listener with
+      `disposition: "enforce"`. `frame-ancestors`/`report-to` can't live in
+      `<meta>` — whatever host SB-016 deploys to must set those at the server
+      layer. See `docs/00-verification.md` and `docs/08-security.md`.
+- [x] **`ai_jobs` retention** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, no Vault secrets needed (never leaves Postgres). Proven live
+      against real inserted rows in `verify.sql`; the schedule is left
+      running, unlike SB-001's sweep, since nothing about it is unsafe against
+      real data. Partitioning not attempted — not needed at this scale.
+- [x] **Audio deletion sweep** (SB-009, 2026-08-07). `sweep` deletes the real
+      Storage object per-user via the Storage API and clears `audio_path`;
+      proven on a real upload/delete, confirmed with a `400` on re-fetch.
+      Reuses the existing sweep schedule. See `docs/00-verification.md`.
+- [x] **`ALLOWED_ORIGIN`** (SB-010, 2026-08-06). Still defaults to `*`
+      locally by design; when configured, a foreign or missing preflight
+      Origin is now rejected at `403`. Proven with the project's first
+      `deno test`, itself proven against a deliberate regression (`00-verification.md`).
+- [x] **`ai_jobs` retention** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, proven against real inserted rows in `verify.sql`.
+- [x] **Audio retention enforced** (SB-009, 2026-08-07). Real Storage object
+      uploaded and deleted via the Storage API; `400` on re-fetch proves the
+      bytes are gone, not just the row.
+- [x] **Export everything** (SB-014, 2026-08-07). `GET /export`, RLS-scoped,
+      proven against the owner's real 14 notes and a fresh disposable user.
+- [x] **Delete everything** (SB-015, 2026-08-07). `POST /delete-account`,
+      full cycle proven on a disposable user across all 10 tables plus real
+      Storage bytes.
+- [x] **Offline archive/dismiss queue** (SB-028, 2026-08-07). Proven with
+      `kong` genuinely stopped, not simulated; queued write survives reload
+      and drains correctly on reconnect. Surfaced and fixed a real bug from
+      SB-003 along the way — see that entry and `00-verification.md`.
+- [x] **Arabic font bundled** (SB-011). Public Sans (redesign's Latin face,
+      no Arabic glyphs) paired with self-hosted Noto Sans Arabic, split by
+      `unicode-range`. The Google Fonts CDN `<link>` (an offline-first
+      violation) is gone.
+- [x] **Weekly digest, run for real** (SB-017/018, 2026-08-07). Both
+      `pg_cron` jobs fire on their own timer; a real Anthropic Batch call
+      produced a real digest from the owner's real notes, correctly
+      rendered in the client. Found and fixed a real bug along the way — the
+      model wraps JSON in a code fence, breaking the naive parse; see
+      `docs/00-verification.md` "SB-018".
 - [x] **Screenshot captured**, for the capture screen at 375×812 in both colour
       schemes — which is how the dark-mode contrast bug in the theme port was
       found at all. Notes, search, digest, and auth have still never been
       looked at.
 
 ## Operational gotchas
+
+**A new `git worktree` has no vendor keys, even if they exist elsewhere on
+the machine.** `supabase/functions/.env` is gitignored by design (it holds
+real secrets) — `git worktree` only carries tracked files, so a fresh
+worktree's copy is simply absent, not empty. This looks exactly like "the key
+was never obtained" and cost real time on 2026-08-07 before being traced: the
+real `ANTHROPIC_API_KEY` was sitting in the *main* checkout the whole time.
+Fix: `cp` the file from a checkout that has it, then `supabase stop &&
+supabase start` **from the worktree you copied it into** — a restart alone
+does not reload the Edge Runtime's env. Check key length before assuming a
+key is real or placeholder (`grep '^KEY=' .env | cut -d= -f2` piped to
+`wc -c`) — this repo's placeholders are 3 characters, real keys are 100+.
 
 **The local Edge Runtime serves stale compiled code after an edit**, and
 `docker restart supabase_edge_runtime_*` does **not** clear it — the container
@@ -218,6 +290,38 @@ will fix — they need a decision, not a lookup:
   appearing in the timeline, which is strong. Do not remove that without a
   replacement that is as convincing. See SB-037.
 
-Progress: **SB-031a (theme port) is done and verified.** SB-036 (Tasks screen),
-SB-037 (open the note from a task), and SB-038 (`completed_at`) are open in
-`docs/13-tasks.md` with their scope already worked out.
+**Done.** SB-031a (theme), SB-036 (Tasks screen), SB-037 (open the note from a
+task), SB-038 (`completed_at`), SB-033 (answered-suggestion feedback), and
+SB-011 (fonts) are all closed — see `docs/13-tasks.md` "Done". The two
+redesign-adjacent items still open are **SB-032** (done — a note that fails
+enrichment stays visible) and **SB-027** (a real destination for accepted
+suggestions — agreed with the owner, deliberately deferred, see below).
+
+## What's actually left (as of 2026-08-07)
+
+Everything reachable without a vendor key or the owner's own account/design
+input is done. What remains, grouped by why it's not done:
+
+**Blocked on API keys the owner has to supply** (no code work possible until
+then):
+- SB-005/006/008 — Cohere key → embeddings, semantic search, cross-lingual
+  retrieval test (the single highest-value unknown in the project)
+- SB-007/012/013 — ElevenLabs key → real transcription, phone testing, WER
+
+**Blocked on the owner's own account/infra:**
+- SB-016 — deploy to a real hosted Supabase project
+
+**Deliberately deferred, agreed with the owner:**
+- SB-027 — destination for accepted suggestions (task/calendar). Owner
+  decided: build the real thing, sequenced after design feedback, not the
+  cheap relabel. He said he may adjust design/colours and add features next —
+  start there before touching this.
+
+**Open, no blocker, just not yet started** (fair game for the next session):
+- SB-022 — Safari/Firefox testing (S, needs real Safari/Firefox — only
+  Chromium tooling was available this session)
+- SB-035 — one end-to-end test (M, deliberately the one place a
+  browser-automation dependency is worth adding). **The owner is doing this
+  one himself** — an earlier session attempt was stopped mid-task on
+  request and its partial changes (Playwright dep, `web/e2e/`) discarded so
+  he could start clean.

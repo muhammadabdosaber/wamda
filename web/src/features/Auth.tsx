@@ -156,7 +156,7 @@ export function Auth({
 
       {/* The reassurance that makes this screen non-blocking. Without it,
           hitting a sign-in wall reads as "your notes are gone". */}
-      <p className="muted" style={{ marginBlockStart: 24 }}>
+      <p className="muted auth-fallback-hint">
         {t.t("authCaptureAnyway")}
       </p>
     </section>

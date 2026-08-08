@@ -103,7 +103,9 @@ were flagged for later. Read-only, cheap, batch.
 
 The user can see what the system did to a note (raw text preserved next to the
 AI's version), export everything, and delete everything.
-**Export/delete are not built yet** — tracked as SB-014/SB-015.
+**Built and proven** — `GET /export`, `POST /delete-account` (SB-014/SB-015,
+2026-08-07). No settings screen exposes them in the client UI yet; both are
+real, tested API endpoints. `docs/00-verification.md`.
 
 ## Scope
 
@@ -115,8 +117,14 @@ email OTP auth · installable PWA · Arabic RTL UI.
 
 ### In, later
 
-English (phase 7 — wired, disabled) · rate limits · CSP · export/delete ·
-audio retention enforcement · scheduled digest and sweep.
+English (phase 7 — wired, disabled) · scheduled digest.
+
+**Done ahead of schedule, 2026-08-06/07:** rate limits (SB-002), CSP (SB-003),
+`ALLOWED_ORIGIN` (SB-010), `ai_jobs` retention (SB-004), audio retention
+enforcement (SB-009), export/delete (SB-014/SB-015), and the sweep schedule
+mechanism (SB-001, proven live but left unscheduled locally — see
+`docs/09-status-handoff.md`). All proven with real data, not just written —
+`docs/00-verification.md`.
 
 ### Out, deliberately
 
@@ -131,18 +139,20 @@ audio retention enforcement · scheduled digest and sweep.
 
 ## Success metrics
 
-Nothing here is instrumented yet — no analytics exist in the codebase.
-Tracked as SB-020.
+Three of these are now instrumented (SB-020, 2026-08-08): `capture_latency_stats`,
+`stuck_notes`, and `note_cost`/`cost_summary`
+(`docs/02-database-schema.md` "Operational views") — read manually in
+Supabase Studio, no dashboard yet. The rest still have no analytics.
 
-| Metric | Target | Why this number |
-|---|---|---|
-| Capture latency (open → durable) | p95 < 3 s | Longer than this and the thought is lost |
-| Notes lost | **0** | Principle 2; any loss is a P0 |
-| Notes stuck outside a terminal state > 1 h | 0 | The sweep worker's reason to exist |
-| Enrichment cost per note | < $0.015 | Measured at $0.008–0.011 |
-| Search: user finds intended note in top 5 | > 80% | Needs a real corpus (~100 notes) |
-| Unedited AI categories | > 70% | If the user constantly corrects, filing failed |
-| Weekly digest opened | > 50% of weeks | Below this, the digest is not worth its cost |
+| Metric | Target | Why this number | Status |
+|---|---|---|---|
+| Capture latency (open → durable) | p95 < 3 s | Longer than this and the thought is lost | Instrumented, but only 1 real sample so far (73 ms) — every pre-2026-08-08 note predates the column |
+| Notes lost | **0** | Principle 2; any loss is a P0 | Not instrumented |
+| Notes stuck outside a terminal state > 1 h | 0 | The sweep worker's reason to exist | Instrumented — **2 real notes at 38.6 h** as of 2026-08-08, both from before the vendor-key fix |
+| Enrichment cost per note | < $0.02 | Revised 2026-08-08 from the original < $0.015 (SB-000f, a 2-note spot-measurement). Real steady-state usage is mostly cache misses (~$0.022/call), not cache hits (~$0.009/call), because notes are captured throughout the day rather than in bursts — see root cause below. $0.02 is set at the measured cache-miss price, not a discount off it, so hitting the target does not require the model or prompt to get cheaper or worse | Instrumented — **$0.018827 average over 11 real notes**, under the revised target. **Root cause found:** the old target assumed prompt caching (5-min TTL) lands consistently; it doesn't for this product's actual usage. Real cache hits average $0.0094/call, misses $0.0220/call. No change to the enrichment model or prompt — Opus 5 stays, quality is unaffected by this target change. `docs/00-verification.md` "SB-020" |
+| Search: user finds intended note in top 5 | > 80% | Needs a real corpus (~100 notes) | Not instrumented; blocked on SB-005/006 too |
+| Unedited AI categories | > 70% | If the user constantly corrects, filing failed | Not instrumented |
+| Weekly digest opened | > 50% of weeks | Below this, the digest is not worth its cost | Not instrumented |
 
 ## Product risks
 
@@ -158,7 +168,9 @@ Ranked by what would actually kill the product.
    unverified, storage eviction under pressure unverified.
 4. **AI filing quality is merely okay.** A user who corrects every category is
    doing the organizing work the product promised to remove.
-5. **Cost runaway.** No per-user rate limit exists today (SB-002).
+5. **Cost runaway.** Mitigated (SB-002): a per-user, per-stage rate limit
+   (60 calls / 15 min) now gates `/enrich` and `/transcribe`, proven live —
+   `docs/00-verification.md`.
 
 ## Open product questions
 

@@ -31,7 +31,7 @@ jobs:
         working-directory: web
 
   functions:
-    name: functions — deno check
+    name: functions — deno check · deno test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +41,10 @@ jobs:
       # Validates the vendor calls against the real installed SDK typings —
       # which is why this catches wrong API surface, not just wrong syntax.
       - run: deno check supabase/functions/*/index.ts
+      # SB-010: the first Deno unit tests in the project — pure functions of
+      # a Request and an env var, no DB or vendor needed. --allow-env only:
+      # no network, no filesystem beyond what Deno itself needs.
+      - run: deno test --allow-env supabase/functions/_shared/http.test.ts
 
   database:
     name: database — migrations + 12 schema assertions

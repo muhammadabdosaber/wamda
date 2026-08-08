@@ -16,6 +16,12 @@
  *   - `ready` notes with no `note_embeddings` row for their language: the
  *     marker `enrich` leaves on purpose when its embedding stage degrades
  *     rather than losing an otherwise-successful note.
+ *   - notes whose audio has outlived the owning user's own
+ *     `audio_retention_days` (SB-009): the Storage object is deleted and
+ *     `audio_path` cleared. The note survives with its transcript --
+ *     `raw_text` is the durable artifact, keeping the raw recording past its
+ *     promised window is storing sensitive data with no ongoing use
+ *     (docs/08-security.md).
  *
  * A note that keeps failing (a vendor key left as a placeholder, most
  * plausibly) is retried a bounded number of times and then marked `failed`
@@ -57,8 +63,9 @@ Deno.serve(async (req) => {
     const unstuck = await unstickStale(admin);
     const retried = await retryQueued(admin);
     const embedded = await backfillEmbeddings(admin);
+    const audioPurged = await enforceAudioRetention(admin);
 
-    return json({ unstuck, retried, embedded });
+    return json({ unstuck, retried, embedded, audio_purged: audioPurged });
   } catch (err) {
     return errorResponse(err);
   }
@@ -251,4 +258,37 @@ async function backfillEmbeddings(admin: SupabaseClient): Promise<number> {
   }
 
   return embedded;
+}
+
+/** Notes whose audio has outlived their owner's `audio_retention_days` (SB-009). */
+async function enforceAudioRetention(admin: SupabaseClient): Promise<number> {
+  const { data: rows, error } = await admin.rpc("notes_audio_expired", { p_limit: BATCH_SIZE });
+
+  if (error) {
+    console.error("sweep_audio_retention_query_failed", error.message);
+    return 0;
+  }
+  if (!rows?.length) return 0;
+
+  let purged = 0;
+
+  for (const row of rows as Array<{ note_id: string; user_id: string; audio_path: string }>) {
+    // Storage delete, not a SQL delete on storage.objects -- only the
+    // Storage API actually removes the underlying bytes; deleting the
+    // metadata row directly would orphan the file.
+    const { error: removeErr } = await admin.storage.from("audio").remove([row.audio_path]);
+    if (removeErr) {
+      // Leave audio_path set so the next tick retries -- clearing it here
+      // would make an object that failed to delete permanently unreachable
+      // (untracked, so nothing would ever try again).
+      console.warn("sweep_audio_remove_failed", { note_id: row.note_id, error: removeErr.message });
+      continue;
+    }
+
+    // The note survives with its transcript -- only audio_path is cleared.
+    await admin.from("notes").update({ audio_path: null }).eq("id", row.note_id);
+    purged += 1;
+  }
+
+  return purged;
 }

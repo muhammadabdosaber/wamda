@@ -132,7 +132,8 @@ What follows from that, and is therefore not optional here:
 
 - **A strict Content-Security-Policy is load-bearing, not hardening.** No
   `unsafe-inline`, no wildcard script sources. On a native client CSP would be
-  irrelevant; here it is the primary control protecting the session.
+  irrelevant; here it is the primary control protecting the session. **Done**
+  (SB-003, 2026-08-06) — see below.
 - **Never render note content as HTML.** React escapes by default, and no
   component uses `dangerouslySetInnerHTML`. Note text is user-authored and, for
   voice notes, model-authored — both are untrusted output.
@@ -145,26 +146,56 @@ Worth weighing honestly: if this threat model turns out to be unacceptable, it
 is an argument for a native wrapper, not for a code change — the ceiling here
 is set by the platform.
 
+**SB-003, done 2026-08-06.** `vite.config.ts` builds one CSP from
+`VITE_SUPABASE_URL` — no `unsafe-inline`, no `unsafe-eval`, no wildcard —
+served as a real header on `vite dev`/`vite preview` and baked as a `<meta>`
+fallback into the built HTML. Getting to zero `unsafe-inline` meant moving the
+app's only 4 inline `style={{...}}` props to CSS classes. Proven, not just
+configured: a real cross-origin auth call succeeded under `connect-src`; a
+deliberate `fetch()` to a disallowed origin was blocked and caught by a
+`securitypolicyviolation` listener (`main.tsx`) with `disposition: "enforce"`.
+`frame-ancestors` and `report-to` cannot live in a `<meta>` tag (spec
+limitation) — the served header carries `frame-ancestors 'self'`, but
+whatever host SB-016 deploys to must set both at the server layer; that gap is
+real, not silently worked around. Evidence: `docs/00-verification.md`.
+
 ## User rights
 
-Hard delete cascades from `auth.users` through notes, enrichments, embeddings,
-tags, relations, digests, and jobs. Audio is path-scoped per user and deleted
-alongside.
+**Export (SB-014), done 2026-08-07.** `GET /export` returns every note,
+enrichment, and tag the caller owns, under the caller's own RLS — no
+service role, no `user_id` filter to get wrong. Proven against the owner's
+real 14 notes and a fresh cross-user isolation check. See
+`docs/00-verification.md` "SB-014/015".
+
+**Delete (SB-015), done 2026-08-07.** `POST /delete-account` requires the
+caller's own email typed back exactly, then `auth.admin.deleteUser()`
+cascades hard delete from `auth.users` through notes, enrichments,
+embeddings, tags, relations, digests, and jobs. Audio is path-scoped per
+user and deleted explicitly via the Storage API first (a Postgres FK cannot
+reach Storage objects). Proven with a full cycle on a disposable test user:
+10 tables to zero, a direct `GET` on the deleted audio object returning
+`400`. See `docs/00-verification.md` "SB-014/015".
 
 ## Open items before production
 
-- [ ] **Per-user rate limit on `/enrich` and `/transcribe`.** Currently
-      unbounded — a runaway client loop is a runaway bill.
-- [ ] **Retention/partitioning for `ai_jobs`.** Grows without limit.
-- [ ] **`ALLOWED_ORIGIN` set to a real origin.** Defaults to `*`, which is fine
-      for local development and wrong for production web.
-- [ ] **Ship a strict CSP header.** Not yet configured. Per the session section
-      above, this is the main thing standing between an XSS and every note the
-      user has ever written.
+- [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002). Gate on
+      `ai_jobs` (60 calls / 15 min per user/stage), proven live over real HTTP
+      — see `docs/00-verification.md`.
+- [x] **Retention for `ai_jobs`** (SB-004, 2026-08-07). 90-day purge, daily
+      `pg_cron`, proven live against real inserted rows in `verify.sql`. See
+      `docs/02-database-schema.md` and `docs/00-verification.md`.
+- [x] **`ALLOWED_ORIGIN` set to a real origin** (SB-010, 2026-08-06). Still
+      defaults to `*` locally, by design; when configured, `preflight()` now
+      rejects a foreign or missing Origin at `403` instead of only decorating
+      the CORS header. Proven with the project's first `deno test`, itself
+      proven against a deliberate regression. See `docs/00-verification.md`.
+- [x] **Ship a strict CSP header** (SB-003, 2026-08-06). Per the session
+      section above — see it for the full evidence.
 - [ ] **Subresource integrity / dependency review.** A PWA's supply chain is
       its npm tree, and any package in it runs on the origin with access to
       `localStorage`. `npm audit` in CI at minimum.
-- [ ] **Verify audio deletion actually runs** at the retention horizon. The
-      column exists; the sweep does not yet.
+- [x] **Verify audio deletion actually runs** (SB-009, 2026-08-07). `sweep`
+      now enforces it. Proven with a real upload and a real delete — direct
+      `GET` on the removed object returned `400`. See `docs/00-verification.md`.
 - [ ] **Rotate the local anon/service keys** before any non-local deployment —
       the ones in `supabase start` output are the well-known development keys.

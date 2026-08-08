@@ -109,12 +109,12 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.6 | Explicit table grants for `authenticated` | ✅ (was a real bug) | migration `…000400` |
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
 | 5.8 | Private audio bucket, signed URLs scoped to user | ⬜ | `config.toml` · `functions/notes` |
-| 5.9 | Strict CSP | ❌ **load-bearing** — session is in `localStorage` | SB-003 |
-| 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ❌ a runaway loop is a runaway bill | SB-002 |
-| 5.11 | `ALLOWED_ORIGIN` not `*` | ❌ | SB-010 |
-| 5.12 | Export all notes | ❌ | SB-014 |
-| 5.13 | Delete account + all data | ❌ | SB-015 |
-| 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ❌ column exists, nothing enforces it | SB-009 |
+| 5.9 | Strict CSP | ✅ no `unsafe-inline`/`unsafe-eval`; real HTTP header + meta fallback; deliberate-violation test proved `enforce` | SB-003 |
+| 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
+| 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
+| 5.12 | Export all notes | ✅ `GET /export`; proven against the owner's real 14 notes + fresh cross-user isolation check | SB-014 |
+| 5.13 | Delete account + all data | ✅ `POST /delete-account`; proven with a full cycle — 10 tables to zero, real audio bytes confirmed gone | SB-015 |
+| 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ✅ `sweep` deletes the real Storage object per-user; proven on a real upload, `400` on re-fetch confirms actual byte deletion | SB-009 |
 | 5.15 | `notes.action_dismissed_at` | 🟡 applied to the local database; nowhere else exists yet | migration `20260802000100` |
 | 5.16 | Column-scoped update grant on `notes` | ✅ client limited to `archived_at`/`action_dismissed_at`/`completed_at`/`updated_at`; `status` rejected — asserted in `verify.sql` | migration `20260804000200` (SB-023) |
 
@@ -124,12 +124,12 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 |---|---|---|---|
 | 6.1 | Schema verification harness (12 assertions) | ✅ | `supabase/tests/verify.sql` |
 | 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
-| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 verified locally; **nothing schedules it** | `functions/sweep` · SB-001 |
+| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 unstick proven on a live cron timer (SB-001); retry/backfill still fail for want of vendor keys | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
-| 6.5 | `pg_cron` schedule for sweep | 🟡 on `main`; applies cleanly in CI and takes its `NOTICE` path. **Nothing has ever swept** — needs Vault secrets | SB-001 |
-| 6.5b | `pg_cron` schedule for digest | ❌ nothing written | SB-017 |
+| 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06. Left inert locally after; a hosted run is SB-016 | SB-001 |
+| 6.5b | `pg_cron` schedule for digest | 🟡 mechanism proven live (both jobs fire on their own timer, reach the real function); the actual `digest_batches` row is blocked on `ANTHROPIC_API_KEY` | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
-| 6.7 | `ai_jobs` retention / partitioning | ❌ grows without limit | SB-004 |
+| 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
 | 6.10 | Staging / production deployment | ❌ local only, never deployed | SB-016 |

@@ -31,6 +31,27 @@ function StopIcon() {
   );
 }
 
+function PlusIcon() {
+  return (
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function PencilIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="m15.5 4.5 4 4L8 20H4v-4L15.5 4.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 /**
  * The capture surface. One job: get a thought out of the user's head and into
  * durable storage with as little ceremony as possible.
@@ -62,6 +83,13 @@ export function Capture({
   onSaved?: () => void;
 }) {
   const [text, setText] = useState("");
+  // Picking the "text" card reveals the composer in place of the idle mark;
+  // picking "voice" skips straight to recording without this flag ever
+  // flipping. Resets to false on every mount, which is exactly what happens
+  // when the user leaves and returns to this tab (App.tsx only renders
+  // Capture while it's the active tab) -- so the idle screen is always what
+  // greets a fresh visit, never a composer left open from last time.
+  const [showComposer, setShowComposer] = useState(false);
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
@@ -169,77 +197,155 @@ export function Capture({
     setRecording(false);
   }
 
+  // Three mutually exclusive screens. Recording started from the idle voice
+  // card (showComposer still false) gets its own full-screen stop control;
+  // recording toggled from inside the composer (the small mic button beside
+  // Save) stays on the "writing" screen and shows the inline status line
+  // instead -- unchanged from before this redesign.
+  const view: "idle" | "writing" | "recording" =
+    recording && !showComposer ? "recording" : showComposer ? "writing" : "idle";
+
   return (
     <>
       {!online && <div className="banner">{t.t("offline")}</div>}
 
-      <textarea
-        ref={textarea}
-        className="capture-input"
-        autoFocus
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder={t.t("captureHint")}
-        // The composer follows the UI direction because the user is writing
-        // in their own language. Rendered note BODIES elsewhere set their own
-        // dir from the language the pipeline detected.
-        aria-label={t.t("captureHint")}
-        // `readOnly`, not `disabled`: a disabled field loses focus, which on a
-        // phone closes the keyboard. This window is one IndexedDB write long,
-        // so a dropped keyboard would cost more than the race it prevents.
-        readOnly={saving}
-        aria-busy={saving}
-      />
+      {view === "idle" && (
+        <div className="capture-idle">
+          <h2 className="capture-idle-title">{t.t("captureIdleTitle")}</h2>
+          <p className="capture-idle-subtitle">{t.t("captureIdleSubtitle")}</p>
 
-      <div className="row">
-        <button className="btn" onClick={() => void saveText()} disabled={saving || !text.trim()}>
-          {saving ? t.t("captureSaving") : t.t("captureSave")}
-        </button>
+          <div className="capture-plus-wrap">
+            <span className="capture-plus-ring" aria-hidden="true" />
+            <span className="capture-plus-ring capture-plus-ring-delay" aria-hidden="true" />
+            {/* Deliberately not a button -- it signals "ready to capture",
+                it does not start anything. The two cards below choose HOW. */}
+            <span className="capture-plus" aria-hidden="true">
+              <PlusIcon />
+            </span>
+          </div>
 
-        {canRecord && (
-          // Compact and icon-only, sitting beside Save rather than stacked
-          // in its own full-width row below -- one row to scan, not two.
-          <button
-            className={recording ? "btn-icon recording" : "btn-icon"}
-            onClick={() => (recording ? stopRecording() : void startRecording())}
-            aria-label={recording ? t.t("captureStop") : t.t("captureVoice")}
-            title={recording ? t.t("captureStop") : t.t("captureVoice")}
-            disabled={saving}
-          >
-            {recording ? <StopIcon /> : <MicIcon />}
-          </button>
-        )}
-      </div>
+          <div className="capture-cards">
+            <button
+              type="button"
+              className="capture-card"
+              onClick={() => void startRecording()}
+              disabled={!canRecord || saving}
+            >
+              <span className="capture-card-icon"><MicIcon /></span>
+              <span className="capture-card-label">{t.t("captureCardVoiceLabel")}</span>
+              <span className="capture-card-hint">{t.t("captureCardVoiceHint")}</span>
+            </button>
+
+            <button
+              type="button"
+              className="capture-card"
+              onClick={() => setShowComposer(true)}
+              disabled={saving}
+            >
+              <span className="capture-card-icon"><PencilIcon /></span>
+              <span className="capture-card-label">{t.t("captureCardTextLabel")}</span>
+              <span className="capture-card-hint">{t.t("captureCardTextHint")}</span>
+            </button>
+          </div>
+
+          {!canRecord && (
+            // Honest degradation rather than a card that does nothing.
+            // MediaRecorder is still absent or partial on some iOS versions.
+            <p className="muted capture-unsupported">
+              {t.t("captureUnsupported")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {view === "writing" && (
+        <>
+          <textarea
+            ref={textarea}
+            className="capture-input"
+            autoFocus
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={t.t("captureHint")}
+            // The composer follows the UI direction because the user is writing
+            // in their own language. Rendered note BODIES elsewhere set their own
+            // dir from the language the pipeline detected.
+            aria-label={t.t("captureHint")}
+            // `readOnly`, not `disabled`: a disabled field loses focus, which on a
+            // phone closes the keyboard. This window is one IndexedDB write long,
+            // so a dropped keyboard would cost more than the race it prevents.
+            readOnly={saving}
+            aria-busy={saving}
+          />
+
+          <div className="row">
+            <button className="btn" onClick={() => void saveText()} disabled={saving || !text.trim()}>
+              {saving ? t.t("captureSaving") : t.t("captureSave")}
+            </button>
+
+            {canRecord && (
+              // Compact and icon-only, sitting beside Save rather than stacked
+              // in its own full-width row below -- one row to scan, not two.
+              <button
+                className={recording ? "btn-icon recording" : "btn-icon"}
+                onClick={() => (recording ? stopRecording() : void startRecording())}
+                aria-label={recording ? t.t("captureStop") : t.t("captureVoice")}
+                title={recording ? t.t("captureStop") : t.t("captureVoice")}
+                disabled={saving}
+              >
+                {recording ? <StopIcon /> : <MicIcon />}
+              </button>
+            )}
+          </div>
+
+          {recording && (
+            // Explicit confirmation that recording is live -- the icon-only
+            // button alone isn't enough feedback for a state this important.
+            <p className="recording-status">
+              <span className="recording-dot" aria-hidden="true" />
+              {t.t("captureRecording")}
+            </p>
+          )}
+        </>
+      )}
+
+      {view === "recording" && (
+        <div className="capture-idle">
+          <h2 className="capture-idle-title">{t.t("captureRecording")}</h2>
+
+          <div className="capture-plus-wrap">
+            <span className="capture-plus-ring capture-plus-ring-danger" aria-hidden="true" />
+            <span className="capture-plus-ring capture-plus-ring-danger capture-plus-ring-delay" aria-hidden="true" />
+            <button
+              type="button"
+              className="capture-plus capture-plus-recording"
+              onClick={stopRecording}
+              aria-label={t.t("captureStop")}
+              title={t.t("captureStop")}
+            >
+              <StopIcon />
+            </button>
+          </div>
+
+          <p className="recording-status">
+            <span className="recording-dot" aria-hidden="true" />
+            {t.t("captureStop")}
+          </p>
+        </div>
+      )}
 
       {failed && (
         // Only ever the local write. `sync()` handles its own failures and
         // leaves the note queued, which is not something to alarm anyone about.
-        <p className="error-text" style={{ marginBlockStart: 14, textAlign: "center" }}>
+        <p className="error-text capture-error">
           {t.t("errorCaptureFailed")}
-        </p>
-      )}
-
-      {!canRecord && (
-        // Honest degradation rather than a button that does nothing.
-        // MediaRecorder is still absent or partial on some iOS versions.
-        <p className="muted" style={{ marginBlockStart: 12 }}>
-          {t.t("captureUnsupported")}
-        </p>
-      )}
-
-      {recording && (
-        // Explicit confirmation that recording is live -- the icon-only
-        // button alone isn't enough feedback for a state this important.
-        <p className="recording-status">
-          <span className="recording-dot" aria-hidden="true" />
-          {t.t("captureRecording")}
         </p>
       )}
 
       {pending > 0 && (
         // Quiet, non-alarming. Never a red badge -- a badge turns "your phone
         // is offline" into something that reads as the user's failure.
-        <p className="muted" style={{ marginBlockStart: 20, textAlign: "center" }}>
+        <p className="muted capture-pending">
           {t.plural("pendingSync", pending)}
         </p>
       )}

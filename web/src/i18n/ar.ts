@@ -7,7 +7,7 @@
  * enforced by the compiler rather than by discipline.
  */
 export const ar = {
-  appTitle: "الدماغ الثاني",
+  appTitle: "ومضة",
 
   captureHint: "ما الذي يدور في بالك؟",
   captureVoice: "سجّل صوتيًا",
@@ -17,6 +17,16 @@ export const ar = {
   captureRecording: "جارٍ التسجيل…",
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
+
+  // The idle capture screen: a heading, a decorative (non-interactive) mark,
+  // and two cards that choose HOW to capture. Picking "نص" swaps this screen
+  // for the textarea; picking "صوت" starts recording directly.
+  captureIdleTitle: "التقاط سريع",
+  captureIdleSubtitle: "التقط أفكارك بوضوح وهدوء.",
+  captureCardVoiceLabel: "صوت",
+  captureCardVoiceHint: "سجّل ملاحظة",
+  captureCardTextLabel: "نص",
+  captureCardTextHint: "اكتب أفكارك",
 
   notesTitle: "ملاحظاتي",
   notesEmpty: "لا توجد ملاحظات بعد. ابدأ بفكرة واحدة.",

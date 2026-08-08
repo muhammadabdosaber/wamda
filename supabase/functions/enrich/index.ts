@@ -13,6 +13,7 @@ import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
 import { authenticate, serviceClient, userClient } from "../_shared/supabase.ts";
 import { resolveLanguage, SUPPORTED } from "../_shared/language.ts";
 import { runEnrichment } from "../_shared/pipeline.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req) => {
   const pre = preflight(req);
@@ -50,6 +51,7 @@ Deno.serve(async (req) => {
     if (!note.raw_text?.trim()) throw new HttpError(409, "note_has_no_text");
 
     const admin = serviceClient();
+    await enforceRateLimit(admin, user.id, "enrich", noteId);
     const result = await runEnrichment({
       admin,
       userId: user.id,

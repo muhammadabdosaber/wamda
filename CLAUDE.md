@@ -58,13 +58,26 @@ docker exec -i supabase_db_Second_Brain \
 ```
 
 Expect `ALL SCHEMA CHECKS PASSED`. If a function moved:
-`deno check supabase/functions/*/index.ts`.
+`deno check supabase/functions/*/index.ts`. If `_shared/*.ts` logic moved:
+`deno test --allow-env supabase/functions/_shared/*.test.ts`.
 
 **A new table needs an RLS policy, a table-level `GRANT`, and an assertion in
 `verify.sql` — in the same change.** Correct policies with no grant produce
 `permission denied for table notes`; that was a real bug here.
 
 ## Traps that have cost real time
+
+**A new `git worktree` has no vendor keys, even if a real one exists on the
+same machine.** `supabase/functions/.env` is gitignored on purpose — it holds
+real secrets — so `git worktree` (which only carries tracked files) checks
+out without it. This looks exactly like "the key was never obtained" and did
+cost real time before being traced: a real `ANTHROPIC_API_KEY` sat unused in
+the main checkout while a worktree treated the digest as blocked. Copy the
+file from a checkout that has it, then `supabase stop && supabase start`
+**from the worktree you copied it into** — a bare restart does not reload
+the Edge Runtime's env. Check length before trusting a key
+(`grep '^KEY=' .env | cut -d= -f2 | wc -c`) — this repo's placeholders are 3
+characters, real keys are 100+.
 
 **The local Edge Runtime serves stale compiled code after an edit**, and
 `docker restart supabase_edge_runtime_*` does **not** fix it — the container

@@ -127,6 +127,53 @@ Partial indexes matter here because the timeline only ever shows ready,
 unarchived notes — indexing failed and draft rows would grow the index for
 queries that never touch them.
 
+## Retention
+
+`ai_jobs` is pipeline telemetry — shape, cost, latency, error code, never note
+content (`docs/08-security.md`) — so unlike everything else in this schema it
+has no reason to be kept forever. **Rows older than 90 days are deleted daily**
+by `public.purge_old_ai_jobs()`, scheduled via `pg_cron` at 03:00 UTC
+(migration `20260807000100_ai_jobs_retention.sql`, SB-004).
+
+**Audio is retained per user**, `profiles.audio_retention_days` (default 30).
+`public.notes_audio_expired()` (migration `20260807000200_audio_retention.sql`,
+SB-009) finds notes whose audio has outlived their own owner's setting; the
+`sweep` Edge Function consumes it on the same schedule as everything else it
+sweeps, deletes the Storage object via the Storage API (a raw SQL delete on
+`storage.objects` would only remove the metadata and orphan the bytes), and
+clears `notes.audio_path`. The note survives with its transcript — `raw_text`
+is the durable artifact.
+
+No other table has a retention policy: notes and their enrichments are the
+product's memory and are kept until the user deletes them (SB-015).
+
+## Operational views
+
+`public.failed_ai_jobs` (migration `20260808000100_failed_ai_jobs_view.sql`,
+SB-019) — one row per note+stage whose **latest** attempt in `ai_jobs` is
+`failed`; a stage that failed once and later succeeded on retry does not
+appear. Filter by `note_id` or `stage` directly. Not granted to
+`authenticated` — the reader is the owner via Supabase Studio (connects as
+the Postgres superuser, bypasses RLS); granting it to the client role would
+first need `security_invoker` on the view, or `ai_jobs`'s own per-user RLS
+would be silently bypassed.
+
+**Success metrics** (migration `20260808000200_success_metrics.sql`, SB-020),
+same not-granted-to-`authenticated` reasoning as above:
+
+- `public.capture_latency_stats` — one row: count/avg/p50/p95/max of
+  `notes.capture_latency_ms`, the client's own measured IndexedDB-write
+  duration (`web/src/data/outbox.ts` `capture()`), against the product
+  spec's p95 < 3 s target.
+- `public.stuck_notes` — notes outside a terminal state (`draft`, `queued`,
+  `transcribing`, `enriching`) for over an hour, excluding archived notes.
+  A different, more generous threshold than `sweep`'s own 10-minute
+  `STUCK_MINUTES` — that one exists to recover a killed worker fast, this one
+  is the product metric for "is the pipeline keeping up".
+- `public.note_cost` / `public.cost_summary` — per-note and aggregate spend
+  from `ai_jobs.cost_usd`, split into `enrich_cost_usd` (the product spec's
+  named metric) and `total_cost_usd` (every stage).
+
 ## Verification
 
 `supabase/tests/verify.sql` asserts, against a live database:

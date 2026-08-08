@@ -32,32 +32,43 @@ blocked on.
 |---|---|---|---|---|
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
-| SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | todo |
+| SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | **done** |
 | SB-032 | Notes that sync but fail enrichment are invisible | M1 | S | **done** |
 | SB-033 | An answered suggestion must show it was answered | M1 | S | **done** |
 | SB-036 | Tasks screen — a filter over notes, not a container | M8 | M | **done** |
 | SB-037 | Open the source note from a task row (+ SB-021) | M8 | M | **done** |
 | SB-038 | `completed_at` so a task can be ticked — pair with SB-023 | M8 | M | **done** |
 | SB-011 | Bundle the app fonts (Public Sans + Noto Sans Arabic) | — | S | **done** |
-| SB-001 | Schedule the sweep worker — **may already be done**, see below | M5 | M | todo |
-| SB-003 | Strict CSP | M6 | M | todo |
+| SB-001 | Schedule the sweep worker | M5 | M | **done** |
+| SB-003 | Strict CSP | M6 | M | **done** |
+| SB-010 | Pin `ALLOWED_ORIGIN` | M6 | S | **done** |
+| SB-004 | `ai_jobs` retention | M6 | S | **done** |
+| SB-009 | Enforce audio retention | M6 | M | **done** |
+| SB-014 | Export everything | M6 | M | **done** |
+| SB-015 | Delete everything | M6 | M | **done** |
+| SB-028 | Queue archive/dismiss while offline | — | S | **done** |
+| SB-017 | Schedule the weekly digest | M5 | S | **done** |
+| SB-018 | Run the digest once, for real | M5 | M | **done** |
+| SB-019 | Queryable pipeline failures over `ai_jobs` | — | S | **done** |
+| SB-020 | Instrument the success metrics | — | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
 
-> **SB-001 is on `main`** (#5). `20260801000800_sweep_schedule.sql` reads the
-> function URL and service role key from Vault at call time rather than
-> embedding either in a committed file, and when the secrets are absent it
-> raises a `NOTICE` and leaves the job unscheduled instead of failing the
-> deploy. `cron.schedule` replaces by name, so the file is re-runnable.
-> **Verified in CI on a clean Postgres:** the migration applies and takes the
-> `NOTICE` path, so deploying into an environment with no Vault secrets is
-> safe. Confirmed inert locally too — `cron.job` and `vault.secrets` are both
-> empty.
->
-> **What remains is the only part that matters:** set the two Vault secrets
-> somewhere that should actually sweep, re-run the migration, and prove a
-> stranded note recovers **with no client open**. Nothing has ever swept.
+> **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
+> `20260801000800_sweep_schedule.sql` reads the function URL and service role
+> key from Vault at call time rather than embedding either in a committed file,
+> and when the secrets are absent it raises a `NOTICE` and leaves the job
+> unscheduled instead of failing the deploy. `cron.schedule` replaces by name,
+> so the file is re-runnable. **The part that mattered is now proven:** with the
+> two secrets set on the local stack, the `*/5` `sweep-worker` job fired on its
+> own timer (`cron.job_run_details` runid 3, 18:35:00 UTC), the call returned
+> `200 {"unstuck":1,...}`, and a note stranded in `enriching` returned to
+> `queued` **with no client open and nothing invoked by hand**. Evidence:
+> `docs/00-verification.md` "SB-001 · A note recovered by the schedule". Left
+> inert afterward (`cron.job`/`vault.secrets` empty) so a keyless local `*/5`
+> does not drive real notes to the failed-attempt cap. Turning it on for real is
+> still one secret-pair + migration re-run per environment (SB-016 for hosted).
 
 ---
 
@@ -128,39 +139,86 @@ audio and the signed-URL upload to Storage worked. Both notes then failed at
 
 ## M5 — Scheduling
 
-### SB-001 · Schedule the sweep worker · `todo` · M
+### SB-001 · Schedule the sweep worker · `done` · M
 
-The sweep worker is written and verified, and **nothing runs it**. No `pg_cron`
-job exists in any migration.
+> **Done, proven on a live timer (2026-08-06).** The migration
+> (`20260801000800_sweep_schedule.sql`) creates a `pg_cron` job that POSTs to
+> the deployed function via `pg_net`, reading both the function URL and the
+> service-role key from Vault at call time — neither is a literal in the file,
+> and the project ref is not hard-coded. With the two secrets set on the local
+> stack, `sweep-worker` (`*/5 * * * *`) fired **on its own timer** and returned
+> a note stranded in `enriching` to `queued` with no client open and nothing
+> invoked by hand: `cron.job_run_details` runid 3 `succeeded` at 18:35:00 UTC,
+> `net._http_response` `200 {"unstuck":1,...}`, note `updated_at` 18:35:00. The
+> retry pass that follows still fails enrich/embed for want of vendor keys
+> (`missing_configuration`), so only the *unstick* arm is proven end to end; the
+> rest waits on SB-005/SB-007, and a hosted run waits on SB-016. Unscheduled and
+> secrets removed afterward. Evidence: `docs/00-verification.md` "SB-001 · A
+> note recovered by the schedule".
 
-- **Start at:** `supabase/functions/sweep/index.ts`, migration `…000700`.
-- **Do:** a migration creating a `pg_cron` job that calls the deployed function
-  URL via `pg_net.http_post`, with the service role key read from Vault — never
-  literal in a migration.
-- **Accept:** a note manually stranded in `enriching` with an old timestamp is
-  returned to `queued` **with no client open and nothing invoked by hand**;
-  `ai_jobs` shows the sweep run.
-- **Note:** the URL and key are environment-specific. Parameterize; do not hard
-  code a project ref.
+### SB-017 · Schedule the weekly digest · `done` · S
 
-### SB-017 · Schedule the weekly digest · `todo` · S
-
-Same gap, same mechanism.
+> **Done, proven live with a real vendor call (2026-08-07).** First proof
+> attempt (same day, earlier) had both `digest-enqueue`/`digest-collect` fire
+> on their own fast-forwarded timer and reach the real function, but this
+> worktree had no working `ANTHROPIC_API_KEY` — `requireEnv` threw before
+> either action ran, so `net._http_response` showed `500
+> missing_configuration`. Root cause turned out not to be a missing key at
+> all: the real key was in the main checkout's `supabase/functions/.env` the
+> whole time, but that file is gitignored (correctly — it holds real
+> secrets) and a `git worktree` only carries tracked files, so it was never
+> copied into this worktree. Copied it over, `supabase stop && start` from
+> this worktree to load it.
+>
+> With the real key in place, `digest-enqueue` was fast-forwarded again and
+> fired on its own timer: `cron.job_run_details` `succeeded`,
+> `net._http_response` **`200 {"enqueued":1,"batch_id":"msgbatch_01Y1n9WqfVPGuUwZ1h35Ksjp",...}"`**
+> — a real Anthropic Message Batches submission built from the owner's own
+> 10 real enriched notes from the past week, and a real row landed in
+> `digest_batches` (`status: submitted`). This is the task's actual accept
+> line, now met without a manual invocation. Restored to the real weekly
+> cadence afterward. Evidence: `docs/00-verification.md` "SB-017".
 
 - **Accept:** a digest row appears in `digest_batches` on schedule without a
-  manual invocation.
+  manual invocation. ✅
 
-### SB-018 · Run the digest once, for real · `todo` · M
+### SB-018 · Run the digest once, for real · `done` · M
 
-Batch API + structured outputs is an **unverified combination**; the code
-requests JSON by prompt and falls back to keeping prose on a parse failure.
+> **Done (2026-08-07).** The unverified combination broke on the first real
+> run, exactly as suspected: the model wrapped its JSON in a ` ```json `
+> fence, `JSON.parse` threw, and the fallback caught fenced JSON as raw
+> prose. Fixed (`digest/index.ts` now strips a fence before parsing),
+> re-run for real, and a second batch parsed cleanly into the full
+> `{headline, themes, open_loops, wins, suggestion}` shape from the owner's
+> real 10 enriched notes. Verified in the actual client too — `Digest.tsx`
+> pre-existed and was untested with real data until now; it rendered
+> correctly under RTL with zero console errors, signed in as the real
+> owner via local OTP. Evidence: `docs/00-verification.md` "SB-018",
+> `docs/04-ai-pipeline.md` "Stage 6".
 
 - **Accept:** one real weekly digest exists, generated from at least a week of
-  real notes; the fallback path is exercised deliberately at least once.
+  real notes; the fallback path is exercised deliberately at least once. ✅
 
 ## M6 — Hardening
 
-### SB-002 · Per-user rate limit · `todo` · M
+### SB-002 · Per-user rate limit · `done` · M
+
+> **Done, proven both in Postgres and over real HTTP (2026-08-06).** The
+> counter is `ai_jobs` itself — no new table. `public.rate_limit_hit()`
+> (migration `20260806000100`) counts a user's rows for a stage in a trailing
+> window; `_shared/rateLimit.ts` calls it before `runEnrichment`/
+> `runTranscription` and throws `429 rate_limited` (with its own `ai_jobs`
+> row) if the count is already at the limit (`60` calls / `15` minutes — sized
+> to clear the client's own ~50-note offline-replay burst, SB-024). `verify.sql`
+> proves the SQL boundary live (trips exactly at the Nth call, not before;
+> per-stage, not per-user; ignores calls outside the window). Then driven for
+> real: 61 sequential `POST /enrich` calls against a real note under a real
+> minted local JWT — calls 1–60 reached the vendor path and failed on the
+> missing key (`500 missing_configuration`), call 61 was rejected by the gate
+> **before** reaching it (`429 rate_limited`). `ai_jobs` matched the HTTP
+> responses exactly: 60 + 1. Not proven under concurrency — see
+> `docs/00-verification.md` "SB-002" for the honest gap. Evidence:
+> `docs/00-verification.md` "SB-002 · Per-user rate limit".
 
 `/enrich` and `/transcribe` are unbounded. A runaway client loop is a runaway
 vendor bill, and both endpoints call paid APIs.
@@ -170,7 +228,50 @@ vendor bill, and both endpoints call paid APIs.
 - **Accept:** the (N+1)th call inside the window returns 429 with a typed error
   and an `ai_jobs` row; the vendor is never called. Test proves it.
 
-### SB-003 · Strict CSP · `todo` · M
+### SB-003 · Strict CSP · `done` · M
+
+> **Done, proven against a real build and a real dev server (2026-08-06).**
+> One policy, built once in `vite.config.ts` from `VITE_SUPABASE_URL` so the
+> header and the meta tag baked into the shipped HTML can never drift apart:
+> `default-src 'self'` with no `unsafe-inline`, no `unsafe-eval`, no wildcard
+> — `script-src`, `style-src`, `img-src`, `font-src`, `worker-src` all
+> `'self'`; `connect-src` adds only the Supabase origin; `object-src 'none'`;
+> `base-uri`/`form-action 'self'`. Getting to zero `unsafe-inline` meant
+> removing the app's only 4 inline `style={{...}}` props (moved to CSS
+> classes, same computed values, checked live: `24px` etc.) — the alternative
+> was carrying an exception for four lines of margin.
+>
+> **Proven, not just configured:** `npm run build` then `vite preview` served
+> the header for real (`curl -I`, confirmed byte-for-byte); loaded in a
+> browser, signed in for real — a genuine cross-origin `POST .../auth/v1/otp`
+> to a *different* origin than the page succeeded under `connect-src`, no
+> violation. Then the guard was proven the way `check-rtl.mjs` was: a
+> deliberate violation. `fetch("https://example.com/")` from the page was
+> blocked (`Failed to fetch`), and the `securitypolicyviolation` listener
+> caught it: `{directive: "connect-src", blocked: "https://example.com/",
+> disposition: "enforce"}` — enforced, not report-only.
+>
+> **Correction, 2026-08-07: the original "dev mode re-verified" claim was
+> wrong.** `vite dev` was checked for HMR reconnecting and a clean console —
+> not for whether a component ever actually rendered. It did not: the CSP
+> header (plus a meta-tag plugin that, unnoticed, also ran during `vite dev`)
+> blocked the inline Fast Refresh preamble `@vitejs/plugin-react` injects,
+> so React never mounted, silently. Found live while building SB-028. Fixed
+> by dropping CSP from `vite dev` entirely (`server.headers` removed, meta
+> plugin scoped `apply: "build"`) — correct on reflection, since CSP protects
+> the shipped app, not Vite's own dev tooling. `vite preview` and the built
+> `dist/index.html`, the actual production-representative surfaces this
+> task's proof rested on, were unaffected throughout. Re-verified for real on
+> `vite dev` afterward — see SB-028's evidence, same session.
+>
+> **Honest gap:** `frame-ancestors` and `report-to` cannot live in a `<meta>`
+> CSP (the spec has browsers ignore them there), so the *served header*
+> carries `frame-ancestors 'self'` but the meta-tag fallback baked into the
+> built HTML does not. Whatever host SB-016 deploys to must set both at the
+> server layer. Violation reporting today is `console.error` client-side
+> (`securitypolicyviolation` in `main.tsx`) — visible, not centralized; a
+> `report-to` collector is future work once SB-019 gives it somewhere to land.
+> Evidence: `docs/00-verification.md` "SB-003 · Strict CSP".
 
 Load-bearing, not hardening: `supabase-js` keeps the session in `localStorage`,
 so a single XSS is a full session compromise. See `docs/08-security.md`.
@@ -178,21 +279,76 @@ so a single XSS is a full session compromise. See `docs/08-security.md`.
 - **Accept:** a `Content-Security-Policy` with no `unsafe-inline` and no
   `unsafe-eval` is served, the app still works, and violations are reported.
 
-### SB-010 · Pin `ALLOWED_ORIGIN` · `todo` · S
+### SB-010 · Pin `ALLOWED_ORIGIN` · `done` · S
+
+> **Done (2026-08-06).** `preflight()` in `_shared/http.ts` now rejects an
+> `OPTIONS` request with a foreign (or missing) `Origin` at `403` when
+> `ALLOWED_ORIGIN` is configured, instead of answering every preflight with
+> `204` regardless of who asked and leaving enforcement entirely to the
+> calling browser honouring a mismatched CORS header. Unset (every local
+> environment today) stays permissive, unchanged.
+>
+> **The first `deno test` in this project** (`_shared/http.test.ts`, 5 cases)
+> proves it, and was proven the way `check-rtl.mjs` was: the old code was
+> swapped back in and 3 of 5 tests failed correctly, then the fix restored and
+> all 5 passed. Wired into CI (`deno test --allow-env`) alongside `deno
+> check`. Also confirmed live against the real local Edge Runtime after a
+> full `supabase stop && start`: an `OPTIONS` preflight with a foreign
+> `Origin` still returns the unset-default `204`/`*`, matching the
+> unconfigured-locally case the test suite covers. Evidence:
+> `docs/00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`".
 
 Defaults to `*` today.
 
 - **Accept:** a request with a foreign `Origin` is rejected by the preflight
   path in `_shared/http.ts`; a test covers it.
 
-### SB-004 · `ai_jobs` retention · `todo` · S
+### SB-004 · `ai_jobs` retention · `done` · S
+
+> **Done (2026-08-07).** `public.purge_old_ai_jobs(p_days default 90)`
+> (migration `20260807000100`) deletes `ai_jobs` rows older than the window
+> and returns the count removed; scheduled via `pg_cron` daily at 03:00 UTC,
+> unconditionally — no Vault secrets needed, since this never leaves
+> Postgres (unlike the sweep/digest schedules). Window recorded in
+> `docs/02-database-schema.md` under a new **Retention** section. Proven live:
+> `verify.sql` inserts a 120-day-old row and a 10-day-old row, calls the
+> function, and asserts the old one is gone and the recent one survives —
+> `ALL SCHEMA CHECKS PASSED`. Confirmed on the running local stack:
+> `cron.job` shows `ai-jobs-retention` scheduled and active; the 57 real
+> `ai_jobs` rows (oldest from 2026-08-02) were untouched, correctly, since
+> none are near the 90-day window yet. Left scheduled — no reason to turn it
+> off, unlike SB-001's sweep. Evidence: `docs/00-verification.md`.
 
 Grows without limit; it takes a row per stage per note per attempt.
 
 - **Accept:** rows older than a stated window are removed on a schedule, and the
   window is written in `docs/02-database-schema.md`.
 
-### SB-009 · Enforce audio retention · `todo` · M
+### SB-009 · Enforce audio retention · `done` · M
+
+> **Done, proven end to end with a real upload and a real delete
+> (2026-08-07).** `public.notes_audio_expired()` (migration
+> `20260807000200`) finds candidates per-user (`audio_retention_days` is not
+> a global cutoff); `sweep` deletes the actual Storage object via the Storage
+> API — not a raw SQL delete on `storage.objects`, which would only remove
+> the metadata row and orphan the bytes — then clears `notes.audio_path`.
+> Reuses the existing sweep schedule; no new cron/Vault wiring needed.
+>
+> **SQL boundary proven in `verify.sql`:** a note 40 days past a 30-day
+> retention window is flagged, one from yesterday is not.
+>
+> **Then proven live, for real bytes:** uploaded an actual object to the
+> `audio` bucket via the Storage API, attached it to a note backdated 40
+> days, restarted the stack, and `POST /sweep` returned `audio_purged: 1`.
+> Confirmed three ways: `storage.objects` row count for that path went to
+> `0`; a direct `GET` on the deleted object returned `400` — the bytes are
+> actually gone, not just the metadata; `notes.audio_path` is empty while
+> `raw_text` and `status` are byte-for-byte unchanged. A second `sweep` call
+> returned `audio_purged: 0` (idempotent). A control note created *today*
+> with real audio was swept over twice and its object survived both times —
+> the boundary holds on both sides. Test data removed afterward; the
+> owner's 14 notes and his 2 real audio objects were never touched.
+> Evidence: `docs/00-verification.md` "SB-009 · Enforce audio retention".
 
 `profiles.audio_retention_days` exists and nothing reads it. Storing a user's
 voice longer than promised is a privacy failure, not a cleanup task.
@@ -201,12 +357,51 @@ voice longer than promised is a privacy failure, not a cleanup task.
   Storage on a schedule, the note survives with its transcript, and a test
   covers the boundary.
 
-### SB-014 · Export everything · `todo` · M
+### SB-014 · Export everything · `done` · M
+
+> **Done, proven against real data (2026-08-07).** `GET /export`
+> (`supabase/functions/export`) runs entirely under the caller's own client —
+> no service role, no `user_id` filter to forget, RLS is the reason no other
+> user's data is reachable. Returns every note (including archived, unlike
+> the timeline) with `raw_text`, its enrichments, and its tags with labels.
+> Format documented in `docs/03-api.md`.
+>
+> Called for real against the owner's live account: **200, 13 KB, all 14
+> notes**, including 2 archived and 1 completed, `raw_text` and full
+> enrichment/tag detail present and correctly shaped. Cross-user isolation
+> proven fresh, not just inherited: a brand-new disposable test user got back
+> `notes: []` — zero leakage of the owner's 14 notes — then, after capturing
+> one real note of their own, got back exactly that one note with its
+> enrichment and tag correctly joined. Evidence:
+> `docs/00-verification.md` "SB-014/015".
 
 - **Accept:** one call returns every note, enrichment, and tag for the caller in
   a documented format, under RLS, with no other user's data reachable.
 
-### SB-015 · Delete everything · `todo` · M
+### SB-015 · Delete everything · `done` · M
+
+> **Done, proven with a full deletion cycle against real data across every
+> table (2026-08-07).** `POST /delete-account` (`supabase/functions/delete-account`)
+> requires `confirm_email` to match the caller's own authenticated email
+> exactly — the endpoint *is* the confirmation step, since no settings UI
+> exists yet to put one in front of it. One call, `auth.admin.deleteUser()`,
+> cascades through every `references auth.users ... on delete cascade` table
+> (already true before this task — `docs/08-security.md`); this task's own
+> code is the Storage audio cleanup, which no Postgres FK reaches.
+>
+> **Full live cycle, a disposable test user, never the owner's account:**
+> created via the Auth Admin API, given one real note plus a real
+> enrichment, tag, tag label, embedding, `ai_jobs` row, and a real uploaded
+> audio object. A wrong `confirm_email` was rejected (`400
+> confirmation_mismatch`) and the account confirmed still present. The
+> correct email deleted it (`200 {"deleted":true}`). Afterward, **all 10
+> tables checked read exactly zero** — `notes`, `note_enrichments`,
+> `note_tags`, `tags`, `tag_labels`, `note_embeddings`, `ai_jobs`,
+> `profiles`, `auth.users`, and `storage.objects` — and a direct `GET` on
+> the deleted audio object returned `400`: the bytes are gone, not just the
+> catalog row. The real owner's 14 notes, 1 `auth.users` row, and 2 real
+> audio objects were confirmed present and untouched throughout. Evidence:
+> `docs/00-verification.md` "SB-014/015".
 
 - **Accept:** account deletion removes notes, enrichments, embeddings, tags,
   `ai_jobs` rows, and Storage audio; verified by a query returning zero rows
@@ -383,7 +578,34 @@ When it happens, the parts that are already known:
 - Pairs with SB-033: feedback without a destination makes the app look like it
   filed something it did not.
 
-### SB-028 · Queue archive/dismiss while offline · `todo` · S
+### SB-028 · Queue archive/dismiss while offline · `done` · S
+
+> **Done, proven with the backend genuinely unreachable, not simulated
+> (2026-08-07).** `archiveNote`, `dismissNoteAction`, and `restoreNoteAction`
+> now share one `writeNoteField()`: try the real write, and on any failure
+> — offline or a network error while nominally online, `navigator.onLine` is
+> not trustworthy here either (`Notes.tsx`'s own comment) — queue it in a new
+> IndexedDB store (`noteActions`, keyed `noteId:field` so a later action on
+> the same field simply overwrites an earlier queued one instead of racing
+> it on replay) instead of throwing. The caller never sees a failure, so the
+> existing optimistic UI update in `Notes.tsx` fires either way, unchanged —
+> no UI code needed to move for this. `sync()` replays the queue first, on
+> the same reconnect trigger every other mutation already uses.
+>
+> **Proven in a real browser against the real local stack:** stopped the
+> `kong` container (a genuine connection failure, not a flag), clicked
+> "تجاهل" on a real note — the card updated immediately to the resolved
+> state, no error shown. Confirmed the write had **not** reached the server
+> (`action_dismissed_at` still null in Postgres) and **had** been queued in
+> IndexedDB with the exact field/value. Restarted `kong`, called `sync()`,
+> and the queue drained (`pendingNoteActions()` → `[]`) with the server row
+> now correctly set to the exact timestamp that was queued. Reloaded the
+> page: durable, not an in-memory illusion — action chips gone, matching a
+> note that was genuinely answered.
+>
+> **A real bug in SB-003 surfaced and was fixed while building this** — see
+> the correction in that task's entry above and in `docs/00-verification.md`.
+> Evidence: `docs/00-verification.md` "SB-028".
 
 `archiveNote` and `dismissNoteAction` are direct PostgREST writes. Offline they
 fail with an error message — honest, but every other mutation in this app is
@@ -463,17 +685,82 @@ this needs a decision rather than a copy-paste.
 - **Note:** hold until the redesign (SB-031) picks a typeface — shipping a font
   the design then replaces is wasted bytes twice.
 
-### SB-019 · Structured logging and alerting · `todo` · M
+### SB-019 · Queryable pipeline failures over `ai_jobs` · `done` · S
 
-- **Accept:** function logs are queryable by note id and stage, and a failed
-  stage is discoverable without reading raw logs.
+> **Done (2026-08-08).** `public.failed_ai_jobs` (migration
+> `20260808000100_failed_ai_jobs_view.sql`) — one row per note+stage whose
+> latest attempt is still failed, filterable by `note_id` or `stage`.
+> Deliberately broken to prove the "latest attempt only" logic actually
+> matters (a naive version showed a retried-then-succeeded stage as still
+> failing; caught, restored, re-verified). Read against the owner's real
+> `ai_jobs` data: 15 real currently-failing note+stage pairs surfaced
+> correctly, all attributable to known blockers (missing vendor keys).
+> Applied with `supabase migration up --local`, not `db reset`, to avoid
+> wiping real data. Evidence: `docs/00-verification.md` "SB-019".
 
-### SB-020 · Instrument the success metrics · `todo` · M
+> **Scoped with the owner, 2026-08-08.** Narrowed from "structured logging and
+> alerting" after checking what already exists: `ai_jobs`
+> (`20260801000200_enums_and_tables.sql`) already carries `note_id`, `stage`,
+> `status`, `error_code`, `latency_ms`, `cost_usd` on every enrich/transcribe/
+> embed/digest attempt — the raw data this task wanted is already there.
+> Decided:
+> - **No alerting/push.** Queryable only — a view you check, not something
+>   that pings you. No new send channel (email/Slack) for this pass.
+> - **Views over `ai_jobs` only.** The scattered `console.log`/`console.error`
+>   calls in the functions stay as free text; not worth restructuring them
+>   for this pass. Accepted gap: a failure before an `ai_jobs` row is written
+>   (e.g. `unhandled_error` in `_shared/http.ts`) is not covered — still only
+>   visible in raw Docker/function logs.
 
-Every metric in `docs/10-product-spec.md` is currently unmeasured.
+- **Do:** a migration adding one or two views/functions over `ai_jobs` —
+  e.g. `failed_ai_jobs` (latest failed attempt per note+stage, with
+  `error_code`) and something queryable by a single `note_id`.
+- **Accept:** `select * from failed_ai_jobs` (or equivalent) surfaces every
+  note currently stuck on a failed stage with its error code, no ad hoc SQL
+  needed beyond that one query. Assertion in `verify.sql`.
 
-- **Accept:** capture latency, stuck-note count, and cost per note are visible
-  somewhere without running SQL by hand.
+### SB-020 · Instrument the success metrics · `done` · M
+
+> **Done (2026-08-08).** `stuck_notes`, `note_cost`/`cost_summary`, and
+> `capture_latency_stats` (migration `20260808000200_success_metrics.sql`) —
+> deliberately broken and caught once (`stuck_notes` missing its
+> `archived_at` exclusion), then verified end to end in a real browser:
+> signed in as the owner, captured a real note, watched
+> `capture_latency_ms = 73` land in Postgres and `capture_latency_stats` pick
+> it up. Read against real data: **2 real notes stuck 38.6 hours**
+> (product-spec target is 0), average enrichment cost **$0.018827** across 11
+> real notes (above the $0.015 target). Found and fixed a real
+> `create or replace function` bug along the way — adding a parameter without
+> dropping the old signature first left two ambiguous overloads. Evidence:
+> `docs/00-verification.md` "SB-020".
+
+> **Scoped with the owner, 2026-08-08.** Narrowed after checking
+> `docs/10-product-spec.md`'s three named metrics against what exists:
+> - **Stuck-note count** and **cost per note** are near-free — `notes.status`
+>   + `updated_at` and `ai_jobs.cost_usd` already hold what's needed; this is
+>   just views, same shape as SB-019.
+> - **Capture latency (open → durable)** has zero instrumentation today —
+>   it's the metric with the tightest target (p95 < 3 s) and was previously
+>   only ever spot-measured by hand (SB-024: "95 ms with 8 queued", not
+>   persisted). **Owner chose to include it**, not defer it.
+> - **Surface: SQL views, opened manually in Supabase Studio.** No new page
+>   in `web/`, no folding into the digest — smallest surface that still
+>   answers "visible without running SQL by hand" (Studio's table view reads
+>   a view without anyone typing a query).
+
+- **Do:**
+  - `capture_latency_ms` — add a nullable column to `notes` (client already
+    knows this number per `Capture.tsx`/SB-024's measurement point) sent
+    once, in the same payload the client already POSTs on sync. No new
+    table, no new network round trip.
+  - Views: `capture_latency_p95` (rolling window), `stuck_notes` (status not
+    terminal, `updated_at` older than the sweep's own stuck threshold —
+    reuse `sweep/index.ts`'s existing cutoff logic rather than inventing a
+    second one), `cost_per_note` (sum of `ai_jobs.cost_usd` grouped by
+    `note_id`, and an overall average).
+- **Accept:** all three numbers readable from Supabase Studio's table/view
+  browser with no query typed; each view's boundary case covered in
+  `verify.sql` the same way SB-004/SB-009 covered their retention windows.
 
 ### SB-021 · Audit the note detail view · `done` · S
 
@@ -611,7 +898,26 @@ nothing here that a later redesign would waste, and the hold can lift. Go and
 finish SB-011 with the Amiri files already sitting in `web/public/fonts/`, or
 record the decision not to.
 
-### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `todo` · M
+### SB-034 · Decide the enrichment model: Opus 5 or Haiku 4.5 · `done` · M
+
+> **Done (2026-08-07). Decision: stay on Opus 5, not Haiku 4.5.** Ran the
+> real production prompt/schema through both models against the owner's
+> 12 real text notes (all real notes with `raw_text`; the other 2 are
+> voice notes with no transcript yet, blocked on SB-007). Measured, not
+> estimated: `category` agreed 58.3%, `suggested_action` agreed only
+> 25.0%, and Haiku classified three near-duplicate real notes (the same
+> haircut-with-مالك event, captured three times) as `task`/`event`/`event`
+> — disagreeing with *itself*, not just Opus, which called all three
+> `task`. Relative-date **day** resolution was correct on both models for
+> every note (6/6 "بكرة" notes) — no hard date bug either way — but Haiku
+> defaulted to `00:00:00` where Opus inferred a real time from context.
+> Cost was 4.26x cheaper for Haiku as measured (not the ~5x estimate) —
+> and won't reach even that in practice for burst captures, since Haiku
+> 4.5's prompt-cache minimum (4,096 tokens, verified against Anthropic's
+> current docs) is nearly 8x Opus 5's (512 tokens), so this system prompt
+> (~2,169 tokens) never caches on Haiku at all, while Opus 5 caches from
+> the second call on. Full comparison table and methodology:
+> `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5 (SB-034)".
 
 There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
 `40f0a14`, kept from a worktree that was about to be deleted), whose message
@@ -674,6 +980,20 @@ Only Chromium has ever run this app.
 | SB-033 | Answered suggestion shows `تمّت / تم التجاهل` + undo | `00-verification.md` |
 | SB-011 | Self-hosted Public Sans + Noto Sans Arabic; CDN font `<link>` removed | `00-verification.md` |
 | SB-032 | Non-`ready` notes stay visible (processing/failed), never absent | owner-reported; `CHANGELOG` |
+| SB-001 | `pg_cron` sweep fired on its own timer; stranded `enriching` note → `queued`, no client | `00-verification.md` "SB-001 · A note recovered by the schedule" |
+| SB-002 | Rate gate proven in `verify.sql` and over real HTTP: 60 vendor attempts then a clean `429` on call 61 | `00-verification.md` "SB-002 · Per-user rate limit" |
+| SB-003 | Strict CSP served real (curl-confirmed), real cross-origin auth call succeeds, deliberate violation blocked + reported | `00-verification.md` "SB-003 · Strict CSP" |
+| SB-010 | Preflight rejects a foreign Origin; first `deno test` in the project, proven against a deliberate regression | `00-verification.md` "SB-010 · Pin `ALLOWED_ORIGIN`" |
+| SB-004 | `purge_old_ai_jobs()` scheduled daily; `verify.sql` proves old rows go, recent ones stay | `00-verification.md` "SB-004 · `ai_jobs` retention" |
+| SB-009 | Real audio object uploaded and deleted via the Storage API; `400` on re-fetch proves the bytes are gone, not just the row | `00-verification.md` "SB-009 · Enforce audio retention" |
+| SB-014 | `/export` proven against the owner's real 14 notes; cross-user isolation proven fresh with a disposable user | `00-verification.md` "SB-014/015" |
+| SB-015 | Full deletion cycle on a disposable user: 10 tables to zero, real audio bytes confirmed gone, owner's account untouched | `00-verification.md` "SB-014/015" |
+| SB-028 | Dismiss with the backend genuinely down: immediate UI update, queued in IndexedDB, replayed correctly on reconnect, durable across reload | `00-verification.md` "SB-028" |
+| SB-017 | `digest-enqueue` fired on its own timer, real Anthropic Batch submission, real row in `digest_batches` | `00-verification.md` "SB-017" |
+| SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
+| SB-019 | `failed_ai_jobs` view; deliberately broken and caught before trusting it; 15 real currently-failing note+stage pairs surfaced from live data | `00-verification.md` "SB-019" |
+| SB-020 | `stuck_notes`/`note_cost`/`capture_latency_stats`; verified in a real browser (73ms capture, landed in Postgres); real findings: 2 notes stuck 38.6h, avg enrich cost $0.0188 (above $0.015 target) | `00-verification.md` "SB-020" |
+| SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
 
 ---
 
