@@ -10,6 +10,17 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Investigated — added Sonnet 5 to the Opus vs Haiku enrichment comparison (SB-034 addendum)
+
+Re-ran SB-034's methodology fresh with all three models in one run (36 real
+API calls against the owner's same 12 real notes): Sonnet 5 tracked Opus 5
+at 83.3% category/priority agreement and stayed self-consistent on the
+haircut-retry test that broke Haiku (task/task/task, matching Opus), at
+~0.6x Opus's per-token cost — a real structural saving, not a caching
+artifact, since Sonnet's cache minimum (1,024 tokens) clears this prompt
+the way Haiku's (4,096) doesn't. No model swap made; this is evidence for
+the owner's decision, not a decision.
+
 ### Decided — revised the enrichment cost target from < $0.015 to < $0.02
 
 Root-caused the SB-020 finding first: split the 14 real successful `enrich`
