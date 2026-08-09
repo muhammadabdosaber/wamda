@@ -1323,9 +1323,38 @@ captured through the real UI, signed in via a real email, enriched by the
 real hosted `enrich` function calling the real Anthropic API. Left in
 place as evidence, clearly labelled as a test capture.
 
-**Not yet done:** PWA hosting (no host chosen yet) — the only remaining
-piece of SB-016's accept criteria. `web/.env.local` was restored to the
-local stack afterward; this worktree's default dev target is unchanged.
+**PWA hosting, same day: Cloudflare Pages, and a third real bug found.**
+Built the production bundle against the hosted Supabase project
+(`web/.env.production.local`, gitignored, removed after); confirmed the
+built `index.html`'s CSP `connect-src` named the hosted origin, not
+localhost. Deployed via `wrangler pages` (owner-supplied scoped API
+token, used only as a local env var) to a new project `wamda` — live at
+**https://wamda-a8k.pages.dev**.
+
+Before locking down `ALLOWED_ORIGIN` to that real origin (SB-010's own
+accept line: a foreign origin should be rejected), read `_shared/http.ts`
+again and found a real latent bug: `json()` used a `CORS_HEADERS` constant
+computed **once at module load**, not `corsHeaders()` called fresh per
+request the way `preflight()` correctly does. `ALLOWED_ORIGIN` would have
+applied to preflight rejections but not reliably to the
+`Access-Control-Allow-Origin` header on actual responses, depending on
+whether an isolate was warm from before the secret existed. Fixed by
+having `json()` call `corsHeaders()` directly and removing the frozen
+export; no test referenced the removed constant. Set
+`ALLOWED_ORIGIN=https://wamda-a8k.pages.dev` as a hosted secret,
+redeployed all 8 functions so every isolate reads it fresh, and confirmed
+sign-in and capture both still work cleanly from the real production
+origin (no CORS errors in the console).
+
+**Final full-loop proof, no localhost involved anywhere:** opened
+https://wamda-a8k.pages.dev for real, signed in with a real email (one
+OTP code was already expired by the time it was read — `otp_expired`,
+ordinary code-entry latency, not a project bug — the resend worked),
+captured a note, and it reached `status: ready` on its own. SB-016's full
+accept line is now met: migrations applied, functions deployed, secrets
+set, **the PWA served over HTTPS**, and **one real note captured on it**.
+`web/.env.local` was restored to the local stack throughout; this
+worktree's default dev target is unchanged.
 
 ## Seven real bugs this caught
 

@@ -10,20 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
-### Deployed — SB-016, hosted Supabase project, one real note end to end
+### Shipped — SB-016 done: hosted Supabase + Cloudflare Pages, live at wamda-a8k.pages.dev
 
-Migrations, all 8 Edge Functions, the real `ANTHROPIC_API_KEY` secret, and
-live `pg_cron` schedules (sweep every 5 min, digest weekly, `ai_jobs`
-retention daily — all `active: true`) are now running on a real hosted
-project. Two real bugs found and fixed by actually running the deploy
-rather than reading it: (1) the hosted project's default email provider
-rejected the custom OTP template — fixed by configuring Resend as custom
-SMTP; (2) `_shared/pipeline.ts` sent `betas`/`fallbacks` unconditionally,
-which Sonnet 5 rejects (`400`) — removed both fields. A real note then went
-capture → sign-in → enrich → `ready` on the hosted project
-(`model: claude-sonnet-5`, `cost_usd: 0.019376`). Only remaining piece:
-PWA hosting (no provider chosen yet). See `docs/00-verification.md`
-"SB-016".
+Migrations, all 8 Edge Functions, the real `ANTHROPIC_API_KEY` secret,
+`ALLOWED_ORIGIN` locked to the real PWA origin, and live `pg_cron`
+schedules (sweep every 5 min, digest weekly, `ai_jobs` retention daily —
+all `active: true`) are running on a real hosted Supabase project, and the
+PWA itself is live at https://wamda-a8k.pages.dev. Three real bugs found
+and fixed by actually running the deploy, not reading it: (1) the hosted
+project's default email provider rejected the custom OTP template — fixed
+via Resend as custom SMTP; (2) `_shared/pipeline.ts` sent
+`betas`/`fallbacks` unconditionally, which Sonnet 5 rejects (`400`) —
+removed both; (3) `_shared/http.ts`'s `json()` used a CORS header frozen
+at module load instead of computed fresh per request, which would have
+made `ALLOWED_ORIGIN` unreliable — fixed. A real note went capture →
+sign-in → enrich → `ready` from the production URL itself, no localhost
+involved. See `docs/00-verification.md` "SB-016".
 
 ### Decided — switched the enrichment model from Opus 5 to Sonnet 5 (SB-034 revised)
 
