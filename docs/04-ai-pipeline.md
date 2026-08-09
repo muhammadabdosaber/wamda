@@ -11,7 +11,7 @@ records shape/cost — never content — in `ai_jobs`.
 |---|---|---|---|
 | 1 | Transcription | ElevenLabs Scribe | `functions/transcribe` |
 | 2 | Language detection | local, no network | `_shared/language.ts` |
-| 3 | Enrichment | Claude Opus 5 | `functions/enrich` |
+| 3 | Enrichment | Claude Sonnet 5 | `functions/enrich` |
 | 4 | Embedding | Cohere embed-multilingual-v3.0 | `functions/enrich` |
 | 5 | Relations | Postgres k-NN | `relate_note()` RPC |
 | 6 | Weekly digest | Claude Opus 5, Batch API | `functions/digest` |
@@ -287,13 +287,26 @@ calls. Opus 5 is highly consistent, not perfectly deterministic — worth
 knowing when reading any single stored enrichment as ground truth, but not
 a reason to revisit the SB-034 decision on its own.
 
-**Not a decision — a data point for the owner.** Sonnet 5 lands meaningfully
-closer to Opus than Haiku does on every quality axis measured here, and
-survives the specific self-consistency test that Haiku failed, at ~1.5x
-cheaper than Opus. Whether that's worth the remaining ~17–25% disagreement
-rate on ambiguous notes is a product call, not an engineering one — this
-section exists to make that call an informed one, not to make it.
-`ENRICHMENT_MODEL` is unchanged (`claude-opus-5`) pending that decision.
+**Decision, 2026-08-09 (owner): switch to Sonnet 5.** Sonnet 5 lands
+meaningfully closer to Opus than Haiku does on every quality axis measured
+here, and survives the specific self-consistency test that Haiku failed, at
+~1.5x cheaper than Opus. The remaining ~17–25% disagreement rate is on
+genuinely ambiguous notes, not the same-input-different-answer failure mode
+this comparison was scoped to catch — judged an acceptable trade for the
+cost saving. `ENRICHMENT_MODEL` is now `claude-sonnet-5`
+(`_shared/enrichment.ts`). Existing `note_enrichments` rows are untouched —
+the table is keyed on `(note_id, language, prompt_version)`, not `model`, so
+old Opus 5 output stays as-is and only new enrichments use Sonnet 5.
+
+**Found only by deploying it for real (SB-016, 2026-08-09): Sonnet 5
+rejects `betas`/`fallbacks`.** `_shared/pipeline.ts`'s enrichment call
+carried `betas: ["server-side-fallback-2026-07-01"]` and
+`fallbacks: "default"` unconditionally — an Opus-era resilience setting
+that had never actually been exercised against Sonnet 5 until the first
+real hosted enrichment call, which failed instantly with `400
+'claude-sonnet-5' does not support the fallbacks parameter`. Removed both
+fields; Sonnet 5 doesn't need them. Evidence: `docs/00-verification.md`
+"SB-016".
 
 Raw comparison data (12 notes × 2 models, full enrichment output, token
 usage, and cost per call) is not committed — it's a one-off local

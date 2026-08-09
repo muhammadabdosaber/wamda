@@ -161,8 +161,6 @@ export async function runEnrichment(input: EnrichInput): Promise<EnrichOutput> {
         effort: "medium",
         format: { type: "json_schema", schema: ENRICHMENT_SCHEMA },
       },
-      betas: ["server-side-fallback-2026-07-01"],
-      fallbacks: "default",
       system: [
         {
           type: "text",

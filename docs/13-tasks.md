@@ -407,7 +407,26 @@ voice longer than promised is a privacy failure, not a cleanup task.
   `ai_jobs` rows, and Storage audio; verified by a query returning zero rows
   across every table. Irreversible — needs an explicit confirmation step.
 
-### SB-016 · Deploy to a real Supabase project · `todo` · M
+### SB-016 · Deploy to a real Supabase project · `todo` (PWA hosting only) · M
+
+> **Nearly done (2026-08-09).** Migrations, all 8 Edge Functions, the real
+> `ANTHROPIC_API_KEY` secret, and the sweep/digest/retention `pg_cron`
+> schedules are live on the hosted free-tier project
+> (`hfjpotjbrrnghuqhxoux`) — all four cron jobs `active: true`. Hit and
+> resolved two real blockers along the way, both found by running the real
+> flow, not by reading code: (1) the hosted project's default email
+> provider refused the custom OTP template
+> (`supabase config push` → `400`, free-tier restriction) — fixed by the
+> owner configuring Resend as custom SMTP, then the push succeeded; (2)
+> enrichment then failed instantly and repeatedly with `error_code:
+> unknown` — reproduced locally against the real API and found
+> `'claude-sonnet-5' does not support the fallbacks parameter` (400);
+> `_shared/pipeline.ts` sent `betas`/`fallbacks` unconditionally, a field
+> pair Sonnet 5 doesn't support. Fixed by removing both, redeployed, and a
+> real note went capture → sign-in → enrich → `ready` on the hosted
+> project with `model: claude-sonnet-5`, `cost_usd: 0.019376`. Full
+> account: `docs/00-verification.md` "SB-016". **Only remaining accept
+> criterion: PWA served over HTTPS** — no hosting provider chosen yet.
 
 Everything so far is local only.
 
@@ -918,6 +937,16 @@ record the decision not to.
 > (~2,169 tokens) never caches on Haiku at all, while Opus 5 caches from
 > the second call on. Full comparison table and methodology:
 > `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5 (SB-034)".
+>
+> **Revised, 2026-08-09 (owner): switched to Sonnet 5, not Haiku 4.5.** A
+> follow-up comparison (same 12 real notes, all three models in one run)
+> found Sonnet 5 tracked Opus 5 at 83.3% category/priority agreement —
+> clearly closer than Haiku's 75.0%/58.3% — and stayed self-consistent on
+> the haircut-retry test that broke Haiku (`task/task/task`, matching Opus
+> exactly), at ~0.6x Opus's per-token cost, a structural saving since
+> Sonnet's cache minimum (1,024 tokens) clears the system prompt the way
+> Haiku's (4,096) doesn't. `ENRICHMENT_MODEL` is now `claude-sonnet-5`. Full
+> data: `docs/04-ai-pipeline.md` "Adding Sonnet 5 to the comparison".
 
 There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
 `40f0a14`, kept from a worktree that was about to be deleted), whose message
@@ -993,7 +1022,7 @@ Only Chromium has ever run this app.
 | SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
 | SB-019 | `failed_ai_jobs` view; deliberately broken and caught before trusting it; 15 real currently-failing note+stage pairs surfaced from live data | `00-verification.md` "SB-019" |
 | SB-020 | `stuck_notes`/`note_cost`/`capture_latency_stats`; verified in a real browser (73ms capture, landed in Postgres); real findings: 2 notes stuck 38.6h, avg enrich cost $0.0188 (above $0.015 target) | `00-verification.md` "SB-020" |
-| SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
+| SB-034 | Opus 5 vs Haiku 4.5 vs Sonnet 5 measured on 12 real notes; decision revised 2026-08-09: switched to Sonnet 5 (83.3% category/priority agreement, self-consistent, ~0.6x cost) | `04-ai-pipeline.md` "Model choice" / "Adding Sonnet 5" |
 
 ---
 

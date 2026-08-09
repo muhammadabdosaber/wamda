@@ -988,6 +988,14 @@ call on an ~17–25% ambiguous-note disagreement rate, not something decided
 here. Full tables: `docs/04-ai-pipeline.md` "Adding Sonnet 5 to the
 comparison (2026-08-09)".
 
+**2026-08-09, decided: switched to Sonnet 5.** Owner reviewed the table
+above and chose it. `ENRICHMENT_MODEL` in `_shared/enrichment.ts` is now
+`claude-sonnet-5`; `PROMPT_VERSION` unchanged (the model is not part of that
+key, so existing `note_enrichments` rows stay attributed to whichever model
+actually produced them). **Not yet run against a live Edge Runtime** — this
+was a code-only swap; the first real proof of Sonnet 5 enrichment on a live
+note happens under SB-016's hosted deploy, not before.
+
 ### SB-028 · Queue archive/dismiss while offline
 
 **2026-08-07, local stack, a real disconnected backend, not a flag.**
@@ -1207,6 +1215,117 @@ through Edge Functions. `supabase start` did **not** fix it; only a full
 capture stayed local and every card read "محفوظة على جهازك" — which is exactly
 what should happen, and is only true because of SB-025. Before that change the
 same failure would have produced an empty list under an error message.
+
+### SB-016 · Deploy to a real hosted Supabase project
+
+**Partly done (2026-08-09), real hosted infrastructure, one real blocker
+found.** Project `hfjpotjbrrnghuqhxoux` (free tier), linked with a
+Personal Access Token supplied by the owner (used only as a local env var
+this session, never written to a file or committed).
+
+**What actually ran, against the real hosted project, not simulated:**
+- All 17 migrations applied via `supabase db push` — clean, no errors.
+- `verify.sql`'s ~700 lines of assertions ran end to end via
+  `supabase db query --linked` with the two `psql` meta-commands
+  (`\set`, `\echo`) stripped, since that path executes over the Management
+  API, not real `psql`. Zero exceptions raised across the whole run — every
+  `raise exception` in the file would have aborted it, so a clean finish is
+  a real pass. Honest gap: the Management API doesn't surface individual
+  `raise notice 'PASS: ...'` lines the way local `psql` does, so this proves
+  "nothing failed," not a line-by-line replay of the local check-by-check
+  read-out.
+- All 8 Edge Functions deployed (`delete-account`, `digest`, `enrich`,
+  `export`, `notes`, `search`, `sweep`, `transcribe`).
+- The real `ANTHROPIC_API_KEY` set as a hosted secret (confirmed present via
+  `supabase secrets list`, value never echoed).
+- The sweep/digest Vault secrets (`sweep_function_url`,
+  `sweep_service_role_key`, `digest_function_url`,
+  `digest_service_role_key`) were set for real, pointing at this project's
+  actual function URLs and service-role key — then the two schedule
+  migrations were re-run, and `cron.job` on the hosted database now shows
+  **`sweep-worker` (`*/5 * * * *`), `digest-enqueue` (Saturdays 03:00 UTC),
+  `digest-collect` (every 6h), and `ai-jobs-retention` (daily 03:00 UTC) —
+  all four `active: true`.** Unlike local (SB-001/SB-017), this was left
+  **on**, deliberately — hosted is the real environment this automation is
+  for.
+
+**Real blocker found, not yet resolved: sign-in does not work in
+production as shipped.** The client's OTP screen requires a 6-digit code
+typed from `{{ .Token }}`, which only exists because
+`supabase/config.toml` carries a custom `magic_link` email template
+(`supabase/templates/magic_link.html`) — `config.toml` governs the local
+CLI stack only, it is never auto-applied to a hosted project. Verified live:
+pointed `web/.env.local` at the hosted project (reverted after), signed in
+as the owner's real email against the real hosted Auth. The email that
+arrived was Supabase's **default "Confirm your email address" signup
+link**, not a 6-digit code — because this was this email's first sign-in
+against the *hosted* project (its own separate `auth.users`), which used
+`enable_confirmations = true` on hosted (differs from local's `false`) and
+sent the stock confirm-signup template. Attempting to fix this the
+intended way, `supabase config push`, failed outright:
+
+```
+Email template modification is not available for free tier projects using
+the default email provider. Please upgrade your plan or configure a custom
+SMTP provider.
+```
+
+This is a hard platform restriction, not a bug in this project's code —
+confirmed live, not assumed from documentation. **Free tier cannot serve
+this app's sign-in flow as built**, regardless of the pause-on-inactivity
+issue already known. Two ways out, either unblocks it: upgrade to Pro, or
+configure a custom SMTP provider (Resend/SendGrid free tiers) while
+staying on the free plan.
+
+**Resolved, same day: owner configured Resend as custom SMTP** (free tier,
+`onboarding@resend.dev` sender), then `supabase config push` succeeded —
+`Remote Auth config is up to date`, confirming the custom OTP template
+actually applied. (The push run also touched an unrelated Storage
+`[vector]` setting inherited from `config.toml`'s scaffold, which failed
+with `402 upgrade required` — irrelevant, since this project uses pgvector
+directly in Postgres, not Supabase Storage's vector buckets; left alone.)
+
+**Then the real end-to-end capture, and a second real bug found by
+running it, not reading it:** signed in as the owner for real — the code
+email arrived (landed in Spam, expected for a first-time send from
+Resend's shared sandbox domain; not a project bug) — and captured a real
+note. Enrichment failed **five times in ~2 seconds**, `error_code:
+unknown`, no cost or latency recorded — too fast to be a real network
+round-trip, and hosted Edge Function logs weren't ingesting yet (a
+brand-new project's log pipeline; `postgres_logs` queried fine over the
+same Management API, `function_edge_logs`/`function_logs` stayed empty).
+Reproduced the exact SDK call locally instead (same pinned
+`@anthropic-ai/sdk@0.115.0`, same real key, same request shape) and got
+the real error immediately: **`'claude-sonnet-5' does not support the
+`fallbacks` parameter`` (400).** `_shared/pipeline.ts`'s enrichment call
+sent `betas: ["server-side-fallback-2026-07-01"]` /
+`fallbacks: "default"` unconditionally — a resilience feature that was
+never exercised for Sonnet 5 before now, since this model swap and this
+project's first-ever hosted deploy happened in the same session. Fixed by
+removing both fields (Sonnet 5 doesn't need or support them); confirmed
+against the local repro first, then redeployed `enrich`/`sweep`/
+`transcribe` (all three bundle `pipeline.ts`) and re-triggered the same
+stuck note with `force: true` directly against the hosted function.
+
+**Real, complete proof, on the hosted project, no local stack involved:**
+
+```
+status: ready
+category: task
+priority: normal
+model: claude-sonnet-5
+job_status: succeeded
+cost_usd: 0.019376
+```
+
+The note (`اختبار النشر الحقيقي على المشروع المستضاف — SB-016`) is real,
+captured through the real UI, signed in via a real email, enriched by the
+real hosted `enrich` function calling the real Anthropic API. Left in
+place as evidence, clearly labelled as a test capture.
+
+**Not yet done:** PWA hosting (no host chosen yet) — the only remaining
+piece of SB-016's accept criteria. `web/.env.local` was restored to the
+local stack afterward; this worktree's default dev target is unchanged.
 
 ## Seven real bugs this caught
 

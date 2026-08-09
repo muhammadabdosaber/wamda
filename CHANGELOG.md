@@ -10,6 +10,33 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Deployed — SB-016, hosted Supabase project, one real note end to end
+
+Migrations, all 8 Edge Functions, the real `ANTHROPIC_API_KEY` secret, and
+live `pg_cron` schedules (sweep every 5 min, digest weekly, `ai_jobs`
+retention daily — all `active: true`) are now running on a real hosted
+project. Two real bugs found and fixed by actually running the deploy
+rather than reading it: (1) the hosted project's default email provider
+rejected the custom OTP template — fixed by configuring Resend as custom
+SMTP; (2) `_shared/pipeline.ts` sent `betas`/`fallbacks` unconditionally,
+which Sonnet 5 rejects (`400`) — removed both fields. A real note then went
+capture → sign-in → enrich → `ready` on the hosted project
+(`model: claude-sonnet-5`, `cost_usd: 0.019376`). Only remaining piece:
+PWA hosting (no provider chosen yet). See `docs/00-verification.md`
+"SB-016".
+
+### Decided — switched the enrichment model from Opus 5 to Sonnet 5 (SB-034 revised)
+
+Owner reviewed the SB-034 addendum data and chose Sonnet 5:
+83.3% category/priority agreement with Opus 5, self-consistent on the
+haircut-retry test that broke Haiku, ~0.6x Opus's per-token cost.
+`ENRICHMENT_MODEL` in `_shared/enrichment.ts` changed to `claude-sonnet-5`.
+No `PROMPT_VERSION` bump — `note_enrichments` is keyed on
+`(note_id, language, prompt_version)`, not `model`, so existing Opus 5
+enrichments are untouched; only new enrichments use Sonnet 5. Not yet
+re-verified end to end against a live run — that happens as part of SB-016's
+hosted deploy.
+
 ### Investigated — added Sonnet 5 to the Opus vs Haiku enrichment comparison (SB-034 addendum)
 
 Re-ran SB-034's methodology fresh with all three models in one run (36 real
