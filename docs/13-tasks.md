@@ -303,6 +303,14 @@ Defaults to `*` today.
 - **Accept:** a request with a foreign `Origin` is rejected by the preflight
   path in `_shared/http.ts`; a test covers it.
 
+> **Correction, 2026-08-09 (found while wiring up SB-016 for real):**
+> `json()`'s CORS header used a `CORS_HEADERS` constant frozen at module
+> load, not `corsHeaders()` called fresh per request the way `preflight()`
+> already did — so `ALLOWED_ORIGIN` could apply to preflight rejections
+> without reliably applying to the `Access-Control-Allow-Origin` header on
+> the actual response, depending on isolate warmth. Fixed: `json()` now
+> calls `corsHeaders()` directly. See `docs/00-verification.md` "SB-016".
+
 ### SB-004 · `ai_jobs` retention · `done` · S
 
 > **Done (2026-08-07).** `public.purge_old_ai_jobs(p_days default 90)`
@@ -407,7 +415,33 @@ voice longer than promised is a privacy failure, not a cleanup task.
   `ai_jobs` rows, and Storage audio; verified by a query returning zero rows
   across every table. Irreversible — needs an explicit confirmation step.
 
-### SB-016 · Deploy to a real Supabase project · `todo` · M
+### SB-016 · Deploy to a real Supabase project · `done` · M
+
+> **Done (2026-08-09).** Migrations, all 8 Edge Functions, the real
+> `ANTHROPIC_API_KEY` secret, `ALLOWED_ORIGIN` locked to the real PWA
+> origin, and the sweep/digest/retention `pg_cron` schedules are all live
+> on the hosted free-tier project (`hfjpotjbrrnghuqhxoux`) — all four cron
+> jobs `active: true`. PWA deployed to Cloudflare Pages:
+> **https://wamda-a8k.pages.dev**.
+>
+> Three real bugs found and fixed by actually running the deploy, not
+> reading it: (1) the hosted project's default email provider refused the
+> custom OTP template (`supabase config push` → `400`, free-tier
+> restriction) — fixed by configuring Resend as custom SMTP; (2)
+> enrichment failed instantly with `error_code: unknown` — reproduced
+> locally against the real API and found `'claude-sonnet-5' does not
+> support the fallbacks parameter` (400); `_shared/pipeline.ts` sent
+> `betas`/`fallbacks` unconditionally, a pair Sonnet 5 doesn't support —
+> removed both; (3) `_shared/http.ts`'s `json()` used a `CORS_HEADERS`
+> constant frozen at module load instead of calling `corsHeaders()` fresh
+> per request the way `preflight()` already did, which would have made
+> `ALLOWED_ORIGIN` unreliable on actual responses — fixed, then redeployed
+> all functions so every isolate reads the secret fresh.
+>
+> **Full accept line met, proven live with no localhost involved:** signed
+> in for real at the production URL, captured a real note, reached
+> `status: ready` with `model: claude-sonnet-5` on its own. Evidence:
+> `docs/00-verification.md` "SB-016".
 
 Everything so far is local only.
 
@@ -918,6 +952,16 @@ record the decision not to.
 > (~2,169 tokens) never caches on Haiku at all, while Opus 5 caches from
 > the second call on. Full comparison table and methodology:
 > `docs/04-ai-pipeline.md` "Model choice: Opus 5 vs Haiku 4.5 (SB-034)".
+>
+> **Revised, 2026-08-09 (owner): switched to Sonnet 5, not Haiku 4.5.** A
+> follow-up comparison (same 12 real notes, all three models in one run)
+> found Sonnet 5 tracked Opus 5 at 83.3% category/priority agreement —
+> clearly closer than Haiku's 75.0%/58.3% — and stayed self-consistent on
+> the haircut-retry test that broke Haiku (`task/task/task`, matching Opus
+> exactly), at ~0.6x Opus's per-token cost, a structural saving since
+> Sonnet's cache minimum (1,024 tokens) clears the system prompt the way
+> Haiku's (4,096) doesn't. `ENRICHMENT_MODEL` is now `claude-sonnet-5`. Full
+> data: `docs/04-ai-pipeline.md` "Adding Sonnet 5 to the comparison".
 
 There is an abandoned branch, `archive/sweep-worker-haiku-variant` (commit
 `40f0a14`, kept from a worktree that was about to be deleted), whose message
@@ -993,7 +1037,8 @@ Only Chromium has ever run this app.
 | SB-018 | Real digest generated from real notes; found + fixed a JSON-fence parsing bug; verified rendering in the client under RLS | `00-verification.md` "SB-018" |
 | SB-019 | `failed_ai_jobs` view; deliberately broken and caught before trusting it; 15 real currently-failing note+stage pairs surfaced from live data | `00-verification.md` "SB-019" |
 | SB-020 | `stuck_notes`/`note_cost`/`capture_latency_stats`; verified in a real browser (73ms capture, landed in Postgres); real findings: 2 notes stuck 38.6h, avg enrich cost $0.0188 (above $0.015 target) | `00-verification.md` "SB-020" |
-| SB-034 | Opus 5 vs Haiku 4.5 measured on 12 real notes; decision: stay on Opus 5 (75% disagreement on suggested_action, self-inconsistent Haiku categorization) | `04-ai-pipeline.md` "Model choice" |
+| SB-034 | Opus 5 vs Haiku 4.5 vs Sonnet 5 measured on 12 real notes; decision revised 2026-08-09: switched to Sonnet 5 (83.3% category/priority agreement, self-consistent, ~0.6x cost) | `04-ai-pipeline.md` "Model choice" / "Adding Sonnet 5" |
+| SB-016 | Live on hosted Supabase + Cloudflare Pages; 3 real bugs found and fixed (OTP template, Sonnet 5 fallbacks param, frozen CORS header); real note captured end to end at https://wamda-a8k.pages.dev | `00-verification.md` "SB-016" |
 
 ---
 

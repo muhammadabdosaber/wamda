@@ -20,9 +20,6 @@ export function corsHeaders(): Record<string, string> {
   };
 }
 
-/** Kept for callers that just need the header set for a normal response. */
-export const CORS_HEADERS: Record<string, string> = corsHeaders();
-
 /**
  * SB-010: `ALLOWED_ORIGIN` used to only decorate the CORS header -- every
  * preflight got a 204 regardless of who asked, leaving the actual gate to
@@ -57,7 +54,7 @@ export function json(
   init: { status?: number; language?: string; direction?: "rtl" | "ltr" } = {},
 ): Response {
   const headers: Record<string, string> = {
-    ...CORS_HEADERS,
+    ...corsHeaders(),
     "Content-Type": "application/json; charset=utf-8",
   };
   if (init.language) headers["Content-Language"] = init.language;
