@@ -64,27 +64,35 @@ jobs:
         # against them; everything excluded here is start-up time this job
         # never uses.
         #
-        # `inbucket` is excluded because it was the job's only source of
-        # flakiness: it binds 54424 on the host, and twice on 2026-08-11 that
-        # bind failed with `address already in use`, taking the whole stack
-        # down during `supabase start`. Both times a plain re-run passed. The
-        # job neither sends nor reads email, so the container has no reason to
-        # exist here -- and one that is never created cannot fail to bind.
+        # `mailpit` is the point of this list. It binds 54424 on the host, and
+        # twice on 2026-08-11 that bind failed with `address already in use`,
+        # taking the whole stack down during `supabase start`. Both times a
+        # plain re-run passed. This job neither sends nor reads email, so the
+        # container has no reason to exist here -- and one that is never
+        # created cannot fail to bind.
         #
-        # That failure mode was worth removing rather than retrying: it happens
-        # BEFORE any of the 12 assertions execute, so a red check said nothing
-        # about the schema, and "probably the flake" is exactly the habit that
-        # lets a real schema break through.
+        # Worth removing rather than retrying: it failed BEFORE any of the 12
+        # assertions ran, so a red check said nothing about the schema, and
+        # "probably the flake" is the habit that lets a real break through.
         #
-        # `storage-api` was in this list and is NOT a name the CLI accepts --
-        # its own set is analytics, db, edge-runtime, functions, imgproxy,
-        # inbucket, kong, meta, realtime, rest, storage, studio, vector.
-        # Unknown names are ignored rather than rejected (this step has always
-        # passed), so storage has been starting all along. Corrected to
-        # `storage`.
+        # USE THE NAMES THE VALIDATOR ACCEPTS, NOT THE ONES IN `--help`.
+        # `supabase start --help` advertises a DIFFERENT and partly wrong set
+        # (it lists `inbucket`, `storage`, `functions`, `analytics`, none of
+        # which are accepted). Unknown names are only WARNED about, not
+        # rejected, so a typo here silently starts the container you meant to
+        # skip -- which is exactly how a first attempt at this fix left Mailpit
+        # running while appearing to have excluded it. The authoritative list
+        # is printed by the warning itself:
+        #
+        #   edge-runtime, gotrue, imgproxy, kong, logflare, mailpit,
+        #   postgres-meta, postgrest, realtime, storage-api, studio,
+        #   supavisor, vector
+        #
+        # Anything added here must come from that list, and the run log must be
+        # checked for "not valid to exclude" afterwards.
         run: >
           supabase start --exclude
-          studio,realtime,storage,imgproxy,edge-runtime,functions,inbucket,vector,analytics
+          studio,realtime,storage-api,imgproxy,edge-runtime,mailpit,logflare,vector,supavisor
 
       - name: Apply migrations
         run: supabase db reset --no-seed
