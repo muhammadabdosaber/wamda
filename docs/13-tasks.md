@@ -51,6 +51,10 @@ blocked on.
 | SB-018 | Run the digest once, for real | M5 | M | **done** |
 | SB-019 | Queryable pipeline failures over `ai_jobs` | — | S | **done** |
 | SB-020 | Instrument the success metrics | — | M | **done** |
+| SB-039 | Loader: pulse mark + list-shaped skeletons, replacing `…` | — | S | **done** |
+| SB-040 | Nav icons redrawn from the export; rounded active pill | — | S | **done** |
+| SB-041 | Notes: card grid + scrolling category filter bar | — | M | **done** |
+| SB-042 | Avatar button with a logout menu | — | S | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
@@ -1039,6 +1043,10 @@ Only Chromium has ever run this app.
 | SB-020 | `stuck_notes`/`note_cost`/`capture_latency_stats`; verified in a real browser (73ms capture, landed in Postgres); real findings: 2 notes stuck 38.6h, avg enrich cost $0.0188 (above $0.015 target) | `00-verification.md` "SB-020" |
 | SB-034 | Opus 5 vs Haiku 4.5 vs Sonnet 5 measured on 12 real notes; decision revised 2026-08-09: switched to Sonnet 5 (83.3% category/priority agreement, self-consistent, ~0.6x cost) | `04-ai-pipeline.md` "Model choice" / "Adding Sonnet 5" |
 | SB-016 | Live on hosted Supabase + Cloudflare Pages; 3 real bugs found and fixed (OTP template, Sonnet 5 fallbacks param, frozen CORS header); real note captured end to end at https://wamda-a8k.pages.dev | `00-verification.md` "SB-016" |
+| SB-039 | Pulse mark + list-shaped skeletons; caught live by delaying the timeline fetch. `role="status"`, mark `aria-hidden` | `00-verification.md` "The second design round" |
+| SB-040 | `add_circle`/`description`/`check_circle` redrawn as inline SVG (CDN icon font is CSP-blocked); rounded active pill | same |
+| SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
+| SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
 
 ---
 

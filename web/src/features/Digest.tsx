@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import type { Translator } from "../i18n";
 import { directionOfContent } from "../core/language";
 import { supabase } from "../data/api";
+import { Loading } from "../components/Loading";
 
 interface DigestContent {
   headline?: string;
@@ -39,7 +40,7 @@ export function Digest({ t, language }: { t: Translator; language: string }) {
       });
   }, [language]);
 
-  if (!loaded) return <p className="center">…</p>;
+  if (!loaded) return <Loading label={t.t("loading")} />;
   if (!row) return <p className="center">{t.t("digestEmpty")}</p>;
 
   const c = row.content;

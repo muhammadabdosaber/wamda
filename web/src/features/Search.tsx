@@ -48,7 +48,10 @@ export function Search({ t, language }: { t: Translator; language: string }) {
         aria-label={t.t("searchHint")}
       />
 
-      {busy && <p className="muted">…</p>}
+      {/* Not the full loading mark: this sits directly under the search box
+          while results stream in, and a 64px pulsing disc between the query
+          and its answers is more disruptive than the wait it describes. */}
+      {busy && <p className="muted">{t.t("loading")}</p>}
 
       {hits?.length === 0 && !busy && <p className="center">{t.t("searchNoResults")}</p>}
 

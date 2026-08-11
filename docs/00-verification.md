@@ -1356,6 +1356,51 @@ set, **the PWA served over HTTPS**, and **one real note captured on it**.
 `web/.env.local` was restored to the local stack throughout; this
 worktree's default dev target is unchanged.
 
+### SB-039 · SB-042 · The second design round (loader, nav icons, notes, avatar)
+
+Ran 2026-08-10, against the **local** stack (`127.0.0.1:54421`) at
+`localhost:5174`, signed in as `muhammad@example.test` with a real OTP read
+from Mailpit. `npm run verify` green throughout: typecheck + RTL guard + 22
+tests + build.
+
+Two Cool Slate exports were added to `docs/design/` (`loader/`, `notes-v2/`)
+as the tracked source for this round; `docs/design/README.md` carries the
+Taken/Ignored table.
+
+| What | Evidence |
+|---|---|
+| Loader replaces the literal `…` | Delayed the `/functions/v1/notes` fetch in-page to hold the state open. Read live: `.loading` present, label `جارٍ تجهيز المساحة…`, `role="status"`, mark `aria-hidden="true"`, dot animating `loading-pulse / 2s` at `rgb(51,65,85)` = `--accent`, ring `1.6px rgb(203,213,225)` = `--border` |
+| Skeletons take the **list's** shape | Notes: 3 × `.skeleton-card`. Tasks: 3 × `.skeleton-row`, `min-block-size: 56px` — the same hit target as the real `.task-row` |
+| Nav: 5 tabs, rounded active pill | All five `border-radius: 999px`; selected tab `rgb(226,232,240)` = `--accent-soft`, all others transparent |
+| Category filter actually filters | Chips rendered `الكل · مهمة · موعد` — only the categories present in the data. Clicking `موعد` cut 2 cards → 1, `aria-pressed` moved with it |
+| Chip bar scrolls, never wraps | With 8 chips injected: `scrollWidth 520 > clientWidth 327`, bar height unchanged at 39px, `document.body.scrollWidth` still ≤ viewport |
+| One note per row | Single column at 375px, 730px, and 1400px — one grid track at each, three cards on three distinct rows, and no media rule left targeting `.notes-grid`. Summary `line-clamp: 3` with `overflow: hidden`, measured |
+| Accept/dismiss survived the redesign | `أضفها كمهمة` / `تجاهل` still rendered on a real enriched card (SB-033 protected) |
+| Avatar menu | `aria-haspopup="menu"`, `aria-expanded` toggles, item `تسجيل الخروج`. Escape closes **and** returns focus to the trigger (`document.activeElement === button`) |
+| Menu mirrors correctly | RTL: avatar ≈304–338, menu 304–472. LTR: avatar 702–736, menu 568–736. Shares the avatar's trailing edge in both, inside the viewport in both |
+| Dark mode | `--bg` `#0f172a`, card `#1e293b`/border `#334155`, avatar and active chip both invert to `#cbd5e1` on `#0f172a` |
+
+**Two leftovers from the Cool Slate rebrand, found and fixed.** `global.css`
+still carried Forest-green `rgba()` in two places the palette port missed —
+the tab bar's shadow (`27, 48, 34`) and the detail sheet's scrim (`9, 15, 11`).
+Both are slate now. Nothing fails when a shadow tint is wrong, which is why
+they survived.
+
+**A measurement trap worth recording.** With the Browser pane hidden the
+renderer stops compositing, so CSS **transitions never advance** — the tab bar
+read as though the selected tab had no background and an unselected one did.
+`requestAnimationFrame` never fires either, which is why the loader had to be
+caught by delaying its fetch rather than sampling a frame. Neither was a bug in
+the app: injecting `transition: none` and re-reading gave the correct values
+immediately. Any computed-style check taken through a hidden pane needs the
+transition neutralised first, or it is reading a frozen intermediate.
+
+**Not verified here:** the local Edge Runtime container had been dead for 36
+hours (`Exited (255)`, machine sleep) and was restarted with `docker start`, so
+it is serving Edge Function code as of that snapshot. Every change in this
+round is client-side, so nothing in it depends on the function build — but this
+was **not** a fresh `supabase stop && supabase start`.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

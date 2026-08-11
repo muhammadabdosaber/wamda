@@ -9,6 +9,7 @@ import {
   timeline,
   type TimelineNote,
 } from "../data/api";
+import { Loading } from "../components/Loading";
 import { NoteDetail } from "./NoteDetail";
 
 /**
@@ -106,7 +107,7 @@ export function Tasks({ t, language }: { t: Translator; language: string }) {
     return by;
   }, [notes]);
 
-  if (!notes) return <p className="center">…</p>;
+  if (!notes) return <Loading label={t.t("loading")} skeleton="tasks" />;
 
   const order: Bucket[] = ["today", "week", "later"];
   const total = order.reduce((sum, b) => sum + groups[b].length, 0);

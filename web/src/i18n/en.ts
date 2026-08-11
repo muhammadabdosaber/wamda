@@ -36,6 +36,10 @@ export const en: Messages = {
   notesActionDismissed: "Dismissed",
   notesActionUndo: "Undo",
 
+  filterLabel: "Filter by type",
+  filterAll: "All",
+  notesFilterEmpty: "No notes in this category.",
+
   tasksTitle: "Tasks",
   tasksEmpty: "No tasks right now. Anything the AI files as a task shows up here.",
   tasksToday: "Today",
@@ -59,6 +63,8 @@ export const en: Messages = {
   settingsLanguage: "Language",
   offline: "You're offline — notes are saved on your device.",
 
+  loading: "Getting your space ready…",
+
   authTitle: "Sign in",
   authEmailLabel: "Email",
   authSendCode: "Send sign-in code",
@@ -70,6 +76,7 @@ export const en: Messages = {
   authResend: "Resend",
   authChangeEmail: "Change email",
   authSignOut: "Sign out",
+  accountMenu: "Account",
   authRequired: "Sign in to see your saved notes.",
   authCaptureAnyway:
     "You can keep capturing notes now — they'll sync once you sign in.",

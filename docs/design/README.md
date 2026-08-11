@@ -93,3 +93,66 @@ the opacity.
 - No dark palette. One is derived in `global.css` from `inverse-primary`
   `#b4cdb8`, which is the token's own dark-mode role.
 - No design for the unsynced `PendingCard` ("محفوظة على جهازك").
+
+---
+
+# Second round: the Cool Slate exports (2026-08-10)
+
+## ملخّص بالعربي
+
+تصديرين جداد بالألوان الجديدة (Cool Slate): شاشة تحميل وشاشة ملاحظات.
+نفس القاعدة — **الثيم بس**. الأيقونات والصورة الرمزية اترسموا من جديد
+جوّه الكود، لأن الـ CSP بيمنع أي ملف من برّه.
+
+---
+
+```
+loader/     code.html   the loading screen
+notes-v2/   notes.html  the notes screen, second pass
+```
+
+These are the first **Cool Slate** sources in the repo — the three folders
+above are still the earlier Forest edition, which `global.css` no longer
+matches. Kept for provenance, not as a reference for new work.
+
+## What the CSP decides for us
+
+`web/vite.config.ts` ships `img-src 'self'`, `font-src 'self'`, and
+`style-src 'self'`. Both exports load Material Symbols from the Google Fonts
+CDN and `notes-v2` loads its avatar from `googleusercontent.com`. Those are
+**blocked at runtime**, not merely off-convention. Every glyph and the avatar
+were redrawn as inline SVG.
+
+### Taken
+
+| From the export | Where it lands |
+|---|---|
+| Loader: static ring + pulsing disc + label | `components/Loading.tsx`, `.loading*` |
+| `add_circle` · `description` · `check_circle` shapes | `TAB_ICONS` in `App.tsx`, redrawn as SVG |
+| Fully-rounded active tab | `.tab` border-radius |
+| Note card: badge + time head row, clamped summary | `.note-card*` |
+| Single-column list of note cards | `.notes-grid` |
+| Horizontally scrolling chip bar | `.filter-bar` |
+| Avatar-opens-a-menu pattern | `components/AccountMenu.tsx` |
+
+### Ignored, and why
+
+| Ignored | Why |
+|---|---|
+| Material Symbols + Plus Jakarta Sans via CDN | `font-src 'self'`; and Plus Jakarta carries no Arabic glyphs (SB-011) |
+| The remote avatar image | `img-src 'self'`, and there is no profile-image feature to source one from |
+| The form skeleton | Drawn for the capture screen. Notes and Tasks are lists, so their skeletons take the shape of the rows actually coming |
+| Search bar on the notes screen | Duplicates the Search tab |
+| The export's four hardcoded Arabic categories | The app has seven, and they are stored identifiers. Labels come from `i18n/ar.ts` |
+| The FAB | Already decided against above, and it duplicates the Capture tab |
+| Relative time ("منذ يومين") | `t.date()` is absolute, tested, and locale-aware |
+| Dropping accept/dismiss from note cards | Deletes a working, owner-tested feature (SB-033). Same call as the first round |
+| `md:grid-cols-2 lg:grid-cols-3` on the notes list | The export's *markup* says two and three columns; the screen it actually draws is one. The owner confirmed one note per row (2026-08-10). Two columns of Arabic prose makes the reader choose which column to start in — a single column has no such decision in it |
+| `"جاري تجهيز المساحة..."` as written | Respelled `"جارٍ"` with a real ellipsis, matching every other progress string in the catalogue |
+
+## Found while porting
+
+Two `rgba()` values in `global.css` were still Forest green after the Cool
+Slate rebrand — the tab bar's shadow and the detail sheet's scrim. Both are
+now slate-tinted. A colour-only port is exactly the kind of change that leaves
+this sort of residue, because nothing fails when it does.
