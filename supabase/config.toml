@@ -247,7 +247,7 @@ otp_expiry = 3600
 # Supabase's default magic-link template contains only {{ .ConfirmationURL }},
 # which would leave users with a link they cannot type into the code field.
 [auth.email.template.magic_link]
-subject = "رمز الدخول إلى الدماغ الثاني"
+subject = "رمز الدخول إلى ومضة"
 content_path = "./supabase/templates/magic_link.html"
 
 # Uncomment to customize email template

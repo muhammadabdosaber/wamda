@@ -10,6 +10,33 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the sign-in email still said "الدماغ الثاني" (local)
+
+The rename to **ومضة** never reached `supabase/config.toml` or
+`supabase/templates/magic_link.html`, so every sign-in email still carried the
+old product name — the first thing a new user sees. Both now say ومضة, and the
+template's colours moved from the Forest palette (`#1f2421`, `#e6efe9`,
+`#3e6b5c`) to Cool Slate, which the rebrand had also missed.
+
+Proven by sending a real OTP through the restarted local stack and reading
+what landed in Mailpit: subject `رمز الدخول إلى ومضة`, body headed ومضة, and
+the delivered HTML contains `#334155`/`#e2e8f0` with no Forest hex and no
+occurrence of the old name.
+
+**The subject needs a full restart, not a container restart.** It is baked into
+the auth container's environment as `GOTRUE_MAILER_SUBJECTS_MAGIC_LINK` when
+the CLI creates the container, while the body is served over HTTP with
+`GOTRUE_MAILER_TEMPLATE_RELOADING_ENABLED=true` and hot-reloads. So
+`docker restart` changes the body and silently leaves the old subject — a
+half-applied fix that looks whole. `supabase stop && supabase start` is
+required. (Local data survives; only `--no-backup` deletes the volumes. Note
+count was 16 before and 16 after.)
+
+**Hosted is NOT done.** `supabase config push` has not been run against
+`hfjpotjbrrnghuqhxoux`, so production email still carries the old name. That
+push needs an access token and touches the same `[auth.email.template]` setting
+that Free tier rejected before Resend was configured as custom SMTP.
+
 ### Shipped — second design round: loader, nav icons, notes grid, avatar menu (SB-039…042)
 
 Ported the two new Cool Slate exports, theme only, and drove all four in a
