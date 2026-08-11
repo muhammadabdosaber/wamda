@@ -28,7 +28,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 1.4 | Outbox replay on reconnect / sign-in | ✅ | `outbox.ts` `sync()` |
 | 1.5 | Pre-auth capture, attached to whoever signs in | ✅ | verified end to end |
 | 1.6 | Retry-attempt accounting, not burned while signed out | ✅ | `outbox.ts` |
-| 1.7 | Voice capture via `MediaRecorder` | ✅ real recording → real ASR → real enrichment → `ready`, end to end (2026-08-11); **Chromium only**. Fixed a real regression on the way: SB-023's column-scoped grant (2026-08-04) silently broke `audio_path` persistence for every voice note captured since — see `docs/00-verification.md` bug #8 | `Capture.tsx`, `functions/notes` |
+| 1.7 | Voice capture via `MediaRecorder` | ✅ Chrome desktop: real recording → real ASR → real enrichment → `ready`, end to end (2026-08-11). ⬜ iPhone Safari: fixed but not yet re-verified from the device — the first real attempt found and fixed two real bugs on the way (SB-023's grant silently broke `audio_path` persistence since 2026-08-04; iOS's codec-qualified MIME type was silently rejected by Storage) — see `docs/00-verification.md` bugs #8–9 | `Capture.tsx`, `functions/notes`, `data/api.ts` |
 | 1.8 | Direct audio upload to Storage under a signed URL | ✅ 173 KB + 8 KB in the `audio` bucket | `functions/notes` |
 | 1.9 | Honest degradation when recording is unavailable | ⬜ | `Capture.tsx` |
 | 1.10 | Background sync while the app is closed | ❌ | out of scope for PWA — ADR-0006 |

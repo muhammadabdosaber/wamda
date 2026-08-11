@@ -112,11 +112,24 @@ export async function captureNote(note: OutboxNote): Promise<string> {
   return res.note_id;
 }
 
+/** Mirrors the `allowed_mime_types` on the `audio` Storage bucket (migration `…000400`). */
+const AUDIO_EXT_BY_MIME: Record<string, string> = {
+  "audio/webm": "webm",
+  "audio/mp4": "mp4",
+  "audio/aac": "aac",
+  "audio/mpeg": "mp3",
+  "audio/ogg": "ogg",
+  "audio/opus": "opus",
+  "audio/wav": "wav",
+};
+
 export async function requestAudioUrl(
   noteId: string,
   language: string,
+  mimeType: string,
 ): Promise<{ path: string; upload: { signedUrl: string; token: string; path: string } }> {
-  return invoke("notes/audio-url", { note_id: noteId, ext: "webm" }, language);
+  const ext = AUDIO_EXT_BY_MIME[mimeType] ?? "webm";
+  return invoke("notes/audio-url", { note_id: noteId, ext }, language);
 }
 
 export async function transcribe(noteId: string, language: string) {
@@ -290,16 +303,23 @@ export async function sync(): Promise<number> {
       const serverId = await captureNote(note);
 
       if (note.source === "voice" && note.audio) {
-        const { path, upload } = await requestAudioUrl(serverId, note.language);
+        const { path, upload } = await requestAudioUrl(serverId, note.language, note.audio.type);
         // Direct to Storage under a signed URL. Routing audio through an Edge
         // Function would burn its memory budget and cap recording length at
         // the request size limit.
         //
         // uploadToSignedUrl takes (path, token, body) -- the path, not the
         // signed URL itself, which the SDK reconstructs from it.
-        await supabase.storage
+        //
+        // Storage returns { data, error } here, not a throw -- an unchecked
+        // call silently proceeds to `transcribe` against audio that was never
+        // actually written (confirmed for real: a rejected upload -- e.g. a
+        // codec-qualified mime type Storage's allow-list doesn't match --
+        // left the note orphaned with no error anywhere a person would see).
+        const { error: uploadError } = await supabase.storage
           .from("audio")
           .uploadToSignedUrl(path, upload.token, note.audio);
+        if (uploadError) throw uploadError;
         await transcribe(serverId, note.language);
       }
 

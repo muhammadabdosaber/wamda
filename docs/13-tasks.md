@@ -129,19 +129,31 @@ out to be silence/noise test recordings, not speech — this proved the
 pipeline mechanics (auth, RLS, Storage, vendor call, confidence gating, status
 transition) but not ASR quality on real Arabic speech. That gap is SB-013.
 
-### SB-012 · Voice capture on a real phone · `blocked` · M
+### SB-012 · Voice capture on a real phone · `in progress` · M
 
-**Partly answered already.** The local database holds two `source = 'voice'`
-notes and the `audio` bucket holds their recordings — 173 KB and 8 KB of
-`audio/webm`. So on the desktop browser used, `MediaRecorder` produced real
-audio and the signed-URL upload to Storage worked, and (2026-08-11) both now
-transcribe successfully end to end. What is left is the part that actually
-needed a phone.
+**Desktop Chrome fully proven (2026-08-11):** the local database holds voice
+notes with real recordings uploaded, transcribed, and enriched end to end —
+see SB-007.
 
-- **Blocked on:** nothing anymore — SB-007 is done. Ready to pick up.
-- **Do:** record → upload → transcribe → enrich on a real iPhone **and** a real
-  Android device, speaking real notes (the existing two clips are silence, not
-  a substitute). Desktop Chrome proves nothing here.
+**iPhone Safari: first real attempt made, two real bugs found and fixed, not
+yet re-verified.** A real recording on the deployed production PWA
+(`wamda-a8k.pages.dev`) from an iPhone found: (1) `audio_path` silently
+failing to persist (SB-023's grant, fixed and deployed), then (2) the audio
+itself silently rejected by Storage — iOS Safari's `MediaRecorder` reports a
+codec-qualified MIME type (`audio/mp4;codecs=mp4a.40.2`) that fails the
+bucket's exact-match `allowed_mime_types` check. Fixed in `Capture.tsx` /
+`api.ts` (strip the codec suffix, derive the Storage extension from the real
+MIME type, check the upload's result instead of discarding it). Verified
+`npm run verify` clean and the fix's exact mechanism against the real bucket
+(rejected with the codec suffix, accepted without it) — but **not yet
+re-verified with an actual recording from the iPhone that found the bug**,
+because the fix requires a new production deploy first.
+
+- **Blocked on:** nothing — SB-007 is done, both known bugs are fixed and
+  committed. Next action is deploy + one real iPhone recording to confirm.
+- **Do:** deploy the fix, then record → upload → transcribe → enrich on the
+  same iPhone, three notes end to end. Then Android — untested in either
+  direction so far.
 - **Accept:** three notes end to end per device; `MediaRecorder` availability on
   iOS Safari recorded either way; if unavailable, the degradation path is the
   thing that gets verified instead.

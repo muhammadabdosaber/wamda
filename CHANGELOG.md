@@ -10,6 +10,32 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — voice capture from iPhone Safari was silently rejected by Storage
+
+The `audio_path` fix below was deployed to production, then re-tested with a
+real recording from an iPhone — the one device SB-012 had flagged as never
+verified. `audio_path` persisted correctly this time, but the audio itself
+never reached Storage: iOS Safari's `MediaRecorder` reports a codec-qualified
+MIME type (`audio/mp4;codecs=mp4a.40.2`), and the `audio` bucket's
+`allowed_mime_types` is an exact-match allow-list against the base type —
+Chrome's plain `audio/webm` happened to already match, which is why three
+prior Chrome recordings all worked and nothing caught this until a phone was
+actually used. Confirmed by direct reproduction: the same signed upload URL
+rejected `Content-Type: audio/webm;codecs=opus` with `415 invalid_mime_type`
+and accepted the codec-stripped `audio/mp4` immediately after.
+
+Made silent by the identical bug class as the fix below: `api.ts`'s `sync()`
+discarded `uploadToSignedUrl`'s `{ error }`, so a rejected upload let the code
+continue straight to `transcribe()` against audio that didn't exist.
+
+Fixed in `web/src/`: `Capture.tsx` now strips the codec suffix before the
+recorded `Blob`'s type is set; `api.ts` derives the Storage path extension
+from the real recorded MIME type instead of a hardcoded `"webm"`, and now
+checks the upload's result, throwing (so the outbox retries) instead of
+silently continuing. `npm run verify` passed clean. Evidence:
+`docs/00-verification.md` → "SB-007 (cont'd) · Deployed, then a second real
+bug on a real phone" and bug #9.
+
 ### Fixed — every voice note since 2026-08-04 was silently orphaned
 
 `supabase/functions/notes/index.ts`'s `/audio-url` handler wrote `audio_path`
