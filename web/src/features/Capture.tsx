@@ -165,7 +165,14 @@ export function Capture({
     };
     mr.onstop = async () => {
       stream.getTracks().forEach((track) => track.stop());
-      const blob = new Blob(chunks.current, { type: mr.mimeType });
+      // `mr.mimeType` on Safari reports a codec-qualified string (e.g.
+      // "audio/mp4;codecs=mp4a.40.2"), not just "audio/mp4". Storage's
+      // `allowed_mime_types` is an exact-match allow-list against the base
+      // type, so an unstripped codec suffix gets the upload rejected outright
+      // -- confirmed against the real bucket, not assumed. The base type is
+      // all that's kept; the codec detail isn't needed downstream.
+      const mimeType = mr.mimeType.split(";")[0]?.trim() ?? mr.mimeType;
+      const blob = new Blob(chunks.current, { type: mimeType });
 
       setSaving(true);
       setFailed(false);

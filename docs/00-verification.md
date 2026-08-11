@@ -1601,11 +1601,80 @@ directly — `audio_path` and `status` were both correctly persisted
 after, before any upload happened. This isolates the exact write that used
 to fail silently and proves it now succeeds, independent of the earlier
 hand-repair. The synthetic note (no real audio behind it) was deleted after.
-**Not yet exercised:** the client's own upload step against the fixed
-`signedUrl` end to end from the browser — only the server-side write was
-re-tested directly.
 
-## Eight real bugs this caught
+### SB-007 (cont'd) · Deployed, then a second real bug on a real phone
+
+Fixed `notes` function deployed to the hosted project (`supabase functions
+deploy notes`) — confirmed live via `supabase functions list --linked`,
+version bumped 4 → 5 with a fresh `updated_at`. `deno check` on all 8
+functions was already clean before this deploy.
+
+Then the owner recorded a real note on the deployed PWA
+(`wamda-a8k.pages.dev`), from **iPhone Safari** — the device SB-012
+flagged as never verified. Checked with `supabase db query --linked`
+(read-only, via the Management API — no direct DB credentials handled):
+
+- `notes.audio_path` was set correctly this time — **the deployed fix
+  works**, confirmed on the hosted project, not just locally.
+- But `storage.objects` for the `audio` bucket had **zero rows**. The audio
+  itself never reached Storage. `ai_jobs` had zero rows too — `transcribe`
+  had been attempted (the note's `updated_at` advanced after creation, from
+  the client's automatic retry) and hit its `audio_not_found` branch, which
+  resets status to `draft` without recording a job. A second, different
+  regression, this time client-side.
+
+**Root cause, confirmed by direct reproduction, not guesswork.** Created a
+throwaway note+signed-upload-URL locally and PUT a file against it with
+`Content-Type: audio/webm;codecs=opus` — rejected outright
+(`415 invalid_mime_type: "mime type audio/webm;codecs=opus is not
+supported"`). The identical bytes with `Content-Type: audio/mp4` (no codec
+suffix) against a fresh signed URL succeeded (`200`). The bucket's
+`allowed_mime_types` is an exact-match allow-list against the *base* type;
+anything with a codec parameter attached is rejected regardless of whether
+the base type is on the list. iOS Safari's `MediaRecorder` doesn't support
+WebM at all; it
+records into MP4/AAC (the code already knew this — see the comment above
+`new MediaRecorder(stream)` in `Capture.tsx`) and reports `mr.mimeType` as
+a codec-qualified string like `audio/mp4;codecs=mp4a.40.2`. Chrome's plain
+`audio/webm` (no codec suffix, confirmed by reading `storage.objects.metadata`
+for the three prior successful Chrome uploads) happened to already match the
+allow-list, which is exactly why this never surfaced until a phone was
+actually used.
+
+**Made worse by an identical instance of the same bug class already fixed
+above.** `api.ts`'s `sync()` discarded `uploadToSignedUrl`'s `{ error }`
+entirely, so a rejected upload was invisible — the code proceeded straight to
+`transcribe()` against audio that was never written, which failed
+without a user-visible error either.
+
+**Fixed**, three changes in `web/src/`:
+1. `Capture.tsx` — the recorded `Blob`'s type is now the codec-stripped base
+   (`mr.mimeType.split(";")[0]`), matching what the bucket's allow-list
+   actually checks.
+2. `api.ts` — `requestAudioUrl` now derives the Storage `ext` from the real
+   recorded MIME type via a table mirroring the bucket's
+   `allowed_mime_types`, instead of hardcoding `"webm"` regardless of what
+   was actually recorded.
+3. `api.ts` — `uploadToSignedUrl`'s result is checked; a failed upload now
+   throws (so the outbox retries it) instead of silently continuing to a
+   doomed `transcribe` call.
+
+`npm run verify` (typecheck, RTL guard, 22 tests, build) passed clean.
+Mechanism re-verified directly: the same throwaway signed-upload-URL that
+rejected `audio/webm;codecs=opus` (`415 invalid_mime_type`) accepted the
+stripped `audio/mp4` immediately after (`200`, object written) — confirming
+the fix's actual mechanism, not just that the code compiles. Test note and
+test Storage object both deleted afterward (`DELETE` via the Storage API;
+direct SQL delete on `storage.objects` is blocked by
+`storage.protect_delete()` — the Storage API is the only way to remove an
+object cleanly).
+
+**Not yet re-verified:** an actual iPhone Safari recording through the fixed
+client build. The fix is typechecked, built, and its exact mechanism proven
+against the real bucket, but the fix has not yet been deployed and re-tried
+from the real device that found the bug.
+
+## Nine real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -1648,12 +1717,27 @@ re-tested directly.
    service-role client already used for every other server-computed write on
    `notes`, and by checking its result. See "SB-007 (cont'd)" above for the
    full trace.
+9. **A codec-qualified MIME type failed Storage's exact-match allow-list, and
+   the failure was invisible.** iOS Safari's `MediaRecorder` reports
+   `audio/mp4;codecs=mp4a.40.2`, not `audio/mp4` — the bucket's
+   `allowed_mime_types` matches the base type exactly, so the codec suffix
+   got every Safari upload rejected. Chrome's plain `audio/webm` happened to
+   already match, which is why three prior Chrome recordings all worked and
+   nothing caught this until an iPhone was actually used. Made silent by the
+   same bug class as #8: `uploadToSignedUrl`'s `{ error }` was discarded, so
+   a rejected upload let the code sail on to `transcribe()` against audio
+   that didn't exist. Fixed by stripping the codec suffix before the blob is
+   created, deriving the Storage path extension from the real recorded type
+   instead of a hardcoded `"webm"`, and checking the upload's result. See
+   "SB-007 (cont'd) · Deployed, then a second real bug on a real phone"
+   above.
 
-None were visible by reading the code. Numbers 7 and 8 in particular only
+None were visible by reading the code. Numbers 7, 8, and 9 in particular only
 appeared from a specific combination of state no test suite was going to
-stumble into — a second vendor key absent while the first was present, and a
+stumble into — a second vendor key absent while the first was present, a
 voice note captured in the narrow window after a grant changed with nothing
-exercising that exact code path.
+exercising that exact code path, and a device (iPhone Safari) that had never
+actually recorded a note before.
 
 ## An operational gotcha worth knowing
 
