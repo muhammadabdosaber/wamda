@@ -10,6 +10,36 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the flaky `database` CI job, and a silently-ignored exclude name
+
+The job failed twice on 2026-08-11 with
+`failed to bind host port for 0.0.0.0:54424 ... address already in use`,
+starting `supabase_inbucket_*`. Both times a plain re-run passed.
+
+It failed during `supabase start`, **before any of the 12 assertions ran** —
+so a red check carried no information about the schema, while still looking
+exactly like one that did. That is the dangerous shape of flake: it trains you
+to re-run, and the re-run habit is what lets a real schema break through.
+
+Fixed by not starting the container. The job neither sends nor reads email, so
+`mailpit` is now excluded, along with `logflare` and `supavisor` which it also
+never uses. A container that is never created cannot fail to bind. This
+removes the observed failure rather than retrying around it; why the port was
+held on a fresh runner is still unknown, and no longer reachable from here.
+
+**`supabase start --help` documents a set of exclude names its own validator
+rejects.** The help text lists `inbucket`, `storage`, `functions`,
+`analytics`; the validator accepts `mailpit`, `storage-api`, `logflare`,
+`supavisor` and warns — but does **not** fail — on anything else. So a wrong
+name silently starts the container you meant to skip.
+
+That cost a wrong first attempt at this fix, caught only by reading the run
+log: it excluded `inbucket` (ignored, so Mailpit kept starting) and
+"corrected" the already-valid `storage-api` to `storage` (also ignored, so
+storage kept starting too). The job went green anyway, which is precisely the
+problem — it proved nothing. The authoritative list is the one the warning
+prints, and the workflow now says so.
+
 ### Fixed — the category filter bar was invisible on real data
 
 The bar was gated at `available.length > 1`, on the theory that one category

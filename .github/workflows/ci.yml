@@ -61,9 +61,38 @@ jobs:
 
       - name: Start the local stack
         # Only Postgres is needed to apply migrations and run assertions
-        # against them; Studio, Realtime and the Edge Runtime are start-up
-        # time this job never uses.
-        run: supabase start --exclude studio,realtime,storage-api,imgproxy,edge-runtime
+        # against them; everything excluded here is start-up time this job
+        # never uses.
+        #
+        # `mailpit` is the point of this list. It binds 54424 on the host, and
+        # twice on 2026-08-11 that bind failed with `address already in use`,
+        # taking the whole stack down during `supabase start`. Both times a
+        # plain re-run passed. This job neither sends nor reads email, so the
+        # container has no reason to exist here -- and one that is never
+        # created cannot fail to bind.
+        #
+        # Worth removing rather than retrying: it failed BEFORE any of the 12
+        # assertions ran, so a red check said nothing about the schema, and
+        # "probably the flake" is the habit that lets a real break through.
+        #
+        # USE THE NAMES THE VALIDATOR ACCEPTS, NOT THE ONES IN `--help`.
+        # `supabase start --help` advertises a DIFFERENT and partly wrong set
+        # (it lists `inbucket`, `storage`, `functions`, `analytics`, none of
+        # which are accepted). Unknown names are only WARNED about, not
+        # rejected, so a typo here silently starts the container you meant to
+        # skip -- which is exactly how a first attempt at this fix left Mailpit
+        # running while appearing to have excluded it. The authoritative list
+        # is printed by the warning itself:
+        #
+        #   edge-runtime, gotrue, imgproxy, kong, logflare, mailpit,
+        #   postgres-meta, postgrest, realtime, storage-api, studio,
+        #   supavisor, vector
+        #
+        # Anything added here must come from that list, and the run log must be
+        # checked for "not valid to exclude" afterwards.
+        run: >
+          supabase start --exclude
+          studio,realtime,storage-api,imgproxy,edge-runtime,mailpit,logflare,vector,supavisor
 
       - name: Apply migrations
         run: supabase db reset --no-seed
