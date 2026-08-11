@@ -1401,6 +1401,38 @@ it is serving Edge Function code as of that snapshot. Every change in this
 round is client-side, so nothing in it depends on the function build — but this
 was **not** a fresh `supabase stop && supabase start`.
 
+### The sign-in email carried the old product name
+
+Ran 2026-08-11, local stack. `supabase stop && supabase start`, then a real
+`POST /auth/v1/otp` for `muhammad@example.test`, then read the delivered
+message out of Mailpit.
+
+| | Before | After |
+|---|---|---|
+| Subject | `رمز الدخول إلى الدماغ الثاني` | `رمز الدخول إلى ومضة` |
+| Body heading | الدماغ الثاني | ومضة |
+| Palette in delivered HTML | `#1f2421` `#e6efe9` `#3e6b5c` (Forest) | `#334155` `#e2e8f0` (Cool Slate) |
+
+Checked on the delivered message, not the source file: old name absent, Forest
+hexes absent. Note count 16 before the restart and 16 after — `supabase stop`
+preserves the data volumes, only `--no-backup` removes them.
+
+**The subject and the body reload differently, and that matters.** The body is
+fetched over HTTP with `GOTRUE_MAILER_TEMPLATE_RELOADING_ENABLED=true`, so it
+hot-reloads. The subject is baked into the auth container's environment as
+`GOTRUE_MAILER_SUBJECTS_MAGIC_LINK` at container-creation time. A
+`docker restart` therefore updates the body and silently leaves the old
+subject — the fix looks applied until someone reads an inbox. Only a full
+`supabase stop && supabase start` reloads both. Same family as the Edge
+Runtime trap already recorded below: the container reads the new file while
+still running the old configuration.
+
+**Hosted: NOT applied.** `supabase config push` was not run against
+`hfjpotjbrrnghuqhxoux`. Production email still says الدماغ الثاني. This is a
+`[auth.email.template.magic_link]` change — the exact setting the Free tier
+rejected until Resend was configured as custom SMTP (see SB-016), so it should
+succeed now, but it has not been attempted.
+
 ## Seven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
