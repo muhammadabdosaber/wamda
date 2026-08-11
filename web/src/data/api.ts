@@ -42,6 +42,18 @@ export class ApiError extends Error {
   }
 }
 
+/** A technical message, not a user-facing one -- for the diagnostic banner in `Capture.tsx`. */
+function describeError(err: unknown): string {
+  if (err instanceof ApiError) return err.code;
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
+
+export interface SyncFailure {
+  clientId: string;
+  message: string;
+}
+
 /**
  * Every call carries the resolved language explicitly. The server applies the
  * same precedence, but sending it makes intent unambiguous and keeps
@@ -268,8 +280,8 @@ export const SYNCED_EVENT = "sb:synced";
  * offline that is minutes. Capture waits on the IndexedDB write only; this
  * runs behind it and announces itself when it lands.
  */
-export async function sync(): Promise<number> {
-  if (!navigator.onLine) return 0;
+export async function sync(): Promise<{ synced: number; failures: SyncFailure[] }> {
+  if (!navigator.onLine) return { synced: 0, failures: [] };
 
   // Bail before touching the outbox when there is no session.
   //
@@ -279,7 +291,7 @@ export async function sync(): Promise<number> {
   // actually broken — poisoning the one signal that is supposed to identify
   // genuinely stuck items.
   const { data } = await supabase.auth.getSession();
-  if (!data.session) return 0;
+  if (!data.session) return { synced: 0, failures: [] };
 
   // SB-028: replay queued archive/dismiss/undo writes before new captures --
   // cheap, single-row updates, unlike a note's capture+enrich round trip, so
@@ -298,6 +310,7 @@ export async function sync(): Promise<number> {
   }
 
   let synced = 0;
+  const failures: SyncFailure[] = [];
   for (const note of await pending()) {
     try {
       const serverId = await captureNote(note);
@@ -331,7 +344,8 @@ export async function sync(): Promise<number> {
 
       await markSynced(note.clientId, serverId);
       synced += 1;
-    } catch {
+    } catch (err) {
+      failures.push({ clientId: note.clientId, message: describeError(err) });
       await markAttempted(note.clientId);
     }
   }
@@ -341,5 +355,5 @@ export async function sync(): Promise<number> {
   // caller awaits this function, an event is the only way back.
   if (synced > 0) window.dispatchEvent(new Event(SYNCED_EVENT));
 
-  return synced;
+  return { synced, failures };
 }

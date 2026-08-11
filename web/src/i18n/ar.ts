@@ -110,6 +110,11 @@ export const ar = {
   // The local write failing is the only capture failure worth alarming about:
   // it is the one case where the thought is not stored anywhere.
   errorCaptureFailed: "تعذّر حفظ الملاحظة على جهازك. حاول مرة أخرى.",
+  // Diagnostic, not polished copy -- the raw sync error message follows this
+  // prefix directly (see Capture.tsx). The note itself is safe and will keep
+  // retrying; this exists so a failure mode can be reported instead of
+  // silently retrying forever with nothing on screen to describe it (SB-012).
+  captureSyncErrorPrefix: "لم تُرفع الملاحظة الصوتية بعد:",
 
   categoryTask: "مهمة",
   categoryEvent: "موعد",
