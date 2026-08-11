@@ -22,3 +22,6 @@ deno.lock
 .claude/settings.local.json
 
 .DS_Store
+
+# wrangler build/deploy cache
+.wrangler/

@@ -10,6 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the category filter bar was invisible on real data
+
+The bar was gated at `available.length > 1`, on the theory that one category
+offers no real choice. The owner opened the production app with two `مهمة`
+notes, saw no bar, and reported the categories as missing. They were: a
+control that hides until your data happens to diversify is indistinguishable
+from a broken one, and the gate was wrong.
+
+Now shown whenever any note has been categorised at all.
+
+Verified by reproducing the owner's exact state rather than reasoning about
+it — the timeline response was filtered client-side to a single category, so
+the screen held one distinct category and one card. Before: no bar. After:
+`الكل` + `مهمة`, and clicking `مهمة` still filters with `aria-pressed`
+tracking. No data was modified to run the test.
+
 ### Fixed — production `site_url` pointed at localhost
 
 `site_url` was `http://127.0.0.1:3000` **on the hosted project**, pushed there

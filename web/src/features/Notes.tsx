@@ -128,11 +128,18 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
           cheerfully says "online" while every request fails. */}
       {unreachable && <p className="muted center">{t.t("notesOffline")}</p>}
 
-      {/* One category is not a choice, so the bar only appears at two or more.
+      {/* Shown whenever any note has been categorised at all, including when
+          that is a single category. It was gated at two or more on the theory
+          that one category offers no real choice -- but the owner opened the
+          production app with two `مهمة` notes, saw no bar, and read the feature
+          as missing rather than as deliberately quiet. A control that hides
+          until your data happens to diversify is indistinguishable from a
+          broken one.
+
           It scrolls horizontally rather than wrapping: a wrapping row changes
           height as chips come and go, which moves the whole list under the
           user's thumb. */}
-      {available.length > 1 && (
+      {available.length > 0 && (
         <div className="filter-bar" role="group" aria-label={t.t("filterLabel")}>
           <button
             className="filter-chip"

@@ -98,7 +98,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.22 | A note that fails/stalls enrichment stays visible | ✅ timeline returns non-`ready` notes; shows processing/failed, never absent | `functions/notes` · `Notes.tsx` (SB-032) |
 | 4.23 | Loading state that is not a bare `…` | ✅ pulsing mark + list-shaped skeletons, driven in a browser with the fetch delayed; `role="status"`, mark `aria-hidden` | `components/Loading.tsx` (SB-039) |
 | 4.24 | Nav icons redrawn from the export (no CDN icon font) | ✅ 5 tabs, fully-rounded active pill verified in the browser | `App.tsx` (SB-040) |
-| 4.25 | Filter notes by category | ✅ scrolling chip bar, only categories actually present; filter verified to cut 2 cards → 1 | `Notes.tsx` (SB-041) |
+| 4.25 | Filter notes by category | ✅ scrolling chip bar, only categories actually present; shown from one category up — verified against a single-category timeline, the state that had made it invisible in production | `Notes.tsx` (SB-041) |
 | 4.26 | One note per row, summary clamped | ✅ single column at every width (375 / 730 / 1400 measured, one track each); `line-clamp: 3` measured live | `Notes.tsx` · `global.css` (SB-041) |
 | 4.27 | Avatar menu instead of an always-visible sign-out | ✅ Escape closes and returns focus; anchors correctly in both RTL and LTR | `components/AccountMenu.tsx` (SB-042) |
 
