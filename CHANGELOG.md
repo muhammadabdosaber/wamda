@@ -10,6 +10,31 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the flaky `database` CI job, and a silently-ignored exclude name
+
+The job failed twice on 2026-08-11 with
+`failed to bind host port for 0.0.0.0:54424 ... address already in use`,
+starting `supabase_inbucket_*`. Both times a plain re-run passed.
+
+It failed during `supabase start`, **before any of the 12 assertions ran** —
+so a red check carried no information about the schema, while still looking
+exactly like one that did. That is the dangerous shape of flake: it trains you
+to re-run, and the re-run habit is what lets a real schema break through.
+
+Fixed by not starting the container. The job neither sends nor reads email, so
+`inbucket` is now excluded along with `functions`, `vector`, and `analytics`.
+A container that is never created cannot fail to bind. This removes the
+observed failure rather than retrying around it; the underlying reason the
+port was held on a fresh runner is still unknown, and no longer reachable from
+this job.
+
+**`storage-api` was in the exclude list and is not a name the CLI accepts** —
+its own set is `analytics, db, edge-runtime, functions, imgproxy, inbucket,
+kong, meta, realtime, rest, storage, studio, vector`. Unknown names are
+ignored rather than rejected, which is why the step always passed and why
+nobody noticed that storage had been starting the whole time. Corrected to
+`storage`.
+
 ### Fixed — the category filter bar was invisible on real data
 
 The bar was gated at `available.length > 1`, on the theory that one category
