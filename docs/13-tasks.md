@@ -1045,7 +1045,7 @@ Only Chromium has ever run this app.
 | SB-016 | Live on hosted Supabase + Cloudflare Pages; 3 real bugs found and fixed (OTP template, Sonnet 5 fallbacks param, frozen CORS header); real note captured end to end at https://wamda-a8k.pages.dev | `00-verification.md` "SB-016" |
 | SB-039 | Pulse mark + list-shaped skeletons; caught live by delaying the timeline fetch. `role="status"`, mark `aria-hidden` | `00-verification.md` "The second design round" |
 | SB-040 | `add_circle`/`description`/`check_circle` redrawn as inline SVG (CDN icon font is CSP-blocked); rounded active pill | same |
-| SB-041 | Card grid (1 col at 375px, 2 at desktop), 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
+| SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
 | SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
 
 ---

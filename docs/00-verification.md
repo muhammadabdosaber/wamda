@@ -1374,7 +1374,7 @@ Taken/Ignored table.
 | Nav: 5 tabs, rounded active pill | All five `border-radius: 999px`; selected tab `rgb(226,232,240)` = `--accent-soft`, all others transparent |
 | Category filter actually filters | Chips rendered `الكل · مهمة · موعد` — only the categories present in the data. Clicking `موعد` cut 2 cards → 1, `aria-pressed` moved with it |
 | Chip bar scrolls, never wraps | With 8 chips injected: `scrollWidth 520 > clientWidth 327`, bar height unchanged at 39px, `document.body.scrollWidth` still ≤ viewport |
-| Card grid is responsive | 375px → one column (327px card); desktop → `330px 330px`. Summary `line-clamp: 3` with `overflow: hidden`, measured |
+| One note per row | Single column at 375px, 730px, and 1400px — one grid track at each, three cards on three distinct rows, and no media rule left targeting `.notes-grid`. Summary `line-clamp: 3` with `overflow: hidden`, measured |
 | Accept/dismiss survived the redesign | `أضفها كمهمة` / `تجاهل` still rendered on a real enriched card (SB-033 protected) |
 | Avatar menu | `aria-haspopup="menu"`, `aria-expanded` toggles, item `تسجيل الخروج`. Escape closes **and** returns focus to the trigger (`document.activeElement === button`) |
 | Menu mirrors correctly | RTL: avatar ≈304–338, menu 304–472. LTR: avatar 702–736, menu 568–736. Shares the avatar's trailing edge in both, inside the viewport in both |

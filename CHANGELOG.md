@@ -24,7 +24,7 @@ real browser on the local stack signed in as a real user.
   redrawn as inline SVG, plus a fully-rounded active pill. Redrawn rather than
   loaded: the export pulls Material Symbols from a CDN and the app ships
   `font-src 'self'`, so the glyphs would have been blocked in production.
-- **Notes** (SB-041). Card grid (one column at 375px, two on desktop), a
+- **Notes** (SB-041). One note per row at every width, a
   badge-and-time head row, a 3-line clamped summary, and a horizontally
   scrolling category filter bar. The bar is driven by the app's real seven
   categories with labels from the catalogue — not the export's four hardcoded

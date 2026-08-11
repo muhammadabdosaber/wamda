@@ -597,15 +597,16 @@ body {
   border-color: var(--accent);
 }
 
-/* One column on a phone, two once there is room. The design draws three, but
-   the app shell is capped at 720px and widening it only for this screen made
-   the header and tab bar jump width on every tab change. */
+/* ONE note per row, at every width. The export's markup carries
+   `md:grid-cols-2 lg:grid-cols-3`, but the screen it actually draws is a
+   single column, and that is what the owner asked for: a note is a thing you
+   read, and two columns of Arabic prose means choosing which one to read
+   first. A single column has no such decision in it.
+
+   Still a grid rather than stacked cards, because the gap then comes from one
+   property instead of a margin on every child. */
 .notes-grid { display: grid; grid-template-columns: 1fr; gap: var(--stack-sm); }
 .notes-grid .card { margin-block-end: 0; }
-
-@media (min-width: 640px) {
-  .notes-grid { grid-template-columns: 1fr 1fr; }
-}
 
 .note-card {
   display: flex;

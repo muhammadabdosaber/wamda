@@ -131,6 +131,7 @@ were redrawn as inline SVG.
 | `add_circle` · `description` · `check_circle` shapes | `TAB_ICONS` in `App.tsx`, redrawn as SVG |
 | Fully-rounded active tab | `.tab` border-radius |
 | Note card: badge + time head row, clamped summary | `.note-card*` |
+| Single-column list of note cards | `.notes-grid` |
 | Horizontally scrolling chip bar | `.filter-bar` |
 | Avatar-opens-a-menu pattern | `components/AccountMenu.tsx` |
 
@@ -146,7 +147,7 @@ were redrawn as inline SVG.
 | The FAB | Already decided against above, and it duplicates the Capture tab |
 | Relative time ("منذ يومين") | `t.date()` is absolute, tested, and locale-aware |
 | Dropping accept/dismiss from note cards | Deletes a working, owner-tested feature (SB-033). Same call as the first round |
-| Three-column grid | The shell is capped at 720px. Widening it for one screen made the header and tab bar jump width on every tab change; two columns is the compromise |
+| `md:grid-cols-2 lg:grid-cols-3` on the notes list | The export's *markup* says two and three columns; the screen it actually draws is one. The owner confirmed one note per row (2026-08-10). Two columns of Arabic prose makes the reader choose which column to start in — a single column has no such decision in it |
 | `"جاري تجهيز المساحة..."` as written | Respelled `"جارٍ"` with a real ellipsis, matching every other progress string in the catalogue |
 
 ## Found while porting
