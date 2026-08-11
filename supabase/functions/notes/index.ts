@@ -7,7 +7,7 @@
  */
 
 import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
-import { authenticate, userClient } from "../_shared/supabase.ts";
+import { authenticate, serviceClient, userClient } from "../_shared/supabase.ts";
 import { resolveLanguage, SUPPORTED } from "../_shared/language.ts";
 
 interface TimelineRow {
@@ -130,10 +130,23 @@ Deno.serve(async (req) => {
 
       if (error) throw new HttpError(500, "signed_url_failed");
 
-      await supabase
+      // Service role, not the caller's client: SB-023 scoped the
+      // `authenticated` role's UPDATE grant on notes down to
+      // (archived_at, action_dismissed_at, completed_at, updated_at) --
+      // audio_path and status are server-computed, not user-editable, so they
+      // were never in that list. Writing them through the caller's client
+      // fails with "permission denied for column audio_path" -- silently,
+      // because the previous code never checked the result -- which left the
+      // note stuck forever: audio genuinely in Storage, note row never
+      // updated to point at it, no path to transcribe. Ownership was already
+      // confirmed above via `supabase` (the caller's own RLS-scoped client),
+      // so switching clients here does not skip that check.
+      const admin = serviceClient();
+      const { error: linkError } = await admin
         .from("notes")
         .update({ audio_path: path, status: "queued" })
         .eq("id", noteId);
+      if (linkError) throw new HttpError(500, "audio_path_write_failed");
 
       return json(
         { note_id: noteId, path, upload: signed },

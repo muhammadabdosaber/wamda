@@ -28,7 +28,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 1.4 | Outbox replay on reconnect / sign-in | ✅ | `outbox.ts` `sync()` |
 | 1.5 | Pre-auth capture, attached to whoever signs in | ✅ | verified end to end |
 | 1.6 | Retry-attempt accounting, not burned while signed out | ✅ | `outbox.ts` |
-| 1.7 | Voice capture via `MediaRecorder` | ✅ two real WebM recordings exist; **Chromium only** | `Capture.tsx` |
+| 1.7 | Voice capture via `MediaRecorder` | ✅ real recording → real ASR → real enrichment → `ready`, end to end (2026-08-11); **Chromium only**. Fixed a real regression on the way: SB-023's column-scoped grant (2026-08-04) silently broke `audio_path` persistence for every voice note captured since — see `docs/00-verification.md` bug #8 | `Capture.tsx`, `functions/notes` |
 | 1.8 | Direct audio upload to Storage under a signed URL | ✅ 173 KB + 8 KB in the `audio` bucket | `functions/notes` |
 | 1.9 | Honest degradation when recording is unavailable | ⬜ | `Capture.tsx` |
 | 1.10 | Background sync while the app is closed | ❌ | out of scope for PWA — ADR-0006 |
@@ -50,8 +50,8 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 2.7 | Stage isolation — embedding failure ≠ enrichment failure | ✅ | `_shared/pipeline.ts` |
 | 2.8 | Non-terminal state always resolved on failure | ✅ | `pipeline.ts` |
 | 2.9 | Refusals resolve to `failed`, not retried forever | ✅ | `pipeline.ts` |
-| 2.10 | Transcription via ElevenLabs Scribe | ⬜ **blocked** — stage ran twice, resolved `failed` / `transcription_failed` | `providers.ts` `ScribeASR` |
-| 2.11 | Per-word confidence from ASR | ⬜ response shape from docs, never observed | `ScribeASR` |
+| 2.10 | Transcription via ElevenLabs Scribe | ✅ real call, real cost, `raw_text` + confidence persisted (2026-08-11) — but the only audio tested so far is silence/noise, not speech; ASR quality on real dialect is SB-013 | `providers.ts` `ScribeASR` |
+| 2.11 | Per-word confidence from ASR | ✅ observed shape matches what the code assumed; below-threshold notes correctly held at `draft` | `ScribeASR` |
 | 2.12 | Embeddings, Cohere multilingual v3 | ⬜ **blocked** — no key | `providers.ts` |
 | 2.13 | `ai_jobs` telemetry per stage | ✅ | migration `…000200` |
 | 2.14 | Retry cap (5 failed attempts per note+stage → `failed`) | ✅ | `sweep` |

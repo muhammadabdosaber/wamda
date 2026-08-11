@@ -1476,7 +1476,136 @@ removed. Unrelated to auth, and auth applied regardless.
 **Not verified:** no real production sign-in email has been read since the
 push. The evidence above is the config diff, not an inbox.
 
-## Seven real bugs this caught
+### SB-007 · First real transcription
+
+Ran 2026-08-11, local stack, after `ELEVENLABS_API_KEY` was added to
+`supabase/functions/.env` and the stack was restarted (`supabase stop &&
+supabase start` — env vars, same as the auth trap above, only load on a fresh
+container start, not `docker restart`).
+
+Signed in as the owner's real account via a fresh OTP through Mailpit, then
+called `POST /functions/v1/transcribe` against the two `source = 'voice'`
+notes already sitting in the local DB from SB-012 (2026-08-02, `failed`,
+`error_code = transcription_failed`, no key at the time):
+
+| note | audio | result | `transcript_confidence` | `raw_text` | status after |
+|---|---|---|---|---|---|
+| `9b114447…` | 173 210 bytes, `audio/webm` | succeeded | 0.463 | `[صوت طفل].` | `draft` |
+| `fcec326e…` | 8 024 bytes, `audio/webm` | succeeded | 0.577 | `[موسيقى مقدمة].` | `draft` |
+
+Both `ai_jobs` rows moved from the old `transcribe/failed/transcription_failed`
+attempt to a new `transcribe/succeeded` row, real `provider = elevenlabs`,
+`model = scribe_v1`, real `latency_ms` (1937 and 1003). Confirmed against the
+DB directly, not the HTTP response alone.
+
+**Both correctly stayed `draft`, not `queued`.** Both confidences are under
+the 0.6 `REVIEW_THRESHOLD` in `pipeline.ts`, so `runTranscription` held them
+back from enrichment exactly as designed — a live confirmation of that branch,
+which had never executed against a real vendor response before.
+
+**What the audio turned out to be.** Both clips are silence/background-noise
+test recordings from the original `MediaRecorder` smoke test (SB-012,
+2026-08-02), not spoken content — Scribe correctly tagged them as
+`audio_event`s rather than hallucinating words. Confirmed by a third, direct
+call straight to `https://api.elevenlabs.io/v1/speech-to-text` (bypassing the
+Edge Function) on the same 173 210-byte file: `text: "[background noise]"`,
+one `words` entry, `type: "audio_event"`. The full observed shape — and the
+finding that identical audio sent twice produced a different tag and a
+different confidence each time — is recorded in `docs/04-ai-pipeline.md`
+Stage 1.
+
+**Accept criteria met:** an audio file reached `raw_text` with a confidence
+value, and the response shape is recorded. **Not met by this test:** ASR
+quality on the owner's actual dialectal speech — these two clips have no
+speech to grade. That is SB-013, unblocked by this key but still `todo`, and
+distinct from SB-012's remaining phone-hardware piece.
+
+### SB-007 (cont'd) · A real recording, and the bug it found
+
+Ran 2026-08-11, minutes after the section above, on the owner's own dev
+server (`npm run dev`, separate from this session's browser preview) against
+the same local stack, signed in as the real account.
+
+**The recording surfaced a genuine, previously-unknown regression, not a test
+artifact.** The new note (`ff2704ed…`) appeared in the DB with the audio
+correctly uploaded to Storage (166 448 bytes at
+`<user_id>/ff2704ed….webm`, confirmed via `storage.objects`) but
+`notes.audio_path` was **null** and no `ai_jobs` row existed at all — meaning
+`transcribe` was never even reached. `capture_latency_ms` was 9ms, so the
+client-side capture itself was instant and looked fine; the break was
+entirely server-side and invisible from the UI.
+
+**Root cause: `supabase/functions/notes/index.ts`'s `/audio-url` handler
+writes columns the caller's client is no longer allowed to write, and never
+checked whether the write succeeded.** SB-023
+(`20260804000200_notes_update_grant_scope.sql`, 2026-08-04) intentionally
+revoked the `authenticated` role's blanket UPDATE on `notes` and re-granted it
+scoped to four columns only: `archived_at`, `action_dismissed_at`,
+`completed_at`, `updated_at` — exactly the columns a user should be able to
+touch. But the `/audio-url` handler still ran, under that same restricted
+client:
+
+```ts
+await supabase.from("notes").update({ audio_path: path, status: "queued" }).eq("id", noteId);
+```
+
+`audio_path` and `status` are server-computed, not in the grant, so Postgres
+rejected the write with `permission denied for column audio_path` — and
+because the result was never checked (`{ data, error }` discarded), the
+handler still returned a valid signed upload URL as if nothing had gone
+wrong. The client uploaded real audio to a real Storage path and moved on
+believing capture had succeeded. The note was then permanently orphaned:
+audio present, nothing pointing at it, no error surfaced anywhere a person or
+a sweep would see it.
+
+Confirmed against `information_schema.column_privileges`: `authenticated` has
+`UPDATE` on exactly the four SB-023 columns and **not** `audio_path` or
+`status`. This is a regression window, not a day-one bug — it went uncaught
+because the only two voice notes ever captured before this one (SB-012,
+2026-08-02) predate the 2026-08-04 migration by two days. This was the first
+voice note captured after the grant was scoped down.
+
+**Fixed** in `supabase/functions/notes/index.ts`: the `audio_path`/`status`
+write now goes through `serviceClient()` (the same admin client `transcribe`
+and `enrich` already use for their own writes), with the result checked and a
+`500 audio_path_write_failed` thrown on error instead of silently discarded.
+Ownership is still enforced beforehand by the caller-scoped `select` that
+precedes it. `deno check` passed; stack restarted
+(`supabase stop && supabase start`, required — Edge Runtime caches compiled
+code).
+
+**The orphaned note was repaired, not discarded**, since its audio was
+genuinely intact in Storage: `audio_path` backfilled by hand to the path
+`storage.objects` already showed, then run through the now-real pipeline —
+transcribe and enrich both succeeded. This is the first note in the project
+transcribed from **actual spoken Arabic**, not silence:
+
+> طيب، آآآ، أنا عايز أروح بكرة الشغل وأتابع الـ آآآ، المشاريع-- المشروع بتاعي
+> وأشوف إيه اللي خلاص منه مع الشباب.
+
+`transcript_confidence` **0.9497** — well above the 0.6 review threshold, so
+the note correctly advanced straight to `queued` instead of stopping for
+review (the opposite branch from the two silence clips above, now also
+observed for real). Enrichment then produced a correct title, category
+(`task`), `suggested_action: create_task`, a due date resolved from "بكرة"
+(tomorrow) to `2026-08-12T09:00:00+04:00`, and tags/context matching the
+content. Final status: `ready`. This is the first fully real,
+end-to-end, spoken-to-actionable-note run in the project's history — real
+ASR, real confidence gating on real speech, real enrichment, real cost
+(enrich: $0.022206).
+
+**Re-verified with a fresh, non-repaired call.** Created a new note via
+`POST /notes` (`47aff2c1…`), then called the fixed `/notes/audio-url`
+directly — `audio_path` and `status` were both correctly persisted
+(`queued`) in the same request, confirmed by reading the DB immediately
+after, before any upload happened. This isolates the exact write that used
+to fail silently and proves it now succeeds, independent of the earlier
+hand-repair. The synthetic note (no real audio behind it) was deleted after.
+**Not yet exercised:** the client's own upload step against the fixed
+`signedUrl` end to end from the browser — only the server-side write was
+re-tested directly.
+
+## Eight real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -1506,10 +1635,25 @@ push. The evidence above is the config diff, not an inbox.
    isolated: without embeddings a note still has a summary, category, tags, and
    lexical search, and is only missing from *semantic* results. A missing
    `note_embeddings` row is its own backfill marker.
+8. **A column-level grant meant for the client silently broke a server
+   handler that shared its client.** SB-023 (2026-08-04) correctly scoped the
+   `authenticated` role down to the four columns a user should write. The
+   `/notes/audio-url` handler, still using that same user-scoped client to
+   write two server-computed columns (`audio_path`, `status`), started
+   silently failing that write on every call — silently, because the result
+   was never checked. Every voice note captured after that migration was
+   orphaned: real audio in Storage, no note row pointing at it, no error
+   anywhere. Caught 2026-08-11, seven days later, by the first real recording
+   made after the grant changed. Fixed by moving that specific write to the
+   service-role client already used for every other server-computed write on
+   `notes`, and by checking its result. See "SB-007 (cont'd)" above for the
+   full trace.
 
-None were visible by reading the code. Number 7 in particular only appeared
-because a second vendor key was absent while the first was present — a
-combination no test suite was going to stumble into.
+None were visible by reading the code. Numbers 7 and 8 in particular only
+appeared from a specific combination of state no test suite was going to
+stumble into — a second vendor key absent while the first was present, and a
+voice note captured in the narrow window after a grant changed with nothing
+exercising that exact code path.
 
 ## An operational gotcha worth knowing
 
@@ -1527,12 +1671,10 @@ re-reading the code.
 
 ### Anything requiring a vendor API key
 
-No `ANTHROPIC_API_KEY`, `ELEVENLABS_API_KEY`, or `COHERE_API_KEY` was
-available, so none of these executed against a real service:
+No `ANTHROPIC_API_KEY` or `COHERE_API_KEY` was available, so these never
+executed against a real service. (`ELEVENLABS_API_KEY` was added 2026-08-11 —
+see SB-007 below; it is no longer in this list.)
 
-- **Transcription.** Scribe's response shape — particularly the per-word
-  probability field used for confidence — is written from documentation and has
-  not been observed. Expect to adjust `ScribeASR.transcribe`.
 - **Embeddings and semantic search.** `COHERE_API_KEY` was never supplied, so
   the semantic arm has never run. Search was exercised lexically only, with
   `p_embedding => null`, and `note_embeddings` is empty. Cross-lingual
@@ -1554,11 +1696,11 @@ available, so none of these executed against a real service:
   client → Storage upload under a signed URL worked — the step that exists so
   25 MB of audio never routes through an Edge Function.
   Both notes then resolved to `failed` at the `transcribe` stage with
-  `error_code = transcription_failed`, attempt 1. That is the expected outcome
-  with no ElevenLabs key; whether the call actually reached ElevenLabs is not
-  determinable from the job row alone.
+  `error_code = transcription_failed`, attempt 1. That was the expected
+  outcome with no ElevenLabs key. **Superseded 2026-08-11 — see SB-007: both
+  notes were re-transcribed for real once the key was added.**
   Still untested: iOS Safari, where `MediaRecorder` availability is the open
-  question, and transcription itself.
+  question.
 - **Only Chromium.** No Safari or Firefox testing. iOS install flow untested.
 - ~~**No visual screenshot.**~~ **Partly superseded.** The capture screen has
   now been looked at in both colour schemes at 375×812 — which is how the

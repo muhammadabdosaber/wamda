@@ -10,6 +10,45 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — every voice note since 2026-08-04 was silently orphaned
+
+`supabase/functions/notes/index.ts`'s `/audio-url` handler wrote `audio_path`
+and `status` through the caller's RLS-scoped client, and never checked the
+write's result. SB-023 (2026-08-04) had correctly scoped that client's UPDATE
+grant on `notes` down to four user-owned columns — `audio_path` and `status`
+were never in that list, being server-computed. Every call since silently hit
+`permission denied for column audio_path` and swallowed it: the client
+uploaded real audio to a real Storage path, then moved on believing capture
+had succeeded, while the note row never got a pointer to it. No error
+anywhere a person or the sweep worker would see.
+
+Caught 2026-08-11, seven days later, by the first real voice recording made
+after the grant changed — found by checking `storage.objects` against
+`notes.audio_path` directly rather than trusting a 200 response. Fixed by
+writing those two columns through the service-role client already used for
+every other server-computed write on `notes` (`transcribe`, `enrich`), and by
+checking the result instead of discarding it. The one orphaned note was
+repaired by hand (its audio was genuinely intact) and became the first note
+in the project transcribed from real spoken Arabic rather than test silence.
+Evidence: `docs/00-verification.md` → "SB-007 (cont'd)" and bug #8.
+
+### SB-007 — First real transcription: the ElevenLabs key unblocks the ASR stage
+
+`ELEVENLABS_API_KEY` added to `supabase/functions/.env`. Re-ran `transcribe`
+against the two `source = 'voice'` notes already sitting `failed` in the local
+DB since 2026-08-02 — both succeeded for real (`provider: elevenlabs`,
+`model: scribe_v1`), `raw_text` and `transcript_confidence` persisted, both
+correctly held at `draft` because confidence landed under the 0.6 review
+threshold. No code change needed: the observed response shape matched what
+`ScribeASR.transcribe` already assumed, now recorded in
+`docs/04-ai-pipeline.md`.
+
+**Caveat, not a defect:** both existing recordings turned out to be
+silence/noise from the original `MediaRecorder` smoke test, not speech — this
+proves the pipeline mechanics end to end but not ASR quality on real Arabic
+speech. That's SB-013, now unblocked. Evidence: `docs/00-verification.md` →
+"SB-007 · First real transcription".
+
 ### Fixed — the flaky `database` CI job, and a silently-ignored exclude name
 
 The job failed twice on 2026-08-11 with

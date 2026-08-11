@@ -55,9 +55,9 @@ blocked on.
 | SB-040 | Nav icons redrawn from the export; rounded active pill | — | S | **done** |
 | SB-041 | Notes: card grid + scrolling category filter bar | — | M | **done** |
 | SB-042 | Avatar button with a logout menu | — | S | **done** |
+| SB-007 | ElevenLabs key → first real transcription | M3 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
-| SB-007 | ElevenLabs key → first real transcription | M3 | M | **blocked** |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -110,26 +110,38 @@ The highest-value unknown in the project, and it is one afternoon of work.
 
 ## M3 — Voice
 
-### SB-007 · First real transcription · `blocked` · M
+### SB-007 · First real transcription · `done` · M
 
-- **Blocked on:** `ELEVENLABS_API_KEY`.
-- **Expect to change code.** `ScribeASR.transcribe` parses a response shape
-  taken from documentation and never observed — particularly the per-word
-  probability field used for confidence.
-- **Accept:** an Arabic audio file reaches `raw_text` with a confidence value,
-  and the observed response shape is recorded in `docs/04-ai-pipeline.md`.
+**Done (2026-08-11).** `ELEVENLABS_API_KEY` added; stack restarted (env vars
+only load on a fresh `supabase start`, not `docker restart`). Re-ran
+`transcribe` on the two `source = 'voice'` notes already in the local DB from
+SB-012 — both succeeded for real (`provider: elevenlabs`, `model: scribe_v1`,
+real latency), `raw_text` and `transcript_confidence` persisted, both
+correctly held at `draft` (confidence under the 0.6 review threshold). The
+response shape matched what `ScribeASR.transcribe` already assumed — no code
+change needed — and is now recorded in `docs/04-ai-pipeline.md` Stage 1,
+including that identical audio sent twice produced a different tag and
+confidence each time. Evidence: `docs/00-verification.md` → "SB-007 · First
+real transcription".
+
+**Caveat carried forward, not closed here:** the two available clips turned
+out to be silence/noise test recordings, not speech — this proved the
+pipeline mechanics (auth, RLS, Storage, vendor call, confidence gating, status
+transition) but not ASR quality on real Arabic speech. That gap is SB-013.
 
 ### SB-012 · Voice capture on a real phone · `blocked` · M
 
 **Partly answered already.** The local database holds two `source = 'voice'`
 notes and the `audio` bucket holds their recordings — 173 KB and 8 KB of
 `audio/webm`. So on the desktop browser used, `MediaRecorder` produced real
-audio and the signed-URL upload to Storage worked. Both notes then failed at
-`transcribe`. What is left is the part that actually needed a phone.
+audio and the signed-URL upload to Storage worked, and (2026-08-11) both now
+transcribe successfully end to end. What is left is the part that actually
+needed a phone.
 
-- **Blocked on:** SB-007.
+- **Blocked on:** nothing anymore — SB-007 is done. Ready to pick up.
 - **Do:** record → upload → transcribe → enrich on a real iPhone **and** a real
-  Android device. Desktop Chrome proves nothing here.
+  Android device, speaking real notes (the existing two clips are silence, not
+  a substitute). Desktop Chrome proves nothing here.
 - **Accept:** three notes end to end per device; `MediaRecorder` availability on
   iOS Safari recorded either way; if unavailable, the degradation path is the
   thing that gets verified instead.
