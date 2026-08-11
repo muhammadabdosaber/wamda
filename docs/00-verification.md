@@ -1427,11 +1427,54 @@ subject — the fix looks applied until someone reads an inbox. Only a full
 Runtime trap already recorded below: the container reads the new file while
 still running the old configuration.
 
-**Hosted: NOT applied.** `supabase config push` was not run against
-`hfjpotjbrrnghuqhxoux`. Production email still says الدماغ الثاني. This is a
-`[auth.email.template.magic_link]` change — the exact setting the Free tier
-rejected until Resend was configured as custom SMTP (see SB-016), so it should
-succeed now, but it has not been attempted.
+**Hosted: applied 2026-08-11.** See the section below.
+
+### Hosted auth config: the email template, and a `site_url` pointing at localhost
+
+Ran 2026-08-11 against `hfjpotjbrrnghuqhxoux` after `supabase login` and
+`supabase link`.
+
+`supabase config push` reported `Updating Auth service` with a diff confined
+to the magic-link subject and content; a second run reported
+`Remote Auth config is up to date`. The hosted sign-in email now says ومضة.
+
+**`supabase config push` does not prompt.** It was run with stdin closed on
+the expectation that it would print a diff and stop at a confirmation. There
+is no confirmation. It printed the diff and applied it in the same breath.
+Whatever is in `config.toml` at the moment the command runs goes to
+production — treat every invocation as the change itself, not a preview.
+
+**A pre-existing production bug this surfaced.** `site_url` was
+`http://127.0.0.1:3000` **on the hosted project**, pushed there during SB-016.
+It did not appear in the template diff precisely because remote and local
+already agreed. Every production sign-in email's fallback link — *"اضغط هنا
+لتسجيل الدخول مباشرة"*, which renders `{{ .ConfirmationURL }}` — therefore
+pointed real users at their own machine. It went unnoticed because the app
+signs in with a six-digit code and never follows that link.
+
+Fixed by reading the value from the environment
+(`site_url = "env(SUPABASE_AUTH_SITE_URL)"`), since one `config.toml` serves
+both environments:
+
+| | Value | Verified by |
+|---|---|---|
+| Local | `http://127.0.0.1:3000` | `GOTRUE_SITE_URL` in the auth container after `supabase stop && supabase start` — the CLI resolves `env()` from a gitignored `.env` at the repo root |
+| Production | `https://wamda-a8k.pages.dev` | push diff `-127.0.0.1:3000` → `+wamda-a8k.pages.dev`, then `Remote Auth config is up to date` on re-run |
+
+An inline `VAR=x supabase config push` **does** override the root `.env`, which
+is what makes the production push possible without editing the file. Confirmed
+by the diff, not assumed — and the test was safe either way, because if `.env`
+had won, the push would have been a no-op against a value production already
+had. `additional_redirect_urls` lists both origins literally; it is an
+allow-list, so carrying the other environment's URL costs nothing.
+
+Storage failed with `402 vector buckets` on both runs, as in SB-016. This
+project uses pgvector directly and no Supabase Storage vector bucket; the
+`[vector] enabled = true` in `config.toml` is CLI scaffold that was never
+removed. Unrelated to auth, and auth applied regardless.
+
+**Not verified:** no real production sign-in email has been read since the
+push. The evidence above is the config diff, not an inbox.
 
 ## Seven real bugs this caught
 

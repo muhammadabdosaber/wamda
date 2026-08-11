@@ -26,7 +26,29 @@ the screen held one distinct category and one card. Before: no bar. After:
 `الكل` + `مهمة`, and clicking `مهمة` still filters with `aria-pressed`
 tracking. No data was modified to run the test.
 
-### Fixed — the sign-in email still said "الدماغ الثاني" (local)
+### Fixed — production `site_url` pointed at localhost
+
+`site_url` was `http://127.0.0.1:3000` **on the hosted project**, pushed there
+during SB-016. Every production sign-in email's fallback link — *"اضغط هنا
+لتسجيل الدخول مباشرة"* — sent real users to their own machine. Unnoticed
+because the app signs in with a six-digit code and never follows that link.
+
+One `config.toml` serves both environments, so the value now comes from the
+environment: local reads `127.0.0.1:3000` from a gitignored `.env` (verified
+via `GOTRUE_SITE_URL` in the auth container after a restart), production got
+`https://wamda-a8k.pages.dev` via an inline override on the push.
+`additional_redirect_urls` lists both literally — it is an allow-list.
+
+Found while pushing the email-template rename below: the template diff was
+clean on `site_url` *because* remote and local already agreed on the wrong
+value.
+
+**`supabase config push` does not prompt.** It was run with stdin closed
+expecting a confirmation step; there isn't one. The diff is printed and
+applied in the same breath. Every invocation is the change, not a preview —
+now warned about in `config.toml` itself.
+
+### Fixed — the sign-in email still said "الدماغ الثاني" (local + hosted)
 
 The rename to **ومضة** never reached `supabase/config.toml` or
 `supabase/templates/magic_link.html`, so every sign-in email still carried the
@@ -48,10 +70,7 @@ half-applied fix that looks whole. `supabase stop && supabase start` is
 required. (Local data survives; only `--no-backup` deletes the volumes. Note
 count was 16 before and 16 after.)
 
-**Hosted is NOT done.** `supabase config push` has not been run against
-`hfjpotjbrrnghuqhxoux`, so production email still carries the old name. That
-push needs an access token and touches the same `[auth.email.template]` setting
-that Free tier rejected before Resend was configured as custom SMTP.
+**Hosted: applied 2026-08-11** — see the entry above.
 
 ### Shipped — second design round: loader, nav icons, notes grid, avatar menu (SB-039…042)
 
