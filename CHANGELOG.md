@@ -10,6 +10,43 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Shipped — second design round: loader, nav icons, notes grid, avatar menu (SB-039…042)
+
+Ported the two new Cool Slate exports, theme only, and drove all four in a
+real browser on the local stack signed in as a real user.
+
+- **Loader** (SB-039). The literal `…` on five screens is now a pulsing mark
+  with a label and list-shaped skeletons — a card ghost for Notes, a 56px row
+  ghost for Tasks. The export's skeleton is a *form*, drawn for the capture
+  screen; copying it onto a list would promise a layout the data never takes.
+  Verified by delaying the timeline fetch in-page to hold the state open.
+- **Nav icons** (SB-040). `add_circle` · `description` · `check_circle`
+  redrawn as inline SVG, plus a fully-rounded active pill. Redrawn rather than
+  loaded: the export pulls Material Symbols from a CDN and the app ships
+  `font-src 'self'`, so the glyphs would have been blocked in production.
+- **Notes** (SB-041). Card grid (one column at 375px, two on desktop), a
+  badge-and-time head row, a 3-line clamped summary, and a horizontally
+  scrolling category filter bar. The bar is driven by the app's real seven
+  categories with labels from the catalogue — not the export's four hardcoded
+  Arabic strings — and only offers a chip for a category actually on screen.
+  The accept/dismiss buttons were **kept**; the export drops them, and they are
+  a working, owner-tested feature (SB-033).
+- **Avatar menu** (SB-042). Sign-out moved out of the header and behind an
+  avatar — it was the most destructive control in the app, one stray tap away.
+  Escape closes it and returns focus to the trigger; it anchors to the avatar's
+  trailing edge in both RTL and LTR. The avatar is inline SVG because the
+  export's remote image is blocked by `img-src 'self'`.
+
+Two leftovers from the Cool Slate rebrand fixed on the way past: the tab bar's
+shadow and the detail sheet's scrim were both still Forest green. Nothing fails
+when a shadow tint is wrong, which is how they survived the palette port.
+
+Also recorded a real measurement trap: with the browser pane hidden the
+renderer stops compositing, so CSS transitions freeze mid-flight and
+`requestAnimationFrame` never fires. A computed-style read through a hidden
+pane reported the wrong tab as active until the transition was neutralised —
+the app was correct the whole time. See `docs/00-verification.md`.
+
 ### Shipped — SB-016 done: hosted Supabase + Cloudflare Pages, live at wamda-a8k.pages.dev
 
 Migrations, all 8 Edge Functions, the real `ANTHROPIC_API_KEY` secret,

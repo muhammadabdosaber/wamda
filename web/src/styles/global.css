@@ -222,6 +222,62 @@ body {
 
 .header h1 { font-size: 1.125rem; margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 
+/* ---- account menu ---- */
+/* Anchors the popover. The header itself is `position: relative; z-index: 1`,
+   so the menu sits inside that stacking context and above .main. */
+.account { position: relative; }
+
+.avatar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 34px;
+  block-size: 34px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--on-accent);
+  cursor: pointer;
+  transition: filter var(--ease);
+}
+
+.avatar-btn:hover { filter: brightness(1.15); }
+.avatar-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Anchored with a LOGICAL inset. Under RTL the avatar sits on the opposite
+   edge of the header, and the menu has to hang off whichever edge that is; a
+   physical inset pins it to the wrong side in Arabic and pushes it off-screen
+   on a narrow phone. check-rtl.mjs fails the build on the physical form. */
+.account-menu {
+  position: absolute;
+  inset-block-start: calc(100% + 8px);
+  inset-inline-end: 0;
+  min-inline-size: 168px;
+  padding-block: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+}
+
+.account-menu-item {
+  display: block;
+  inline-size: 100%;
+  padding-inline: 14px;
+  padding-block: 10px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.account-menu-item:hover { background: var(--surface-sunken); }
+.account-menu-item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 /* ---- tabs ---- */
 .tabs {
   display: flex;
@@ -230,7 +286,9 @@ body {
   padding-block: 8px;
   padding-block-end: calc(8px + env(safe-area-inset-bottom));
   background: var(--surface);
-  box-shadow: 0 -1px 2px rgba(27, 48, 34, 0.05);
+  /* Slate-tinted to match --shadow-sm. This was still the old Forest green
+     (27, 48, 34) after the palette port -- a leftover, not a choice. */
+  box-shadow: 0 -1px 2px rgba(51, 65, 85, 0.05);
   position: relative;
   z-index: 1;
 }
@@ -248,7 +306,10 @@ body {
   font-size: 0.75rem;
   font-weight: 500;
   padding-block: 8px;
-  border-radius: var(--radius-sm);
+  /* A pill, not a soft-square -- the design export's active tab is fully
+     rounded. Applied to every tab so the shape does not change on selection;
+     only the fill does. */
+  border-radius: 999px;
   cursor: pointer;
   transition: background var(--ease), color var(--ease);
 }
@@ -497,6 +558,86 @@ body {
   box-shadow: none;
 }
 
+/* ---- notes: filter bar + grid ---- */
+/* Horizontally scrollable rather than wrapping. Wrapping changes the bar's
+   HEIGHT as chips appear and disappear, which shifts the whole list down under
+   the reader -- and the category set is open-ended, so it would keep doing it.
+   Scrolling keeps the bar exactly one row tall no matter how many there are. */
+.filter-bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-block-end: 4px;
+  margin-block-end: var(--stack-sm);
+  scrollbar-width: none;
+}
+
+.filter-bar::-webkit-scrollbar { display: none; }
+
+.filter-chip {
+  flex: 0 0 auto;
+  font: inherit;
+  font-size: 0.8125rem;
+  padding-inline: 14px;
+  padding-block: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--muted);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--ease), color var(--ease), border-color var(--ease);
+}
+
+.filter-chip:hover { border-color: var(--accent); }
+.filter-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filter-chip[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--on-accent);
+  border-color: var(--accent);
+}
+
+/* One column on a phone, two once there is room. The design draws three, but
+   the app shell is capped at 720px and widening it only for this screen made
+   the header and tab bar jump width on every tab change. */
+.notes-grid { display: grid; grid-template-columns: 1fr; gap: var(--stack-sm); }
+.notes-grid .card { margin-block-end: 0; }
+
+@media (min-width: 640px) {
+  .notes-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.note-card {
+  display: flex;
+  flex-direction: column;
+  transition: box-shadow var(--ease), border-color var(--ease);
+}
+
+.note-card:hover { box-shadow: var(--shadow-md); border-color: var(--accent); }
+
+.note-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-block-end: 10px;
+}
+
+.note-card-tags { display: flex; gap: 6px; }
+
+/* `nowrap` so a short timestamp never breaks across two lines and pushes the
+   title down by a row on one card but not its neighbour. */
+.note-card-time { font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
+
+.note-card-summary {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  color: var(--muted);
+}
+
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-block-start: 12px; }
 
 .chip {
@@ -524,6 +665,99 @@ body {
 
 .muted { color: var(--muted); font-size: 0.875rem; }
 .center { text-align: center; padding-block: 48px; color: var(--muted); }
+
+/* ---- loading ---- */
+/* The design export's loader: a faint static ring around a slowly pulsing
+   disc. Deliberately calmer than the capture screen's expanding rings -- this
+   one can sit on screen for several seconds, and something that pulses at you
+   while you wait is exactly the kind of motion this product avoids. All
+   animation here is stripped by the prefers-reduced-motion block above. */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-block-start: var(--stack-md);
+}
+
+.loading-mark {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 64px;
+  block-size: 64px;
+}
+
+.loading-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+}
+
+.loading-dot {
+  inline-size: 32px;
+  block-size: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes loading-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.loading-label {
+  margin-block: 14px 0;
+  color: var(--muted);
+  font-size: 0.9375rem;
+  text-align: center;
+}
+
+/* Ghosts of the rows that are about to arrive -- a card for Notes, a task row
+   for Tasks. Both mirror the real component's box metrics so the list does not
+   jump when the data replaces them. */
+.skeleton-list { inline-size: 100%; margin-block-start: var(--stack-md); }
+
+.skeleton {
+  display: block;
+  background: var(--surface-sunken);
+  border-radius: var(--radius-sm);
+  animation: loading-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.skeleton-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-block-end: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-title { block-size: 18px; inline-size: 55%; margin-block-end: 12px; }
+.skeleton-line { block-size: 12px; inline-size: 100%; margin-block-end: 8px; }
+.skeleton-line-short { inline-size: 70%; }
+.skeleton-chips { display: flex; gap: 8px; margin-block-start: 14px; }
+.skeleton-chip { block-size: 22px; inline-size: 64px; border-radius: 999px; }
+
+/* Matches .task-row's 56px hit target and padding, for the same reason. */
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 56px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding-inline: 18px 14px;
+  margin-block-end: 8px;
+  box-shadow: var(--shadow-sm);
+}
+
+.skeleton-check { flex: 0 0 auto; inline-size: 20px; block-size: 20px; border-radius: var(--radius-sm); }
+.skeleton-row .skeleton-line { flex: 1; margin-block-end: 0; }
 
 /* SB-003: a React `style={{...}}` prop renders as a `style` attribute, which
    a strict CSP `style-src` (no `unsafe-inline`) blocks same as inline script.
@@ -707,7 +941,9 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  background: rgba(9, 15, 11, 0.45);
+  /* Slate-tinted, like every other shadow here. Was Forest green (9, 15, 11)
+     -- the same leftover as the tab bar's shadow. */
+  background: rgba(15, 23, 42, 0.45);
 }
 
 .sheet {

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+
+<html dir="rtl" lang="ar"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Second Brain - Loading</title>
+<!-- Material Symbols -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#9eadc5",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-fixed": "#dde3eb",
+                    "primary-container": "#334155",
+                    "on-tertiary-fixed-variant": "#39485a",
+                    "error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#41474e",
+                    "on-surface-variant": "#44474c",
+                    "inverse-primary": "#b9c7e0",
+                    "surface": "#f7f9fb",
+                    "surface-container": "#eceef0",
+                    "surface-variant": "#e0e3e5",
+                    "on-surface": "#191c1e",
+                    "primary": "#1d2b3e",
+                    "on-primary-fixed-variant": "#3a485c",
+                    "primary-fixed-dim": "#b9c7e0",
+                    "secondary-fixed-dim": "#c1c7cf",
+                    "on-secondary-container": "#5f656c",
+                    "surface-container-highest": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-tertiary-container": "#9eadc2",
+                    "surface-dim": "#d8dadc",
+                    "surface-container-low": "#f2f4f6",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed": "#0d1c2d",
+                    "on-secondary": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "outline-variant": "#c5c6cd",
+                    "secondary-container": "#dde3eb",
+                    "surface-tint": "#515f74",
+                    "tertiary-fixed-dim": "#b9c8de",
+                    "background": "#f7f9fb",
+                    "on-error": "#ffffff",
+                    "inverse-on-surface": "#eff1f3",
+                    "on-error-container": "#93000a",
+                    "surface-container-high": "#e6e8ea",
+                    "tertiary": "#1c2b3c",
+                    "primary-fixed": "#d5e3fd",
+                    "secondary": "#595f66",
+                    "inverse-surface": "#2d3133",
+                    "on-background": "#191c1e",
+                    "on-primary-fixed": "#0d1c2f",
+                    "outline": "#75777d",
+                    "tertiary-container": "#334153",
+                    "tertiary-fixed": "#d4e4fa",
+                    "on-secondary-fixed": "#161c22"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "stack-gap": "1rem",
+                    "gutter": "1.5rem",
+                    "container-padding-desktop": "2.5rem",
+                    "unit": "8px",
+                    "container-padding-mobile": "1.25rem",
+                    "section-gap": "3rem"
+            },
+            "fontFamily": {
+                    "label-sm": ["Plus Jakarta Sans"],
+                    "display-lg": ["Plus Jakarta Sans"],
+                    "body-md": ["Plus Jakarta Sans"],
+                    "headline-lg": ["Plus Jakarta Sans"],
+                    "headline-lg-mobile": ["Plus Jakarta Sans"],
+                    "body-lg": ["Plus Jakarta Sans"],
+                    "headline-md": ["Plus Jakarta Sans"],
+                    "label-md": ["Plus Jakarta Sans"]
+            },
+            "fontSize": {
+                    "label-sm": ["12px", {"lineHeight": "1.4", "fontWeight": "500"}],
+                    "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}],
+                    "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "600"}],
+                    "label-md": ["14px", {"lineHeight": "1.4", "fontWeight": "500"}]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        /* Smooth, calm pulsing animation */
+        @keyframes gentle-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-gentle-pulse {
+            animation: gentle-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen antialiased selection:bg-primary-container selection:text-on-primary-container">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full bg-surface dark:bg-surface-container-low z-50 flex justify-between items-center h-16 px-container-padding-mobile">
+<button aria-label="Menu" class="text-primary dark:text-primary-fixed-dim hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-200 p-2 rounded-full">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md-mobile font-semibold text-primary dark:text-primary-fixed-dim tracking-tight">
+            Second Brain
+        </h1>
+<button aria-label="User profile avatar" class="w-8 h-8 rounded-full bg-surface-container-high dark:bg-surface-container-highest flex items-center justify-center text-primary dark:text-primary-fixed-dim hover:bg-surface-container-high dark:hover:bg-surface-container-highest transition-colors duration-200">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">account_circle</span>
+</button>
+</header>
+<!-- Main Canvas (Loading State) -->
+<main class="pt-24 pb-28 px-container-padding-mobile max-w-lg mx-auto w-full flex flex-col gap-stack-gap">
+<!-- Top Level Loading Indicator -->
+<div class="flex flex-col items-center justify-center py-8 gap-4 mb-4">
+<div class="relative w-16 h-16 flex items-center justify-center">
+<!-- Outer glowing ring -->
+<div class="absolute inset-0 rounded-full border-2 border-secondary-fixed opacity-20"></div>
+<!-- Pulsing inner circle -->
+<div class="w-8 h-8 rounded-full bg-primary-container animate-gentle-pulse"></div>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant animate-pulse" dir="rtl">جاري تجهيز المساحة...</p>
+</div>
+<!-- Skeleton Form Layout -->
+<div class="bg-surface-container-lowest border border-surface-variant rounded-xl p-6 flex flex-col gap-6 shadow-[0px_4px_20px_rgba(51,65,85,0.02)]">
+<!-- Skeleton Input Field -->
+<div class="flex flex-col gap-2">
+<div class="h-4 w-24 bg-surface-container-high rounded animate-gentle-pulse"></div>
+<div class="h-12 w-full bg-surface-container-low rounded-lg border border-surface-variant animate-gentle-pulse"></div>
+</div>
+<!-- Skeleton Textarea -->
+<div class="flex flex-col gap-2">
+<div class="h-4 w-32 bg-surface-container-high rounded animate-gentle-pulse"></div>
+<div class="h-32 w-full bg-surface-container-low rounded-lg border border-surface-variant animate-gentle-pulse"></div>
+</div>
+<!-- Skeleton Chips/Tags -->
+<div class="flex flex-col gap-2">
+<div class="h-4 w-16 bg-surface-container-high rounded animate-gentle-pulse"></div>
+<div class="flex gap-2 flex-wrap">
+<div class="h-8 w-20 bg-surface-container-highest rounded-full animate-gentle-pulse"></div>
+<div class="h-8 w-24 bg-surface-container-highest rounded-full animate-gentle-pulse"></div>
+<div class="h-8 w-16 bg-surface-container-highest rounded-full animate-gentle-pulse"></div>
+</div>
+</div>
+<!-- Skeleton Button -->
+<div class="mt-4 h-12 w-full bg-primary-container/40 rounded-lg animate-gentle-pulse"></div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full h-20 z-50 flex justify-around items-center px-4 pb-safe bg-surface dark:bg-surface-container-low rounded-t-xl shadow-[0_-4px_20px_rgba(51,65,85,0.03)]" style="border-top: none;">
+<!-- Ideas (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant p-2 hover:bg-surface-container-highest transition-colors duration-200">
+<span class="material-symbols-outlined mb-1">lightbulb</span>
+<span class="font-label-md text-label-md">Ideas</span>
+</button>
+<!-- Tasks (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant p-2 hover:bg-surface-container-highest transition-colors duration-200">
+<span class="material-symbols-outlined mb-1">check_circle</span>
+<span class="font-label-md text-label-md">Tasks</span>
+</button>
+<!-- Notes (Inactive) -->
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-outline-variant p-2 hover:bg-surface-container-highest transition-colors duration-200">
+<span class="material-symbols-outlined mb-1">description</span>
+<span class="font-label-md text-label-md">Notes</span>
+</button>
+<!-- Capture (Active state logic applied since we are likely loading a capture form) -->
+<button class="flex flex-col items-center justify-center bg-secondary-container dark:bg-secondary text-on-secondary-container dark:text-on-secondary rounded-full px-5 py-1 scale-95 transition-transform duration-200 hover:bg-surface-container-highest">
+<span class="material-symbols-outlined mb-1" style="font-variation-settings: 'FILL' 1;">add_circle</span>
+<span class="font-label-md text-label-md">Capture</span>
+</button>
+</nav>
+</body></html>

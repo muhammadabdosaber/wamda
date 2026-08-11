@@ -47,6 +47,11 @@ export const ar = {
   notesActionDismissed: "تم التجاهل",
   notesActionUndo: "تراجع",
 
+  // The category filter bar above the notes list.
+  filterLabel: "تصفية حسب النوع",
+  filterAll: "الكل",
+  notesFilterEmpty: "لا ملاحظات في هذا التصنيف.",
+
   // Tasks -- a filter over notes whose AI category is "task", grouped by when
   // they are due. Not a container: a task IS a note, it does not move into one.
   tasksTitle: "المهام",
@@ -76,6 +81,10 @@ export const ar = {
   settingsLanguage: "اللغة",
   offline: "أنت غير متصل — تُحفظ ملاحظاتك على جهازك.",
 
+  // The shared wait state. The design export writes "جاري"; the spelling here
+  // is "جارٍ", matching every other progress string in this catalogue.
+  loading: "جارٍ تجهيز المساحة…",
+
   authTitle: "تسجيل الدخول",
   authEmailLabel: "البريد الإلكتروني",
   authSendCode: "أرسل رمز الدخول",
@@ -87,6 +96,9 @@ export const ar = {
   authResend: "إعادة الإرسال",
   authChangeEmail: "تغيير البريد",
   authSignOut: "تسجيل الخروج",
+  // Labels the avatar button. The avatar carries no text of its own, so
+  // without this a screen reader announces an unnamed button.
+  accountMenu: "الحساب",
   authRequired: "سجّل الدخول لعرض ملاحظاتك المحفوظة.",
   // The promise that makes gating the other tabs acceptable: capture is never
   // blocked, and nothing the user wrote while signed out is lost.

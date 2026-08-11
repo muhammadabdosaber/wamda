@@ -96,6 +96,11 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.20 | Tasks screen (filter over notes, grouped by due date) | ✅ built + driven in a browser on real data; plurals `one`/`two`/`few` observed | `features/Tasks.tsx` (SB-036) |
 | 4.21 | Tick a task done (`completed_at`) | ✅ optimistic, persisted, survives reload | `Tasks.tsx` · `api.ts` (SB-038) |
 | 4.22 | A note that fails/stalls enrichment stays visible | ✅ timeline returns non-`ready` notes; shows processing/failed, never absent | `functions/notes` · `Notes.tsx` (SB-032) |
+| 4.23 | Loading state that is not a bare `…` | ✅ pulsing mark + list-shaped skeletons, driven in a browser with the fetch delayed; `role="status"`, mark `aria-hidden` | `components/Loading.tsx` (SB-039) |
+| 4.24 | Nav icons redrawn from the export (no CDN icon font) | ✅ 5 tabs, fully-rounded active pill verified in the browser | `App.tsx` (SB-040) |
+| 4.25 | Filter notes by category | ✅ scrolling chip bar, only categories actually present; filter verified to cut 2 cards → 1 | `Notes.tsx` (SB-041) |
+| 4.26 | Note cards in a responsive grid, summary clamped | ✅ 1 col at 375px, 2 at desktop; `line-clamp: 3` measured live | `Notes.tsx` · `global.css` (SB-041) |
+| 4.27 | Avatar menu instead of an always-visible sign-out | ✅ Escape closes and returns focus; anchors correctly in both RTL and LTR | `components/AccountMenu.tsx` (SB-042) |
 
 ## 5. Auth, data, security
 

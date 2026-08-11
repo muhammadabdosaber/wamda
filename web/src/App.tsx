@@ -4,6 +4,7 @@ import { applyDirection, enabledTags, resolveLanguage, SUPPORTED } from "./core/
 import { useSession } from "./core/session";
 import { createTranslator } from "./i18n";
 import { isConfigured, supabase, sync } from "./data/api";
+import { AccountMenu } from "./components/AccountMenu";
 import { Auth } from "./features/Auth";
 import { Capture } from "./features/Capture";
 import { Notes } from "./features/Notes";
@@ -14,28 +15,43 @@ import { Digest } from "./features/Digest";
 const STORAGE_KEY = "ui_locale";
 type Tab = "capture" | "notes" | "tasks" | "search" | "digest";
 
-/** Inline so no icon library is added just for four tab glyphs. */
+/**
+ * Inline so no icon library is added just for five tab glyphs.
+ *
+ * The shapes follow Material Symbols Outlined -- `add_circle`, `description`,
+ * `check_circle` -- because that is what the design export draws. They are
+ * REDRAWN rather than loaded: the export pulls the icon font from the Google
+ * Fonts CDN, and this app ships `font-src 'self'` (vite.config.ts). A CDN
+ * glyph would be blocked outright in production, not merely off-convention.
+ *
+ * `search` and `digest` have no counterpart in the export -- it draws four
+ * tabs, this app has five -- so they keep the house shapes they already had.
+ */
 const TAB_ICONS: Record<Tab, ReactNode> = {
   capture: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 8.5v7M8.5 12h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   ),
   notes: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
       <path
-        d="M6 4.5h9l3 3V19a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1V5.5a1 1 0 0 1 1-1Z"
+        d="M13.4 3.75H7.5A1.75 1.75 0 0 0 5.75 5.5v13A1.75 1.75 0 0 0 7.5 20.25h9a1.75 1.75 0 0 0 1.75-1.75V8.6L13.4 3.75Z"
         stroke="currentColor"
         strokeWidth="1.8"
         strokeLinejoin="round"
       />
-      <path d="M8.5 10.5h7M8.5 14h7M8.5 17h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      {/* The folded corner -- what separates Material's `description` from a
+          plain rectangle with lines in it. */}
+      <path d="M13.25 4.1v4.6h4.75" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 13h6M9 16.25h4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
   ),
   tasks: (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path d="M4 6.5h11M4 12h11M4 17.5h7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-      <path d="m17 16.5 2 2 3-3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="8.25" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m8.4 12.2 2.6 2.6 4.6-5.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
   search: (
@@ -138,18 +154,16 @@ export function App() {
           )}
 
           {/* Hidden while the initial session lookup is in flight, so the
-              button does not flip from "sign in" to "sign out" on launch. */}
+              control does not flip from "sign in" to the avatar on launch. */}
           {!loading &&
             (session ? (
-              <button
-                className="linkbtn"
-                onClick={() => {
+              <AccountMenu
+                t={t}
+                onSignOut={() => {
                   void supabase.auth.signOut();
                   setAuthOpen(false);
                 }}
-              >
-                {t.t("authSignOut")}
-              </button>
+              />
             ) : (
               <button className="linkbtn" onClick={() => setAuthOpen(true)}>
                 {t.t("authTitle")}

@@ -12,6 +12,7 @@ import {
   type TimelineNote,
 } from "../data/api";
 import { pending as pendingNotes, type OutboxNote } from "../data/outbox";
+import { Loading } from "../components/Loading";
 import { NoteDetail } from "./NoteDetail";
 
 /**
@@ -23,8 +24,26 @@ import { NoteDetail } from "./NoteDetail";
  * captured one second ago is absent until the network agrees. It also removes
  * the only reason capture ever had to wait on `sync()` (see Capture.tsx).
  */
+/**
+ * Fixed order for the filter bar, so the chips do not reshuffle as notes
+ * arrive. These are the seven identifiers the enrichment prompt can return --
+ * stored values, never display text. The Arabic words live in the catalogue.
+ */
+const CATEGORY_ORDER = [
+  "task",
+  "event",
+  "idea",
+  "learning",
+  "reference",
+  "personal",
+  "other",
+] as const;
+
 export function Notes({ t, language }: { t: Translator; language: string }) {
   const [notes, setNotes] = useState<TimelineNote[] | null>(null);
+  // `null` is "all". A stored identifier, never a label -- the same rule the
+  // chips themselves follow.
+  const [category, setCategory] = useState<string | null>(null);
   const [unsynced, setUnsynced] = useState<OutboxNote[]>([]);
   // Not "error". The server being out of reach is an ordinary condition for
   // this app -- the notes below are still the right thing to be looking at.
@@ -66,7 +85,7 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
     return () => window.removeEventListener(SYNCED_EVENT, onSynced);
   }, [load]);
 
-  if (!notes) return <p className="center">…</p>;
+  if (!notes) return <Loading label={t.t("loading")} skeleton="notes" />;
 
   // Server rows carry the client_id they were captured with, so a note is
   // never shown twice during the moment both sources still know about it.
@@ -82,6 +101,22 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
     );
   }
 
+  // Only offer a chip for a category that is actually on screen. A filter that
+  // is guaranteed to return nothing is worse than no filter -- and this keeps
+  // the bar honest as the set grows past the seven above.
+  const available = CATEGORY_ORDER.filter((id) =>
+    notes.some((note) => note.note_enrichments[0]?.category === id),
+  );
+
+  const filtered = category
+    ? notes.filter((note) => note.note_enrichments[0]?.category === category)
+    : notes;
+
+  // A note still in the outbox has not been enriched, so it has no category at
+  // all. Any category filter necessarily excludes it -- shown under "all" only,
+  // rather than silently reappearing under a filter it does not match.
+  const localVisible = category ? [] : local;
+
   return (
     <>
       {/* Deliberately not an error. Nothing was lost, nothing needs retrying,
@@ -93,11 +128,42 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
           cheerfully says "online" while every request fails. */}
       {unreachable && <p className="muted center">{t.t("notesOffline")}</p>}
 
-      {local.map((note) => (
+      {/* One category is not a choice, so the bar only appears at two or more.
+          It scrolls horizontally rather than wrapping: a wrapping row changes
+          height as chips come and go, which moves the whole list under the
+          user's thumb. */}
+      {available.length > 1 && (
+        <div className="filter-bar" role="group" aria-label={t.t("filterLabel")}>
+          <button
+            className="filter-chip"
+            aria-pressed={category === null}
+            onClick={() => setCategory(null)}
+          >
+            {t.t("filterAll")}
+          </button>
+          {available.map((id) => (
+            <button
+              key={id}
+              className="filter-chip"
+              aria-pressed={category === id}
+              onClick={() => setCategory(id)}
+            >
+              {categoryLabel(t, id)}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {filtered.length === 0 && localVisible.length === 0 && (
+        <p className="center">{t.t("notesFilterEmpty")}</p>
+      )}
+
+      <div className="notes-grid">
+      {localVisible.map((note) => (
         <PendingCard key={note.clientId} note={note} t={t} />
       ))}
 
-      {notes.map((note) => (
+      {filtered.map((note) => (
         <NoteCard
           key={note.id}
           note={note}
@@ -126,6 +192,7 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
           }
         />
       ))}
+      </div>
 
       {open && (
         <NoteDetail
@@ -257,7 +324,7 @@ function NoteCard({
 
   return (
     <div
-      className="card"
+      className="card note-card"
       // The note body carries its OWN direction, derived from the language the
       // pipeline detected -- not from the UI locale. In phase 2 this is what
       // keeps an English note readable inside an Arabic UI.
@@ -265,24 +332,30 @@ function NoteCard({
     >
       {/* The title and summary open the source note -- the exact text captured,
           shown beside the AI's read of it (SB-021). A button so the keyboard
-          and screen reader reach it; the chips and actions below stay separate
-          controls. */}
-      <button className="note-open" onClick={onOpen}>
-        {enrichment.title && <h3>{enrichment.title}</h3>}
-        <p>{enrichment.summary}</p>
-      </button>
+          and screen reader reach it; the actions below stay separate controls.
 
-      <div className="chips">
-        {/* Chips render LOCALIZED labels from stored identifiers. The row
-            holds 'task'; the word "مهمة" lives only in the catalogue. */}
-        <span className="chip">{categoryLabel(t, enrichment.category)}</span>
-        {enrichment.priority !== "normal" && (
-          <span className={enrichment.priority === "urgent" ? "chip urgent" : "chip"}>
-            {priorityLabel(t, enrichment.priority)}
+          The design puts the category and the time in a head row ABOVE the
+          title, where the old layout had every chip in one row underneath. */}
+      <button className="note-open" onClick={onOpen}>
+        <div className="note-card-head">
+          <span className="note-card-tags">
+            {/* Chips render LOCALIZED labels from stored identifiers. The row
+                holds 'task'; the word "مهمة" lives only in the catalogue. */}
+            <span className="chip">{categoryLabel(t, enrichment.category)}</span>
+            {enrichment.priority !== "normal" && (
+              <span className={enrichment.priority === "urgent" ? "chip urgent" : "chip"}>
+                {priorityLabel(t, enrichment.priority)}
+              </span>
+            )}
           </span>
-        )}
-        <span className="chip">{t.date(note.client_created_at)}</span>
-      </div>
+          <span className="note-card-time">{t.date(note.client_created_at)}</span>
+        </div>
+
+        {enrichment.title && <h3>{enrichment.title}</h3>}
+        {/* Clamped to three lines, per the design. The full text is one tap
+            away in the detail sheet, so nothing is lost by truncating here. */}
+        <p className="note-card-summary">{enrichment.summary}</p>
+      </button>
 
       {action && (
         // A suggestion the user accepts or ignores -- never applied silently.

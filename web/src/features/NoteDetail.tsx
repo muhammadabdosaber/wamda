@@ -4,6 +4,7 @@ import type { Translator } from "../i18n";
 import { categoryLabel } from "../i18n";
 import { directionOfContent } from "../core/language";
 import { noteDetail, type Enrichment, type NoteDetail as NoteBody } from "../data/api";
+import { Loading } from "../components/Loading";
 
 /**
  * The single-note detail view, opened from a note card or a task row.
@@ -71,7 +72,7 @@ export function NoteDetail({
         {failed ? (
           <p className="error-text">{t.t("detailLoadFailed")}</p>
         ) : !body ? (
-          <p className="center">…</p>
+          <Loading label={t.t("loading")} />
         ) : (
           <div dir={dir}>
             {enrichment?.title && <h3>{enrichment.title}</h3>}
