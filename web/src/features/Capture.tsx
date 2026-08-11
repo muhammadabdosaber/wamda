@@ -93,6 +93,8 @@ export function Capture({
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** Diagnostic, not user-facing copy -- see the comment at the sync() call below. */
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -176,8 +178,10 @@ export function Capture({
 
       setSaving(true);
       setFailed(false);
+      setSyncError(null);
+      let clientId: string;
       try {
-        await capture({ source: "voice", language, audio: blob });
+        clientId = (await capture({ source: "voice", language, audio: blob })).clientId;
         await refresh();
       } catch {
         // A recording that failed to store is unrecoverable -- there is no
@@ -189,7 +193,19 @@ export function Capture({
         setSaving(false);
       }
 
-      void sync().then(refresh);
+      // Upload/transcribe failures land in the outbox as "attempted, will
+      // retry" -- not alarming on its own, and not shown here. But a note
+      // that fails on ITS OWN first sync (as opposed to a stale one from
+      // before connectivity returned) is worth surfacing immediately: it was
+      // just recorded, the device and network conditions are still in front
+      // of the user, and this is the only moment a report of "what does the
+      // error actually say" is easy to get. See SB-012 -- this exact gap
+      // (silent failure, no error anywhere) hid two real bugs for a week.
+      void sync().then(({ failures }) => {
+        void refresh();
+        const mine = failures.find((f) => f.clientId === clientId);
+        if (mine) setSyncError(mine.message);
+      });
       onSaved?.();
     };
 
@@ -346,6 +362,21 @@ export function Capture({
         // leaves the note queued, which is not something to alarm anyone about.
         <p className="error-text capture-error">
           {t.t("errorCaptureFailed")}
+        </p>
+      )}
+
+      {syncError && (
+        // Diagnostic-grade, not polished user copy: the raw error string, so
+        // it can be read straight off the screen and reported. The note
+        // itself is fine -- it's durable locally and will keep retrying;
+        // this is purely "here is what went wrong last time", dismissible
+        // because it says nothing the user needs to act on.
+        <p className="error-text capture-error">
+          {t.t("captureSyncErrorPrefix")} {syncError}
+          {" "}
+          <button type="button" className="linkbtn" onClick={() => setSyncError(null)}>
+            {t.t("actionDismiss")}
+          </button>
         </p>
       )}
 

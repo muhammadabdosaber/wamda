@@ -10,6 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — a diagnostic error banner when a voice note's own first sync fails
+
+The iPhone Safari fix below was deployed, then re-tested for real — and the
+upload still silently failed, with no visible symptom beyond the note's
+loader spinning forever (confirmed on-device via screenshot: two notes stuck
+on "جارٍ التحليل…"). `sync()` failures have always been silent by design
+(a transient network blip shouldn't alarm anyone), but that same silence made
+it impossible to learn what the real, current failure actually is without
+physically connecting the phone to a Mac for Safari's remote inspector.
+
+`sync()` now returns which notes failed and why (`ApiError.code` or the raw
+`Error.message`, not user-facing copy). `Capture.tsx` shows it only when the
+note that fails is the one **just recorded** in that same session — not a
+stale retry from earlier — as a dismissible banner, so the actual error is
+readable directly off the screen instead of requiring a cable and a Mac.
+
 ### Fixed — voice capture from iPhone Safari was silently rejected by Storage
 
 The `audio_path` fix below was deployed to production, then re-tested with a

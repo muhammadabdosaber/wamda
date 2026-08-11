@@ -84,6 +84,7 @@ export const en: Messages = {
   errorEmailRequired: "Enter a valid email address.",
   errorInvalidCode: "That code is wrong or has expired.",
   errorCaptureFailed: "Couldn't save this note on your device. Try again.",
+  captureSyncErrorPrefix: "This voice note hasn't uploaded yet:",
 
   categoryTask: "Task",
   categoryEvent: "Event",
