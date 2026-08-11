@@ -27,6 +27,51 @@ garbled transcript is worse than not enriching it: it produces a *confident,
 wrong* summary that the user cannot distinguish from a correct one, so the
 thought is silently lost. Better to ask them to check the text.
 
+**Observed response shape (SB-007, 2026-08-11, real API call):**
+
+```json
+{
+  "language_code": "ara",
+  "language_probability": 1,
+  "text": "[background noise]",
+  "words": [
+    {
+      "text": "[background noise]",
+      "start": 0.099,
+      "end": 5.539,
+      "type": "audio_event",
+      "logprob": -0.2638185896910727
+    }
+  ],
+  "transcription_id": "...",
+  "audio_duration_secs": 5.6
+}
+```
+
+Confirms `ScribeASR.transcribe` (`_shared/providers.ts`) was reading the right
+shape: per-word entries under `words`, each carrying `logprob` (not
+`probability` — the code's `.probability ?? Math.exp(.logprob)` fallback is
+what actually fires in practice) and a `type` field distinguishing spoken
+words from `audio_event` tags like `[background noise]` or `[music]`. Code
+matched docs on the first real call; nothing needed changing.
+
+**Not deterministic run-to-run on non-speech audio.** The same file sent twice
+returned different bracketed tags and different confidence each time — once
+`[صوت طفل]` (Arabic) at 0.46, once `[background noise]` (English) at 0.77.
+Both stayed under the 0.6 review threshold, so this did not matter for
+`needs_review`, but a caller should not expect byte-identical transcripts from
+byte-identical audio.
+
+**What this proved and what it didn't.** The two `source = 'voice'` notes in
+the local DB (SB-012) turned out to be silence/noise test recordings from
+early `MediaRecorder` testing — not spoken content. This call proved the
+pipeline mechanics end to end (auth → RLS-scoped note lookup → Storage
+download → real Scribe call → confidence scoring → `raw_text` +
+`transcript_confidence` persisted → `ai_jobs` row with real `latency_ms` →
+correct `draft` status because confidence < 0.6) with a real vendor, real
+cost, real latency (1937ms and 1003ms). It did **not** exercise ASR on actual
+Arabic speech — that is still SB-013, unblocked but not yet done.
+
 ## Stage 2 — Language detection
 
 Script-ratio detection: synchronous, no model call, no network. It cannot

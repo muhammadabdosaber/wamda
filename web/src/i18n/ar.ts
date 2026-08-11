@@ -83,7 +83,7 @@ export const ar = {
 
   // The shared wait state. The design export writes "جاري"; the spelling here
   // is "جارٍ", matching every other progress string in this catalogue.
-  loading: "جارٍ تجهيز المساحة…",
+  loading: "جارٍ تجهيز البيانات…",
 
   authTitle: "تسجيل الدخول",
   authEmailLabel: "البريد الإلكتروني",
