@@ -18,6 +18,9 @@ export const en: Messages = {
   captureRecording: "Recording…",
   captureStop: "Stop recording",
   captureUnsupported: "Voice recording isn't supported in this browser.",
+  captureNoSignal: "We can't hear anything — check your microphone",
+  captureSilentSaved:
+    "Note saved, but no sound was picked up — check your microphone settings.",
 
   captureIdleTitle: "Quick capture",
   captureIdleSubtitle: "Capture your thoughts, clearly and calmly.",

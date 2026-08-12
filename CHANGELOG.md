@@ -10,6 +10,36 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — a recording that captures no sound now says so
+
+With the error-code fix deployed, the banner named the real problem for the
+first time (`unauthenticated` — a stale session, cleared by signing out and
+in), and the next recording ran the whole hosted path successfully: upload →
+`transcribe` → ElevenLabs `200`, `scribe_v1`, 442 ms, `ai_jobs.succeeded`.
+The transcript was still empty.
+
+The cause turned out to be upstream of every line of code here, and was
+established by parsing the stored audio rather than by inference: a valid
+20.34-second WebM/Opus file whose 340 audio frames are all the *identical*
+minimum size. Opus is variable-bitrate, so speech cannot produce uniform
+minimum frames — the microphone was delivering digital silence. (Checked
+separately and ruled out: the same bytes sent to ElevenLabs as `note.m4a`
+versus `note.webm` returned empty either way, so `providers.ts`'s hardcoded
+filename is not the cause, though it is still wrong and is now tracked.)
+
+Nothing downstream could ever have caught this — by the time audio reaches the
+server, "dead microphone" and "unclear audio" are the same bytes. So the check
+lives where the signal still exists: `Capture.tsx` now meters the live stream
+with a Web Audio `AnalyserNode`, warns during the take after 2.5 s of no
+signal, and warns again after saving if the whole take was silent. The note
+still saves — durability was never what failed.
+
+Verified in the browser against the real component, in **both** directions: a
+synthetic silent stream raised both warnings; a 440 Hz oscillator stream
+raised neither. The threshold (peak `0.01`) comes from the measurement above,
+not a guess. `npm run verify` passed clean. Not yet tried against a real
+microphone on a phone.
+
 ### Fixed — the diagnostic banner reported "internal_error" for every failure, real code discarded
 
 After the unmount fix below shipped, a real recording on the deployed PWA

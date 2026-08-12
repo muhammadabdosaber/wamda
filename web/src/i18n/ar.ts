@@ -17,6 +17,13 @@ export const ar = {
   captureRecording: "جارٍ التسجيل…",
   captureStop: "أوقف التسجيل",
   captureUnsupported: "التسجيل الصوتي غير مدعوم في هذا المتصفح.",
+  // أثناء التسجيل، حين لا يصل أي صوت من الميكروفون أصلًا. تحذير مبكر: أفضل
+  // بكثير من اكتشاف أن التسجيلة فارغة بعد انتهائها.
+  captureNoSignal: "لا نسمع أي صوت — تأكّد من الميكروفون",
+  // بعد تسجيلة اتّضح أنها صمت كامل. الملاحظة محفوظة فعلًا، والجملة تقول ذلك
+  // أولًا: الفشل في الميكروفون وحده، لا في الحفظ.
+  captureSilentSaved:
+    "حُفظت الملاحظة، لكن لم يُلتقط أي صوت — راجع إعدادات الميكروفون.",
 
   // The idle capture screen: a heading, a decorative (non-interactive) mark,
   // and two cards that choose HOW to capture. Picking "نص" swaps this screen
