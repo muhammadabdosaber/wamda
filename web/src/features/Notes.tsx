@@ -70,7 +70,11 @@ export function Notes({ t, language }: { t: Translator; language: string }) {
       const page = await timeline(language);
       setNotes(page.notes);
       setUnreachable(false);
-    } catch {
+    } catch (err) {
+      // Calm, generic copy for the user (see `unreachable` above) -- but the
+      // real code (now that api.ts actually reads it off the response body)
+      // is worth having in devtools when this needs debugging later.
+      console.error("timeline_failed", err instanceof Error ? err.message : err);
       setNotes([]);
       setUnreachable(true);
     }

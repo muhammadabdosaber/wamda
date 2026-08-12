@@ -55,6 +55,29 @@ export interface SyncFailure {
 }
 
 /**
+ * `FunctionsHttpError.context` is the raw `Response`, not a parsed body --
+ * the SDK's own docs read it with `await error.context.json()`. Reading
+ * `.context.error.code` directly (the previous code here) always landed on
+ * `undefined`, so every real code from `errorResponse()` -- `rate_limited`,
+ * `missing_configuration`, `unauthenticated` -- surfaced to the user as the
+ * same generic "internal_error", the diagnostic banner built to report
+ * exactly this having no real signal in it.
+ */
+async function errorCodeFrom(error: unknown): Promise<string> {
+  const context = (error as { context?: unknown } | undefined)?.context;
+  if (context instanceof Response) {
+    try {
+      const body: unknown = await context.clone().json();
+      const code = (body as { error?: { code?: string } } | null)?.error?.code;
+      if (code) return code;
+    } catch {
+      // Non-JSON body (e.g. a relay/network failure) -- fall through.
+    }
+  }
+  return "internal_error";
+}
+
+/**
  * Every call carries the resolved language explicitly. The server applies the
  * same precedence, but sending it makes intent unambiguous and keeps
  * optimistic local rendering consistent with what comes back.
@@ -69,10 +92,7 @@ async function invoke<T>(
     headers: { "Accept-Language": language },
   });
 
-  if (error) {
-    const details = (error as { context?: { error?: { code?: string } } }).context;
-    throw new ApiError(details?.error?.code ?? "internal_error");
-  }
+  if (error) throw new ApiError(await errorCodeFrom(error));
   if (data && typeof data === "object" && "error" in data) {
     const code = (data as { error?: { code?: string } }).error?.code;
     throw new ApiError(code ?? "internal_error");
@@ -177,7 +197,7 @@ export async function timeline(language: string, cursor?: string) {
     `notes?${params.toString()}`,
     { method: "GET", headers: { "Accept-Language": language } },
   );
-  if (error) throw new ApiError("internal_error");
+  if (error) throw new ApiError(await errorCodeFrom(error));
   return data as { notes: TimelineNote[]; next_cursor: string | null };
 }
 

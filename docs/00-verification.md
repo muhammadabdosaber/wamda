@@ -1674,7 +1674,58 @@ client build. The fix is typechecked, built, and its exact mechanism proven
 against the real bucket, but the fix has not yet been deployed and re-tried
 from the real device that found the bug.
 
-## Nine real bugs this caught
+### SB-012 (cont'd) · The diagnostic banner itself was reporting the wrong thing
+
+After PR #24 fixed the banner's unmount bug, the owner recorded a real note on
+the deployed PWA (`wamda-a8k.pages.dev`) and hit a NEW failure: the *notes
+list* itself (not just voice sync) started showing "تعذّر الوصول للخادم"
+(couldn't reach server), on both laptop Chrome and iPhone. A missing
+`ELEVENLABS_API_KEY` hosted secret had already been found and set earlier that
+session (confirmed absent via `supabase secrets list --project-ref`, added via
+`supabase secrets set`), but the owner's next real recording still failed —
+this time the banner just said `internal_error`, with no way to tell what
+actually broke.
+
+Reproduced live rather than guessed at: signed in on the deployed production
+site through the Browser pane, confirmed CSP (`connect-src` correctly names
+the Supabase origin — not a CSP block), confirmed the hosted API itself is
+healthy (a direct OTP request against `/auth/v1/otp` returned `200`). That
+ruled out the server and the network. Then checked what the client actually
+does with an error response, and found it: `web/src/data/api.ts`'s `invoke()`
+read `error.context.error.code` directly. `@supabase/supabase-js`'s
+`FunctionsHttpError.context` is the raw `Response` object, not a parsed
+body — the SDK's own docs read it with `await error.context.json()`. Reading
+`.error.code` straight off a `Response` is always `undefined`, so **every**
+real error code this app's Edge Functions ever returned (`rate_limited`,
+`missing_configuration`, `unauthenticated`, anything) surfaced to the user as
+the same generic `"internal_error"`. `timeline()` (the notes-list fetch) had
+the same shape bug, but worse: it never even tried to read the code, hardcoding
+`"internal_error"` unconditionally.
+
+Confirmed the mechanism against a real response, not a mock: restarted the
+local stack (`supabase stop && supabase start` — the Edge Runtime container
+was not running at all, a separate instance of the stale-runtime gotcha above)
+and, from the Browser pane, called the real local `notes` function with no
+Authorization header. It returned a genuine `401
+{"error":{"code":"unauthenticated"}}`. Replayed both the old extraction logic
+and the new one against that real `Response`: old → `internal_error` (the
+bug, confirmed); new → `unauthenticated` (the fix).
+
+**Fixed** in `web/src/data/api.ts`: both `invoke()` and `timeline()` now go
+through one `errorCodeFrom()` helper that awaits `context.clone().json()` and
+reads the real code, falling back to `"internal_error"` only when the body
+genuinely isn't JSON (a true network/relay failure). `Notes.tsx` also now logs
+the real code to the console on a failed fetch — the user-facing copy stays
+the calm "couldn't reach server" text, but the code is no longer thrown away.
+
+This does not by itself explain why the user's actual recordings have been
+failing — it explains why every banner shown so far said the same
+uninformative thing regardless of the real cause. The real code will surface
+on the next attempt.
+
+`npm run verify` (typecheck, RTL guard, 22 tests, build) passed clean.
+
+## Ten real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -1731,9 +1782,20 @@ from the real device that found the bug.
    instead of a hardcoded `"webm"`, and checking the upload's result. See
    "SB-007 (cont'd) · Deployed, then a second real bug on a real phone"
    above.
+10. **The diagnostic banner (added to catch #8 and #9) never read the real
+    error code.** `error.context` on a `FunctionsHttpError` is the raw
+    `Response`, not a parsed body — reading `.context.error.code` directly is
+    always `undefined`. Every server-side failure this app can produce
+    (`rate_limited`, `missing_configuration`, `unauthenticated`, any future
+    code) collapsed to the same generic `"internal_error"` on screen. Confirmed
+    against a real `401 {"error":{"code":"unauthenticated"}}` from the running
+    local `notes` function: old extraction → `internal_error`; fixed
+    extraction (`await context.clone().json()`) → `unauthenticated`. See
+    "SB-012 (cont'd) · The diagnostic banner itself was reporting the wrong
+    thing" above.
 
-None were visible by reading the code. Numbers 7, 8, and 9 in particular only
-appeared from a specific combination of state no test suite was going to
+None were visible by reading the code. Numbers 7, 8, 9, and 10 in particular
+only appeared from a specific combination of state no test suite was going to
 stumble into — a second vendor key absent while the first was present, a
 voice note captured in the narrow window after a grant changed with nothing
 exercising that exact code path, and a device (iPhone Safari) that had never
