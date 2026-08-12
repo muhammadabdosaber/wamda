@@ -1800,7 +1800,46 @@ phone, and iPhone Safari end to end. Web Audio is unavailable on some
 browsers; there the meter returns `null` and the check simply does not run,
 which is deliberate — recording is never blocked over a diagnostic.
 
-## Eleven real bugs this caught
+### SB-012 (cont'd) · A sixth real bug: hosted Storage never had the full MIME list
+
+After silence detection deployed, the owner fixed the laptop microphone and
+recorded from an iPhone. New failure, and the (now-working) banner named it
+exactly: `mime type audio/mp4 is not supported`.
+
+`20260801000400_rls.sql` creates the `audio` bucket with
+`insert into storage.buckets (...) values (...) on conflict (id) do nothing`,
+and the array in that statement has named all 7 real MIME types
+(`mp4/aac/mpeg/ogg/opus/webm/wav`) since it was written — `git log --follow -p`
+on the file shows only one version of that line, ever. Queried directly
+(`supabase db query --linked`):
+
+```
+allowed_mime_types: {audio/webm, audio/ogg}
+```
+
+Two types, not seven. The hosted bucket row was created narrower than the
+migration — before the migration ever ran, from whatever the earliest hosted
+setup did — and `on conflict do nothing` means that row can never be corrected
+by another `insert`, no matter what the migration file says. Confirmed by
+comparing against local, which shows the full 7-type list (local was reset
+from the migrations fresh):
+
+```
+allowed_mime_types: {audio/mp4,audio/aac,audio/mpeg,audio/ogg,audio/opus,audio/webm,audio/wav}
+```
+
+**Fixed** with a new migration,
+`supabase/migrations/20260813000100_audio_bucket_mime_types.sql` — an
+`UPDATE`, not another `INSERT`, because that is the one statement `on conflict
+do nothing` cannot swallow. Ran locally first (`supabase db reset`, full
+migration replay, `verify.sql` clean including a new assertion added
+specifically to catch this drift again), then pushed to hosted
+(`supabase db push --linked`) and re-queried to confirm the live row actually
+changed — not just that the push command exited 0.
+
+**Not yet re-verified:** an iPhone recording through the now-corrected bucket.
+
+## Twelve real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -1879,9 +1918,21 @@ which is deliberate — recording is never blocked over a diagnostic.
     signal is still observable: a peak-amplitude meter on the recording stream
     warns during the take and again after saving. See "Silence detection,
     verified in both directions" above.
+12. **A bucket's config drifted from its migration and could never self-heal.**
+    `20260801000400_rls.sql` names all 7 real recording MIME types in its
+    `insert ... on conflict (id) do nothing`, but the hosted bucket row
+    already existed, created narrower, before that migration ever ran — so
+    every push since then silently did nothing to it. iOS Safari's `audio/mp4`
+    was rejected outright (`mime type audio/mp4 is not supported`) on a real
+    iPhone recording. `on conflict do nothing` means no future edit to that
+    `INSERT`'s array could ever fix an environment where the row already
+    exists — only an explicit `UPDATE` can. Fixed with exactly that, in a new
+    migration, plus a `verify.sql` assertion so hosted's bucket config can't
+    drift from the migration again without a test noticing.
 
-None were visible by reading the code. Numbers 7, 8, 9, and 10 in particular
-only appeared from a specific combination of state no test suite was going to
+None were visible by reading the code. Numbers 7, 8, 9, 10, and 12 in
+particular only appeared from a specific combination of state no test suite
+was going to
 stumble into — a second vendor key absent while the first was present, a
 voice note captured in the narrow window after a grant changed with nothing
 exercising that exact code path, and a device (iPhone Safari) that had never

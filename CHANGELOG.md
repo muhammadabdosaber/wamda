@@ -10,6 +10,24 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — hosted Storage rejected every non-Chrome recording since the bucket was created
+
+After the microphone was fixed and silence detection deployed, an iPhone
+recording hit a new failure the (now-working) banner named exactly: `mime
+type audio/mp4 is not supported`. `20260801000400_rls.sql` creates the
+`audio` bucket with `insert ... on conflict (id) do nothing`, and its array
+has named all 7 real recording MIME types since it was written — but the
+hosted bucket row already existed, created narrower, before that migration
+ever ran. `on conflict do nothing` silently kept the old
+`{audio/webm, audio/ogg}` list forever; no edit to that `INSERT` could ever
+have reached hosted.
+
+Fixed with a new migration that `UPDATE`s the row directly (the one statement
+`on conflict do nothing` can't swallow), plus a `verify.sql` assertion so this
+can't drift silently again. Verified locally first (`supabase db reset`, full
+replay, `verify.sql` clean including the new check), then pushed to hosted and
+re-queried the live row to confirm — not just that the push exited clean.
+
 ### Added — a recording that captures no sound now says so
 
 With the error-code fix deployed, the banner named the real problem for the

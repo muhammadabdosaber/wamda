@@ -659,6 +659,38 @@ begin
 end
 $$;
 
+-- 12. `audio` bucket's allowed_mime_types matches every real MediaRecorder
+-- output this app records, not whatever the row happened to hold when it
+-- was first created. `insert ... on conflict do nothing` in
+-- 20260801000400_rls.sql means an edit to that INSERT's array would never
+-- reach an environment where the bucket row already exists -- this is the
+-- guard against that ever happening silently again (2026-08-13, a real
+-- iPhone recording rejected with `mime type audio/mp4 is not supported`
+-- because the hosted bucket was stuck on an older, narrower list).
+do $$
+declare
+  types text[];
+  expected text[] := array[
+    'audio/mp4', 'audio/aac', 'audio/mpeg', 'audio/ogg', 'audio/opus',
+    'audio/webm', 'audio/wav'
+  ];
+  missing text;
+begin
+  select allowed_mime_types into types from storage.buckets where id = 'audio';
+
+  if types is null then
+    raise exception 'audio bucket does not exist';
+  end if;
+
+  foreach missing in array expected loop
+    if not (missing = any(types)) then
+      raise exception 'audio bucket allowed_mime_types missing %: got %', missing, types;
+    end if;
+  end loop;
+  raise notice 'PASS: audio bucket accepts every recorded MIME type (%)', types;
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',
