@@ -170,9 +170,18 @@ no signal. Ruled out separately: the same bytes sent to ElevenLabs under both
 either way, so the hardcoded filename is not the cause here — though it is
 still wrong, and is listed below.
 
-- **Blocked on:** hardware on the owner's laptop — the microphone input needs
-  fixing before any transcript can be judged. Silence detection (below) now
-  surfaces this immediately instead of producing an empty note.
+- **Blocked on:** nothing further for the laptop path. After fixing the
+  microphone and getting silence detection deployed, a real iPhone recording
+  hit a SIXTH real bug: `mime type audio/mp4 is not supported`. The hosted
+  `audio` bucket's `allowed_mime_types` was stuck at `{audio/webm, audio/ogg}`
+  — narrower than the 7-type list `20260801000400_rls.sql` has named since it
+  was written, because that INSERT uses `on conflict (id) do nothing` and the
+  bucket row already existed on hosted, created narrower, before that
+  migration ever ran. Fixed with a new migration
+  (`20260813000100_audio_bucket_mime_types.sql`) that `UPDATE`s the row
+  directly — an insert can never fix this, `on conflict do nothing` will skip
+  it every time. Added a `verify.sql` assertion so this can't drift silently
+  again. Pushed to hosted and confirmed live via `supabase db query --linked`.
 - **Also open:** `providers.ts` sends every recording to ElevenLabs as
   `note.m4a` regardless of its real container. Not the cause of the empty
   transcripts, but it should carry the true extension.
