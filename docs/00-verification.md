@@ -1725,7 +1725,82 @@ on the next attempt.
 
 `npm run verify` (typecheck, RTL guard, 22 tests, build) passed clean.
 
-## Ten real bugs this caught
+### SB-012 (cont'd) · The pipeline ran on hosted — and the audio was silence
+
+With the error-code fix deployed, the owner recorded again and the banner
+finally named something real: `unauthenticated`. The browser was showing a
+signed-in avatar while every call returned `401` — a stale session. Signing
+out and back in cleared it, and the very next recording ran the **entire
+hosted path for the first time**:
+
+| stage | evidence |
+| --- | --- |
+| upload | `storage.objects` row, 5 056 bytes, `audio/webm` |
+| transcribe | `ai_jobs`: `elevenlabs` / `scribe_v1` / `succeeded` / 442 ms / `error_code: null` |
+| response | ElevenLabs `200` |
+
+Every stage succeeded. `raw_text` was still empty, and `notes.status` sat at
+`draft` (the `needsReview` branch) — which is the correct handling of an empty
+transcript, not a bug.
+
+**The cause is upstream of all software, and was confirmed by parsing the
+audio rather than by inference.** The stored object was downloaded and its
+EBML walked element by element:
+
+| property | value |
+| --- | --- |
+| container | valid WebM, `CodecID: A_OPUS` |
+| `Duration` | 20 340 ms |
+| audio frames | 340 |
+| frame size | **12 bytes — every single one, no variance** |
+
+Opus is variable-bitrate: speech produces frames that differ in size from one
+20 ms window to the next. 340 consecutive frames at the identical minimum size
+is digital silence, and nothing else. The microphone was open, the recording
+was real, and it captured no signal.
+
+Ruled out separately, by experiment rather than by reading: `providers.ts`
+sends every recording to ElevenLabs as `note.m4a` regardless of the true
+container. The same stored bytes were submitted twice, as `note.m4a` and as
+`note.webm` — both returned `200` with an empty transcript, zero words, and
+`language_probability: 0`. So the hardcoded filename is **not** the cause of
+these empty transcripts. It is still wrong, and is recorded as open in
+`docs/13-tasks.md`.
+
+### SB-012 (cont'd) · Silence detection, verified in both directions
+
+A recording that captures nothing used to become an empty note with every
+stage reporting success — the exact silent failure this project refuses to
+ship. `Capture.tsx` now watches the live stream through a Web Audio
+`AnalyserNode` and tracks the peak amplitude of the take:
+
+- **while recording**, after 2.5 s below the threshold, a hint appears so a
+  dead microphone can be fixed during the take rather than discovered after it;
+- **after saving**, a take that never crossed the threshold raises a banner
+  owned by `App.tsx` — the note itself still saves, because durability is not
+  what failed.
+
+The threshold (peak `0.01`) was set from the measurement above, not guessed:
+it sits far below room tone on a working microphone and far above the exact
+zero that a dead input produces.
+
+**Ran in the browser against the real component, both directions** — the
+false-positive case matters as much as the positive one, because a warning
+that fires on good recordings is worse than none:
+
+| input | live hint | post-save banner |
+| --- | --- | --- |
+| synthetic silent `MediaStream` (nothing connected to the destination node) | ✅ "لا نسمع أي صوت — تأكّد من الميكروفون" after ~4 s | ✅ "حُفظت الملاحظة، لكن لم يُلتقط أي صوت" |
+| synthetic loud `MediaStream` (440 Hz oscillator at 0.5 gain) | ✅ never appeared | ✅ never appeared |
+
+`npm run verify` (typecheck, RTL guard, 22 tests, build) passed clean.
+
+**Still not verified:** the detector against a real microphone on a real
+phone, and iPhone Safari end to end. Web Audio is unavailable on some
+browsers; there the meter returns `null` and the check simply does not run,
+which is deliberate — recording is never blocked over a diagnostic.
+
+## Eleven real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -1793,6 +1868,17 @@ on the next attempt.
     extraction (`await context.clone().json()`) → `unauthenticated`. See
     "SB-012 (cont'd) · The diagnostic banner itself was reporting the wrong
     thing" above.
+11. **A recording that captured nothing looked identical to one that worked.**
+    Upload succeeded, ElevenLabs answered `200`, `ai_jobs` recorded
+    `succeeded`, and the note landed as a `draft` with no text and no
+    explanation. Nothing in the pipeline can tell "the microphone was dead"
+    apart from "the audio was unclear", because by the time the bytes reach
+    the server the distinction is gone — the difference only exists at the
+    microphone. Found by parsing a stored recording's container and seeing 340
+    identical minimum-size Opus frames. Fixed client-side, where the live
+    signal is still observable: a peak-amplitude meter on the recording stream
+    warns during the take and again after saving. See "Silence detection,
+    verified in both directions" above.
 
 None were visible by reading the code. Numbers 7, 8, 9, and 10 in particular
 only appeared from a specific combination of state no test suite was going to

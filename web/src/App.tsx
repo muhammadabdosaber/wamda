@@ -103,6 +103,9 @@ export function App() {
   // setting state on a component already gone (SB-012 -- this exact gap is
   // why the first attempt at this diagnostic silently did nothing).
   const [syncError, setSyncError] = useState<string | null>(null);
+  // Same reason as syncError above: reported after the recording ends, which
+  // is after the tab has already switched away from Capture.
+  const [silentRecording, setSilentRecording] = useState(false);
 
   const { session, loading } = useSession();
   const t = useMemo(() => createTranslator(language), [language]);
@@ -206,6 +209,23 @@ export function App() {
           </p>
         )}
 
+        {silentRecording && (
+          // The note itself is fine and saved -- this names the one thing that
+          // did fail, which is upstream of the whole pipeline and only the
+          // user can fix.
+          <p className="error-text capture-error">
+            {t.t("captureSilentSaved")}
+            {" "}
+            <button
+              type="button"
+              className="linkbtn"
+              onClick={() => setSilentRecording(false)}
+            >
+              {t.t("actionDismiss")}
+            </button>
+          </p>
+        )}
+
         {showAuth ? (
           <Auth
             t={t}
@@ -229,6 +249,7 @@ export function App() {
                 language={language}
                 onSaved={() => setTab("notes")}
                 onSyncError={setSyncError}
+                onSilentRecording={setSilentRecording}
               />
             )}
             {tab === "notes" && <Notes t={t} language={language} />}

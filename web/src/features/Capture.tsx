@@ -53,6 +53,77 @@ function PencilIcon() {
 }
 
 /**
+ * Peak amplitude below which a recording counts as "nothing was heard".
+ *
+ * Set from measured evidence, not picked: a 20-second capture from the owner's
+ * laptop reached Storage as 340 identical minimum-size Opus frames — exact
+ * digital silence — while upload, ASR, and every status in the pipeline
+ * reported success, leaving an empty note and no explanation anywhere. The
+ * threshold sits far below room tone on a working microphone, so it fires on a
+ * dead input and never on someone speaking quietly.
+ */
+const SILENCE_PEAK = 0.01;
+
+/**
+ * How long the input must stay silent before the live hint appears. Long
+ * enough to cover the pause between pressing record and starting to speak.
+ */
+const SILENCE_HINT_MS = 2500;
+
+interface LevelMeter {
+  /** Folds the current buffer into the running peak, and returns that peak. */
+  sample(): number;
+  close(): void;
+}
+
+/**
+ * Watches the live signal on the stream being recorded.
+ *
+ * `MediaRecorder` reports nothing about whether the microphone is actually
+ * producing sound. A muted or wrongly-selected input records a full-length
+ * file of pure silence, and every stage after it — upload, transcription,
+ * status — succeeds on it. This is the only point in the whole path where
+ * that difference is observable, which is why the check lives here and not
+ * on the server (SB-012).
+ *
+ * Returns null where Web Audio is unavailable: recording still works, it just
+ * goes unwatched, rather than blocking a capture over a diagnostic.
+ */
+function createLevelMeter(stream: MediaStream): LevelMeter | null {
+  const Ctx =
+    window.AudioContext ??
+    (window as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  if (!Ctx) return null;
+
+  const ctx = new Ctx();
+  // Safari hands back a suspended context when it wasn't constructed directly
+  // inside the gesture handler, which is exactly the case here -- this runs
+  // after `await getUserMedia`.
+  void ctx.resume().catch(() => {});
+
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 2048;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+
+  const buffer = new Float32Array(analyser.fftSize);
+  let peak = 0;
+
+  return {
+    sample() {
+      analyser.getFloatTimeDomainData(buffer);
+      for (let i = 0; i < buffer.length; i++) {
+        const level = Math.abs(buffer[i] ?? 0);
+        if (level > peak) peak = level;
+      }
+      return peak;
+    },
+    close() {
+      void ctx.close().catch(() => {});
+    },
+  };
+}
+
+/**
  * The capture surface. One job: get a thought out of the user's head and into
  * durable storage with as little ceremony as possible.
  *
@@ -77,6 +148,7 @@ export function Capture({
   language,
   onSaved,
   onSyncError,
+  onSilentRecording,
 }: {
   t: Translator;
   language: string;
@@ -89,6 +161,13 @@ export function Capture({
    * to this component's own state would be set on something already gone.
    */
   onSyncError?: (message: string) => void;
+  /**
+   * Called with `true` when a finished recording turned out to hold no sound
+   * at all, and with `false` when a new recording starts. Owned by the caller
+   * for the same reason as `onSyncError` above: the tab switch unmounts this
+   * component before the message would be read.
+   */
+  onSilentRecording?: (silent: boolean) => void;
 }) {
   const [text, setText] = useState("");
   // Picking the "text" card reveals the composer in place of the idle mark;
@@ -103,10 +182,14 @@ export function Capture({
   const [failed, setFailed] = useState(false);
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
+  // Live, in-recording: the microphone is open but delivering nothing.
+  const [noSignal, setNoSignal] = useState(false);
 
   const recorder = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const textarea = useRef<HTMLTextAreaElement>(null);
+  const meter = useRef<LevelMeter | null>(null);
+  const meterTimer = useRef<number | null>(null);
 
   const canRecord =
     typeof MediaRecorder !== "undefined" &&
@@ -124,8 +207,30 @@ export function Capture({
     };
   }, []);
 
+  // A recording can be interrupted by this component going away under it --
+  // the AudioContext and its polling interval would otherwise outlive it.
+  useEffect(() => {
+    return () => {
+      if (meterTimer.current !== null) clearInterval(meterTimer.current);
+      meter.current?.close();
+    };
+  }, []);
+
   async function refresh() {
     setPending(await pendingCount());
+  }
+
+  /** Tears the meter down and reports the loudest sample of the whole take. */
+  function stopMetering(): number | null {
+    if (meterTimer.current !== null) {
+      clearInterval(meterTimer.current);
+      meterTimer.current = null;
+    }
+    const peak = meter.current?.sample() ?? null;
+    meter.current?.close();
+    meter.current = null;
+    setNoSignal(false);
+    return peak;
   }
 
   async function saveText() {
@@ -168,11 +273,24 @@ export function Capture({
     const mr = new MediaRecorder(stream);
     chunks.current = [];
 
+    // Watch the live input alongside the recorder -- see createLevelMeter.
+    meter.current = createLevelMeter(stream);
+    setNoSignal(false);
+    onSilentRecording?.(false);
+    const startedAt = Date.now();
+    if (meter.current) {
+      meterTimer.current = window.setInterval(() => {
+        const peak = meter.current?.sample() ?? 0;
+        setNoSignal(Date.now() - startedAt > SILENCE_HINT_MS && peak < SILENCE_PEAK);
+      }, 250);
+    }
+
     mr.ondataavailable = (e) => {
       if (e.data.size > 0) chunks.current.push(e.data);
     };
     mr.onstop = async () => {
       stream.getTracks().forEach((track) => track.stop());
+      const peak = stopMetering();
       // `mr.mimeType` on Safari reports a codec-qualified string (e.g.
       // "audio/mp4;codecs=mp4a.40.2"), not just "audio/mp4". Storage's
       // `allowed_mime_types` is an exact-match allow-list against the base
@@ -211,6 +329,14 @@ export function Capture({
         const mine = failures.find((f) => f.clientId === clientId);
         if (mine) onSyncError?.(mine.message);
       });
+
+      // Said even though the note saved fine. The recording is durable, it
+      // just holds nothing -- and a note that silently arrives empty, with
+      // every stage reporting success, is the exact failure this app spent a
+      // week not being able to see (SB-012). `null` means Web Audio was
+      // unavailable, which is not evidence of silence.
+      if (peak !== null && peak < SILENCE_PEAK) onSilentRecording?.(true);
+
       onSaved?.();
     };
 
@@ -329,10 +455,15 @@ export function Capture({
           {recording && (
             // Explicit confirmation that recording is live -- the icon-only
             // button alone isn't enough feedback for a state this important.
-            <p className="recording-status">
-              <span className="recording-dot" aria-hidden="true" />
-              {t.t("captureRecording")}
-            </p>
+            <>
+              <p className="recording-status">
+                <span className="recording-dot" aria-hidden="true" />
+                {t.t("captureRecording")}
+              </p>
+              {noSignal && (
+                <p className="error-text capture-error">{t.t("captureNoSignal")}</p>
+              )}
+            </>
           )}
         </>
       )}
@@ -359,6 +490,12 @@ export function Capture({
             <span className="recording-dot" aria-hidden="true" />
             {t.t("captureStop")}
           </p>
+
+          {/* Shown while the take is still running, so a dead microphone can
+              be fixed now rather than discovered in an empty note later. */}
+          {noSignal && (
+            <p className="error-text capture-error">{t.t("captureNoSignal")}</p>
+          )}
         </div>
       )}
 

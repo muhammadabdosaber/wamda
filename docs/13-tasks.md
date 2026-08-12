@@ -149,8 +149,33 @@ MIME type, check the upload's result instead of discarding it). Verified
 re-verified with an actual recording from the iPhone that found the bug**,
 because the fix requires a new production deploy first.
 
-- **Blocked on:** nothing — SB-007 is done, both known bugs are fixed and
-  committed. Next action is deploy + one real iPhone recording to confirm.
+**Deployed 2026-08-12; three further real bugs found, and the pipeline now
+runs end to end on the hosted stack.** In order: (3) the hosted project was
+missing `ELEVENLABS_API_KEY` entirely, so transcription had never once run in
+production; (4) the diagnostic banner added to report these failures read
+`error.context.error.code` off a raw `Response`, so every failure — whatever
+it was — displayed as `internal_error`; (5) a stale session showed the app as
+signed in while every call returned `401`, which sign-out/sign-in cleared. All
+fixed. After that, a real laptop recording ran the full path for the first
+time on hosted: upload → `transcribe` → ElevenLabs `200`, `scribe_v1`, 442 ms,
+`ai_jobs.status = succeeded`.
+
+**The transcript still came back empty — and the cause is not software.** The
+stored audio was pulled from Storage and its container parsed byte by byte: a
+valid 20.34-second WebM/Opus file whose 340 audio frames are all *identical*
+minimum-size frames. That is exact digital silence; Opus is variable-bitrate,
+so speech cannot produce uniform minimum frames. The microphone was delivering
+no signal. Ruled out separately: the same bytes sent to ElevenLabs under both
+`note.m4a` (what `providers.ts` hardcodes) and `note.webm` returned empty
+either way, so the hardcoded filename is not the cause here — though it is
+still wrong, and is listed below.
+
+- **Blocked on:** hardware on the owner's laptop — the microphone input needs
+  fixing before any transcript can be judged. Silence detection (below) now
+  surfaces this immediately instead of producing an empty note.
+- **Also open:** `providers.ts` sends every recording to ElevenLabs as
+  `note.m4a` regardless of its real container. Not the cause of the empty
+  transcripts, but it should carry the true extension.
 - **Do:** deploy the fix, then record → upload → transcribe → enrich on the
   same iPhone, three notes end to end. Then Android — untested in either
   direction so far.
