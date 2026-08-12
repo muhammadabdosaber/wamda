@@ -96,6 +96,13 @@ export function App() {
   // anything between launch and capture is somewhere a thought is lost.
   const [tab, setTab] = useState<Tab>("capture");
   const [authOpen, setAuthOpen] = useState(false);
+  // Lives here, not in Capture: `onSaved` below switches the tab (and
+  // unmounts Capture) the instant a note is durably saved, but sync() -- and
+  // any failure it finds -- resolves after that, asynchronously. A banner
+  // owned by Capture's own state never gets a chance to render; it was
+  // setting state on a component already gone (SB-012 -- this exact gap is
+  // why the first attempt at this diagnostic silently did nothing).
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   const { session, loading } = useSession();
   const t = useMemo(() => createTranslator(language), [language]);
@@ -183,6 +190,22 @@ export function App() {
           </div>
         )}
 
+        {syncError && (
+          // Diagnostic-grade, not polished user copy: the raw error string,
+          // so it can be read straight off the screen and reported. The note
+          // itself is fine -- it's durable locally and will keep retrying;
+          // this is purely "here is what went wrong last time". Rendered
+          // above the tab content specifically so it survives the tab switch
+          // `onSaved` below triggers -- see the state comment above.
+          <p className="error-text capture-error">
+            {t.t("captureSyncErrorPrefix")} {syncError}
+            {" "}
+            <button type="button" className="linkbtn" onClick={() => setSyncError(null)}>
+              {t.t("actionDismiss")}
+            </button>
+          </p>
+        )}
+
         {showAuth ? (
           <Auth
             t={t}
@@ -201,7 +224,12 @@ export function App() {
                 the list is the strongest possible confirmation the save worked;
                 the owner told us the in-place version read as failure. */}
             {tab === "capture" && (
-              <Capture t={t} language={language} onSaved={() => setTab("notes")} />
+              <Capture
+                t={t}
+                language={language}
+                onSaved={() => setTab("notes")}
+                onSyncError={setSyncError}
+              />
             )}
             {tab === "notes" && <Notes t={t} language={language} />}
             {tab === "tasks" && <Tasks t={t} language={language} />}
