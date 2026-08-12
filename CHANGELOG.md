@@ -10,6 +10,28 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the diagnostic banner reported "internal_error" for every failure, real code discarded
+
+After the unmount fix below shipped, a real recording on the deployed PWA
+still failed and the banner just said `internal_error` — no signal in it at
+all. Root cause: `web/src/data/api.ts`'s `invoke()` read
+`error.context.error.code` directly, but `@supabase/supabase-js`'s
+`FunctionsHttpError.context` is the raw, unparsed `Response` object (the
+SDK's own docs read it with `await error.context.json()`). Every real code
+this app's functions ever returned — `rate_limited`, `missing_configuration`,
+`unauthenticated`, anything — collapsed to the same generic `internal_error`.
+`timeline()` (the notes-list fetch) had it worse: hardcoded `"internal_error"`
+unconditionally, never even trying.
+
+Confirmed against a real response, not a mock: called the running local
+`notes` function with no auth header, got a genuine
+`401 {"error":{"code":"unauthenticated"}}`, and replayed both the old and new
+extraction logic against it — old → `internal_error`, new → `unauthenticated`.
+Fixed by reading the body properly (`await context.clone().json()`) in one
+shared `errorCodeFrom()` helper used by both `invoke()` and `timeline()`.
+`npm run verify` passed clean. Does not by itself explain the user's original
+failed recording — it explains why the banner couldn't say what did.
+
 ### Fixed — the diagnostic banner never rendered: it was set on an unmounted component
 
 The banner above was deployed, then re-tested for real: no error shown, the
