@@ -10,6 +10,26 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the diagnostic banner never rendered: it was set on an unmounted component
+
+The banner above was deployed, then re-tested for real: no error shown, the
+app just redirected straight to the notes screen as usual, both in Safari and
+in Chrome on the same iPhone. Root cause: `App.tsx`'s `onSaved` callback
+switches the active tab (unmounting `Capture`) the instant a note is saved
+locally, but `sync()` — and any failure it finds — resolves *after* that,
+asynchronously. The banner's `syncError` state lived on `Capture`, so
+`setSyncError` was firing on a component already gone; nothing was wrong with
+the detection, only with where the result was rendered.
+
+Moved `syncError` up to `App.tsx` (which already owns `tab` and outlives the
+tab switch), rendered above the tab content so it's visible regardless of
+which tab is active. `Capture` now takes an `onSyncError` callback instead of
+owning this state itself. `npm run verify` passed clean; the local stack was
+unavailable (Docker down) so this could not be re-run through a live
+simulation before shipping — confirmed by static verification (typecheck,
+build) and code review, not by execution. **Still not confirmed against a
+real device.**
+
 ### Added — a diagnostic error banner when a voice note's own first sync fails
 
 The iPhone Safari fix below was deployed, then re-tested for real — and the

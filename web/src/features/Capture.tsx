@@ -76,11 +76,19 @@ export function Capture({
   t,
   language,
   onSaved,
+  onSyncError,
 }: {
   t: Translator;
   language: string;
   /** Called once a note has landed durably. Does not wait for the network. */
   onSaved?: () => void;
+  /**
+   * Called if the note just captured fails its own first sync. Owned by the
+   * caller (App.tsx), not local state here: `onSaved` above switches tabs --
+   * unmounting this component -- before `sync()` resolves, so a banner tied
+   * to this component's own state would be set on something already gone.
+   */
+  onSyncError?: (message: string) => void;
 }) {
   const [text, setText] = useState("");
   // Picking the "text" card reveals the composer in place of the idle mark;
@@ -93,8 +101,6 @@ export function Capture({
   const [recording, setRecording] = useState(false);
   const [saving, setSaving] = useState(false);
   const [failed, setFailed] = useState(false);
-  /** Diagnostic, not user-facing copy -- see the comment at the sync() call below. */
-  const [syncError, setSyncError] = useState<string | null>(null);
   const [pending, setPending] = useState(0);
   const [online, setOnline] = useState(navigator.onLine);
 
@@ -178,7 +184,6 @@ export function Capture({
 
       setSaving(true);
       setFailed(false);
-      setSyncError(null);
       let clientId: string;
       try {
         clientId = (await capture({ source: "voice", language, audio: blob })).clientId;
@@ -204,7 +209,7 @@ export function Capture({
       void sync().then(({ failures }) => {
         void refresh();
         const mine = failures.find((f) => f.clientId === clientId);
-        if (mine) setSyncError(mine.message);
+        if (mine) onSyncError?.(mine.message);
       });
       onSaved?.();
     };
@@ -365,20 +370,6 @@ export function Capture({
         </p>
       )}
 
-      {syncError && (
-        // Diagnostic-grade, not polished user copy: the raw error string, so
-        // it can be read straight off the screen and reported. The note
-        // itself is fine -- it's durable locally and will keep retrying;
-        // this is purely "here is what went wrong last time", dismissible
-        // because it says nothing the user needs to act on.
-        <p className="error-text capture-error">
-          {t.t("captureSyncErrorPrefix")} {syncError}
-          {" "}
-          <button type="button" className="linkbtn" onClick={() => setSyncError(null)}>
-            {t.t("actionDismiss")}
-          </button>
-        </p>
-      )}
 
       {pending > 0 && (
         // Quiet, non-alarming. Never a red badge -- a badge turns "your phone
