@@ -81,12 +81,25 @@ export function categoryLabel(t: Translator, identifier: string): string {
   }
 }
 
-export function priorityLabel(t: Translator, identifier: string): string {
+/**
+ * Returns null when there is no priority worth showing — same contract as
+ * `actionLabel` below, and for the same reason.
+ *
+ * `null` (the note stated no urgency, now the common case) and `normal` both
+ * render nothing. Only a priority the user actually expressed earns a chip:
+ * a flag they never asked for is a claim about their week they then have to
+ * mentally correct.
+ */
+export function priorityLabel(t: Translator, identifier: string | null): string | null {
   switch (identifier) {
     case "urgent": return t.t("priorityUrgent");
     case "high": return t.t("priorityHigh");
     case "low": return t.t("priorityLow");
-    default: return t.t("priorityNormal");
+    // `normal` and `null` both fall through to null. Callers used to test for
+    // "normal" themselves, in two places, which is exactly where a third
+    // caller forgets to -- and a null priority would then have rendered as a
+    // "عادي" chip on every note.
+    default: return null;
   }
 }
 

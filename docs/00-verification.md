@@ -1839,6 +1839,106 @@ changed — not just that the push command exited 0.
 
 **Not yet re-verified:** an iPhone recording through the now-corrected bucket.
 
+### SB-012 (cont'd) · Closed — the first fully real recording, end to end
+
+The next recording (from Safari directly, not the installed home-screen app —
+the transcript says so itself) went through the whole pipeline clean, on
+hosted, with a real spoken sentence rather than a silence test:
+
+| stage | result |
+| --- | --- |
+| upload | correct MIME, accepted by the now-fixed bucket |
+| transcribe | real Arabic text, confidence **0.925** |
+| enrich | `category: task`, `priority: normal`, `suggested_action: review_later` |
+| final `notes.status` | `ready` |
+
+Transcript (`raw_text`, queried directly, not read off the UI): *"طيب أنا
+دلوقتي بجرب التسجيل من، آآآ، الصفحة بتاعة الـ web من على الـ browser directly
+من على... من على Safari. عايز أتأكد إذا كانت هتشتغل ولا لأ."* Enrichment
+summary: *"المستخدم يجرب تسجيل الصوت من صفحة الويب مباشرة عبر متصفح Safari
+للتأكد من عمل الميزة بشكل صحيح."* Both pulled via `supabase db query
+--linked` against `notes` and `note_enrichments` — not inferred from a status
+badge in the app.
+
+This closes SB-012. Getting here took six real, independently-discovered bugs
+across two days (bugs #8–12 below, plus the SB-023 grant regression that
+preceded this section) — none reproducible by reading the code, each found
+only by a real device hitting the real hosted stack.
+
+## SB-043 · Enrichment quality: owner review of real classified notes
+
+With real notes finally reaching `ready` (SB-012), the owner reviewed the
+first batch — 12 notes classified for real by Claude — and flagged two
+problems with real data, not a hunch:
+
+- **Priority looked wrong.** 8 of 12 notes carried a priority the owner never
+  signaled. One example: *"مشكلة في صفحة التسجيل الجديدة"* (a bug report from
+  mid-testing) came back `priority: high` — purely because "مشكلة" reads as
+  alarming, not because anything in the note asked for urgency.
+- **The wrong register.** The owner speaks Egyptian Arabic and the notes are
+  captured that way, but summaries came back in Modern Standard Arabic, third
+  person: *"المستخدم يجرب تسجيل الصوت من صفحة الويب..."* instead of the
+  owner's own voice.
+
+**Root causes, both structural:**
+
+1. `note_enrichments.priority` was `NOT NULL`, and the JSON Schema's
+   `required` list mirrored that — the model had no way to say "this note
+   expressed no urgency". Forced to answer, it inferred urgency from the
+   subject matter of the note instead of from anything the user actually said.
+2. The system prompt hardcoded `Write ALL free text ... in Modern Standard
+   Arabic (العربية الفصحى)` — the note's actual dialect was never read as a
+   signal, and the prompt never told the model to write as the user rather
+   than about them.
+
+**Fixed:**
+
+- `priority` made nullable: schema (new migration,
+  `20260813000200_enrichment_priority_optional.sql`), JSON Schema (`anyOf`
+  with `null`), the prompt (an explicit table naming `null` as the labeled
+  default, with a worked example showing "a problem is described" ≠
+  "urgency was stated"), and the client (`priorityLabel` now returns `null`
+  for both `null` and `normal`, so neither renders a chip — the same contract
+  `actionLabel` already used for `"none"`).
+- Prompt rewritten to match the note's own dialect and register, and to write
+  in the user's own first-person voice rather than reporting on them in the
+  third person. The same instruction was applied to the digest prompt
+  (`digest/index.ts`), which had the identical فصحى hardcoding and had never
+  actually run yet (`weekly_digests` has zero rows — the owner had only ever
+  seen the empty-state placeholder text, not a real review).
+- Found while re-testing, unrelated to the above: `ScribeASR.transcribe`
+  never sent `tag_audio_events`, so ElevenLabs writes audio events directly
+  into `text` — one stored note's `raw_text` literally began `"[يسعل] طيب
+  دي صفحة..."`. Fixed with `tag_audio_events: false`. Confirmed against the
+  exact recording that produced it: same audio, parameter omitted → `"[يسعل]
+  طيب دي صفحة..."`; parameter `false` → `"طيب دي صفحة..."`, clean.
+- `PROMPT_VERSION` bumped `2026-08-01.1` → `2026-08-13.1`. This is why: the
+  `(note_id, language, prompt_version)` key means the old enrichments are
+  preserved, not silently overwritten, so v1 and v2 output can still be
+  diffed on the same real notes later if needed.
+
+**Verified against the real Anthropic API, with the real shipped module
+imported directly** (not a copy, not a mock) — four cases run through
+`systemPrompt("ar")` exactly as `pipeline.ts` calls it:
+
+| case | before | after |
+| --- | --- | --- |
+| "مشكلة في صفحة التسجيل الجديدة..." | `priority: high` | `priority: null` |
+| Safari test recording, summary | 3rd person, MSA | *"بجرب التسجيل من صفحة الـ web من على Safari مباشرة، عايز أتأكد إذا كانت هتشتغل ولا لأ"* — 1st person, Egyptian |
+| "...النهاردة ضروري قبل ما يقفل" | (untested) | `priority: urgent`, `action_due_at` resolved to today 20:00 `Asia/Dubai` |
+| "بكرة الساعة 9 الصبح..." | (untested) | `action_due_at: 2026-08-14T05:00:00Z` = 9:00 AM Dubai, the correct following day |
+
+The third case matters as much as the first two: the fix removes a false
+positive, it does not disable the feature. A note that genuinely states
+urgency still gets flagged.
+
+**Not done:** the 12 pre-existing notes were left as they are, by owner
+decision — judged going forward on new notes only, not backfilled. Also
+unresolved, not part of this change: a note stating two separate times (the
+gym-then-book note, "الساعة 5... وبعد كده... الساعة 6") keeps only the first
+in `action_due_at` — the schema has one due-date field, so this is a schema
+gap, not a prompt bug.
+
 ## Twelve real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

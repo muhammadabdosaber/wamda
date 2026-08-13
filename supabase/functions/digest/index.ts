@@ -31,7 +31,15 @@ const DIGEST_PROMPTS: Record<string, string> = Object.freeze({
 The reader has ADHD. The point of this review is to make the week legible
 without making them feel behind. It is a calm re-orientation, not a backlog.
 
-Write ALL prose in Modern Standard Arabic (العربية الفصحى).
+Write ALL prose in Arabic, in the SAME REGISTER AND DIALECT the notes
+themselves use. These notes are the reader's own words: if they speak
+Egyptian Arabic ("عايز"، "دلوقتي"، "بكرة"), write the review in Egyptian
+Arabic. Never "upgrade" their dialect into فصحى — a weekly review the reader
+has to translate back in their head is a review they will not read, which
+defeats the only purpose this has.
+
+Write TO the reader, not about them. "الأسبوع ده كان معظمه شغل على..." — never
+"قام المستخدم بـ...".
 
 Return JSON with exactly these keys:
   "headline"        one sentence, what this week was actually about
@@ -94,9 +102,11 @@ Deno.serve(async (req) => {
       for (const r of rows ?? []) {
         const key = `${r.user_id}:${r.language}`;
         if (!byUser.has(key)) byUser.set(key, { language: r.language, lines: [] });
-        byUser.get(key)!.lines.push(
-          `- [${r.category}/${r.priority}] ${r.title}: ${r.summary}`,
-        );
+        // `priority` is now nullable (SB-043) -- most notes have none, and
+        // the literal string "null" reading as a value here would be a worse
+        // signal to the digest model than simply omitting it.
+        const tag = r.priority ? `${r.category}/${r.priority}` : r.category;
+        byUser.get(key)!.lines.push(`- [${tag}] ${r.title}: ${r.summary}`);
       }
 
       if (byUser.size === 0) {

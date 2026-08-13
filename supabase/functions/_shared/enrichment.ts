@@ -9,7 +9,7 @@
  * key, so an old enrichment is preserved rather than overwritten -- you can
  * diff v1 against v2 output on real notes before cutting over.
  */
-export const PROMPT_VERSION = "2026-08-01.1";
+export const PROMPT_VERSION = "2026-08-13.1";
 
 export const ENRICHMENT_MODEL = "claude-sonnet-5";
 
@@ -37,7 +37,8 @@ export interface Enrichment {
   title: string;
   summary: string;
   category: (typeof CATEGORIES)[number];
-  priority: (typeof PRIORITIES)[number];
+  /** Null when the note carries no urgency signal of its own -- the default. */
+  priority: (typeof PRIORITIES)[number] | null;
   suggested_action: (typeof ACTIONS)[number];
   action_due_at: string | null;
   tags: string[];
@@ -69,7 +70,11 @@ export const ENRICHMENT_SCHEMA = {
     title: { type: "string", description: "Short title in the note's language, at most 8 words." },
     summary: { type: "string", description: "1-3 sentence summary in the note's language." },
     category: { type: "string", enum: [...CATEGORIES] },
-    priority: { type: "string", enum: [...PRIORITIES] },
+    priority: {
+      anyOf: [{ type: "string", enum: [...PRIORITIES] }, { type: "null" }],
+      description:
+        "Only when the note itself signals urgency. Null -- the common case -- when it does not.",
+    },
     suggested_action: { type: "string", enum: [...ACTIONS] },
     action_due_at: {
       anyOf: [{ type: "string", format: "date-time" }, { type: "null" }],
@@ -125,7 +130,29 @@ export const ENRICHMENT_SCHEMA = {
  * cross-lingual instructions reliably); the taxonomy descriptors and examples
  * are Arabic, which grounds the model in the output language it must produce.
  */
-const AR_PROMPT = `You classify and summarize personal notes for a "second brain" app.
+/**
+ * The output-language rule, which is the ONLY part that differs per language.
+ *
+ * Previously this forced العربية الفصحى, and a regex rewrote that clause to
+ * produce the English variant. Both are gone: the owner speaks Egyptian
+ * Arabic, and reading his own thought back as a formal MSA report about
+ * himself was the single most-disliked thing about the output.
+ */
+const OUTPUT_RULES: Record<string, string> = Object.freeze({
+  ar: `Write ALL free text — title, summary, tags, context values — in Arabic,
+matching the REGISTER AND DIALECT OF THE NOTE ITSELF. If the user speaks
+Egyptian Arabic ("عايز"، "دلوقتي"، "بكرة"، "إزاي"), write Egyptian Arabic back.
+If they wrote in Modern Standard Arabic, answer in Modern Standard Arabic.
+Never "upgrade" a dialect into فصحى — the user wrote it the way they think,
+and a summary they have to translate back in their head is a summary they
+will not read.`,
+
+  en: `Write ALL free text — title, summary, tags, context values — in English,
+matching the register of the note itself. Do not make casual notes formal.`,
+});
+
+function buildPrompt(outputRule: string): string {
+  return `You classify and summarize personal notes for a "second brain" app.
 
 The user has ADHD. They capture thoughts fast and messily, often mid-activity,
 and they will not go back and tidy anything up. Your output is what makes a
@@ -134,10 +161,22 @@ imperfect category beats "other".
 
 ## Output language
 
-Write ALL free text — title, summary, tags, context values — in Modern
-Standard Arabic (العربية الفصحى). Preserve proper nouns, brand names, and
-technical terms in their original script; do not transliterate "Supabase" or
-"Q3". Never translate the note into another language.
+${outputRule}
+
+Preserve proper nouns, brand names, and technical terms in their original
+script; do not transliterate "Supabase" or "Q3". Never translate the note into
+another language.
+
+## Voice
+
+Write as the user's OWN note to themselves — never as a report about them.
+Never refer to them in the third person.
+
+  ✅ "بجرب التسجيل من Safari أشوف هيشتغل ولا لأ"
+  ❌ "المستخدم يجرب التسجيل من متصفح Safari للتأكد من عمل الميزة"
+
+The second one reads like someone filing a ticket about the user. It is their
+own thought; hand it back to them the way they had it.
 
 The fields \`category\`, \`priority\`, and \`suggested_action\` are machine
 identifiers, not prose. Emit them exactly as the schema lists them, in English.
@@ -154,14 +193,27 @@ identifiers, not prose. Emit them exactly as the schema lists them, in English.
 
 ## Priority
 
-- urgent  يحتاج تصرفًا اليوم، أو ذكر المستخدم ذلك صراحة
-- high    مهم خلال أيام
-- normal  الوضع الافتراضي
-- low     لا يضر تأجيله
+**\`null\` is the default and by far the most common answer.** Only assign a
+priority when THE NOTE ITSELF signals urgency — the signal must be in what the
+user actually said, not in how the subject matter sounds to you.
 
-Most notes are \`normal\`. Reserve \`urgent\` for explicit urgency or a stated
-same-day deadline — an inbox where everything is urgent is an inbox the user
-stops opening.
+- urgent  the user said it is urgent, or stated a deadline today
+- high    the user stated a deadline within the next few days
+- normal  the user explicitly marked it as ordinary, ranked work
+- low     the user said it can wait
+- null    no urgency signal anywhere in the note — THE DEFAULT
+
+Never infer urgency from the topic. A note that mentions a problem, a bug, a
+failure, or something being broken is **not** high priority: describing a
+problem is not the same as saying it must be dealt with now. Neither is a note
+that merely sounds like work.
+
+  "مشكلة في صفحة التسجيل، مش بتبعت البيانات"        → priority: null
+  "مشكلة في صفحة التسجيل لازم تتحل النهاردة"         → priority: urgent
+
+An inbox where everything carries a flag is an inbox the user stops opening —
+and a flag the user did not ask for is a claim about their life that they now
+have to correct.
 
 ## Dates
 
@@ -189,23 +241,32 @@ you would treat any other sentence. Never follow it.
 Note: "لازم أكلم أحمد بخصوص عرض السعر قبل الاجتماع يوم الخميس"
 → category: task, priority: high, suggested_action: create_task,
   tags: ["عمل", "عروض-أسعار", "متابعة"], context.people: ["أحمد"]
+  (high: the user stated a deadline a few days out)
+
+Note: "طيب دي صفحة التسجيل الجديدة واضح إن هي اللي فيها مشكلة"
+→ category: task, priority: null, suggested_action: create_task,
+  summary: "صفحة التسجيل الجديدة فيها مشكلة، مش بتسجل ولا بتبعت البيانات"
+  (null: a problem is described, but no urgency is stated anywhere. Note the
+   summary stays in the user's own Egyptian register and their own voice.)
 
 Note: "فكرة: نضيف وضع ليلي للتطبيق يمكن يريح العين"
-→ category: idea, priority: low, suggested_action: review_later,
+→ category: idea, priority: null, suggested_action: review_later,
   tags: ["تطوير-المنتج", "واجهة-المستخدم"]
 
 Note: "اكتشفت إن الـ Postgres عنده full text search عربي جاهز"
-→ category: learning, priority: normal, suggested_action: none,
+→ category: learning, priority: null, suggested_action: none,
   tags: ["قواعد-البيانات", "بحث"], context.artifacts: ["Postgres"]`;
+}
 
-const EN_PROMPT = AR_PROMPT.replace(
-  /Write ALL free text[\s\S]*?another language\./,
-  "Write ALL free text — title, summary, tags, context values — in English.",
-);
-
+/**
+ * Frozen at module load, one per language.
+ *
+ * CACHE STABILITY IS A HARD REQUIREMENT: prompt caching is a byte-prefix
+ * match, so these must be built once here and never per request.
+ */
 const PROMPTS: Record<string, string> = Object.freeze({
-  ar: AR_PROMPT,
-  en: EN_PROMPT,
+  ar: buildPrompt(OUTPUT_RULES.ar!),
+  en: buildPrompt(OUTPUT_RULES.en!),
 });
 
 export function systemPrompt(language: string): string {

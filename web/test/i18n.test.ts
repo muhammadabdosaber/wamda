@@ -93,7 +93,21 @@ describe("enum identifier -> label", () => {
   // shipped. An old client must degrade, not render `undefined`.
   it("degrades gracefully on an unknown identifier", () => {
     expect(categoryLabel(t, "quantum_todo")).toBe(ar.categoryOther);
-    expect(priorityLabel(t, "whenever")).toBe(ar.priorityNormal);
+    // Category falls back to a real label because every note HAS one. Priority
+    // does not: it degrades to "show no chip", which is the safe direction --
+    // inventing "عاجل" for an identifier this client cannot read would be a
+    // claim about the user's week that they then have to correct.
+    expect(priorityLabel(t, "whenever")).toBeNull();
+  });
+
+  // `null` is now the ordinary answer, not an edge case: a note that never
+  // said anything about urgency does not get a priority at all. It must render
+  // as no chip -- when this returned `ar.priorityNormal` by default, a null
+  // priority displayed a "عادي" chip on every single note.
+  it("returns null for an unset priority so no chip renders", () => {
+    expect(priorityLabel(t, null)).toBeNull();
+    expect(priorityLabel(t, "normal")).toBeNull();
+    expect(priorityLabel(t, "urgent")).toBe(ar.priorityUrgent);
   });
 
   it("returns null for the 'none' action so no chip renders", () => {
