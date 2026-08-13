@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 
-import { categoryLabel, type Translator } from "../i18n";
+import { categoryLabel, errorLabel, type Translator } from "../i18n";
 import { directionOfContent } from "../core/language";
-import { search } from "../data/api";
+import { ApiError, search } from "../data/api";
 
 interface Hit {
   note_id: string;
@@ -16,11 +16,15 @@ export function Search({ t, language }: { t: Translator; language: string }) {
   const [query, setQuery] = useState("");
   const [hits, setHits] = useState<Hit[] | null>(null);
   const [busy, setBusy] = useState(false);
+  // Distinct from "zero hits": a request that never reached the server (or
+  // failed there) must not read to the user as "you have no matching notes".
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
     if (!trimmed) {
       setHits(null);
+      setError(null);
       return;
     }
 
@@ -28,9 +32,14 @@ export function Search({ t, language }: { t: Translator; language: string }) {
     // firing per keystroke would bill an API request per character typed.
     const timer = setTimeout(() => {
       setBusy(true);
+      setError(null);
       search(trimmed, language)
         .then((r) => setHits(r as unknown as Hit[]))
-        .catch(() => setHits([]))
+        .catch((err) => {
+          console.error("search_failed", err instanceof Error ? err.message : err);
+          setHits([]);
+          setError(err instanceof ApiError ? err.code : "internal_error");
+        })
         .finally(() => setBusy(false));
     }, 350);
 
@@ -53,7 +62,8 @@ export function Search({ t, language }: { t: Translator; language: string }) {
           and its answers is more disruptive than the wait it describes. */}
       {busy && <p className="muted">{t.t("loading")}</p>}
 
-      {hits?.length === 0 && !busy && <p className="center">{t.t("searchNoResults")}</p>}
+      {error && !busy && <p className="center">{errorLabel(t, error)}</p>}
+      {hits?.length === 0 && !busy && !error && <p className="center">{t.t("searchNoResults")}</p>}
 
       {hits?.map((hit) => (
         <div key={hit.note_id} className="card" dir={directionOfContent(hit.language)}>

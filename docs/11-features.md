@@ -65,10 +65,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 3.2 | Generated `search_vector`, `arabic` tsconfig | ✅ | migration `…000200` |
 | 3.3 | Lexical search across spelling variants | ✅ | `verify.sql` |
 | 3.4 | Unenriched notes still findable | ✅ | `verify.sql` |
-| 3.5 | Semantic (vector) search arm | ⬜ never run — no embeddings | `functions/search` |
-| 3.6 | RRF hybrid fusion of both arms | ⬜ lexical arm only, `p_embedding => null` | migration `…000500` |
-| 3.7 | Related notes via nearest neighbour (0.78 threshold) | ⬜ `relate_note()` has never produced a row | migration `…000500` |
-| 3.8 | Cross-lingual retrieval (AR query → EN note) | ⬜ **the load-bearing phase-2 assumption** | untested |
+| 3.5 | Semantic (vector) search arm | ✅ `COHERE_API_KEY` supplied 2026-08-13 (SB-045); all 14 `ready` notes carry a real 1024-dim embedding, confirmed via `sweep`'s own report, not by reading the code | `functions/search` |
+| 3.6 | RRF hybrid fusion of both arms | 🟡 both arms now have real data to fuse; the fused *response* itself was not independently re-verified through a live user search (needs real auth, see SB-045) | migration `…000500` |
+| 3.7 | Related notes via nearest neighbour (0.78 threshold) | 🟡 `relate_note()` was invoked for all 14 backfilled notes; whether any pair cleared the 0.78 threshold and produced a row is unconfirmed — no client surface reads `note_relations` yet | migration `…000500` |
+| 3.8 | Cross-lingual retrieval (AR query → EN note) | ⬜ **the load-bearing phase-2 assumption** — SB-006, still untested | untested |
 | 3.9 | Fusion weights / threshold tuned on a real corpus | ❌ needs ~100 notes | — |
 
 ## 4. Client / UX
@@ -156,9 +156,9 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 45 |
-| 🟡 partial | 6 |
-| ⬜ built, unrun | 18 |
+| ✅ working | 46 |
+| 🟡 partial | 8 |
+| ⬜ built, unrun | 15 |
 | ❌ not built | 20 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API

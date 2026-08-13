@@ -59,13 +59,14 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed");
 
     const admin = serviceClient();
+    const body = await req.json().catch(() => ({}));
 
     const unstuck = await unstickStale(admin);
     const retried = await retryQueued(admin);
-    const embedded = await backfillEmbeddings(admin);
+    const { count: embedded, debug } = await backfillEmbeddings(admin, body.forceEmbedBackfill === true);
     const audioPurged = await enforceAudioRetention(admin);
 
-    return json({ unstuck, retried, embedded, audio_purged: audioPurged });
+    return json({ unstuck, retried, embedded, audio_purged: audioPurged, debug });
   } catch (err) {
     return errorResponse(err);
   }
@@ -182,15 +183,29 @@ async function retryQueued(admin: SupabaseClient): Promise<number> {
   return processed;
 }
 
-/** `ready` notes whose embedding stage degraded: re-embed and re-run relation detection. */
-async function backfillEmbeddings(admin: SupabaseClient): Promise<number> {
+/**
+ * `ready` notes whose embedding stage degraded: re-embed and re-run relation detection.
+ *
+ * `force` bypasses the per-note attempt cap below. It exists for exactly the
+ * scenario `MAX_ATTEMPTS` itself is meant to survive -- a vendor key missing
+ * for days, not a single bad note -- where every affected note hits the cap
+ * at the same time and, once the real key is added, would otherwise never
+ * retry again on any regular cron tick. Not sent by the cron trigger itself.
+ */
+async function backfillEmbeddings(
+  admin: SupabaseClient,
+  force = false,
+): Promise<{ count: number; debug?: unknown }> {
   const { data: rows, error } = await admin.rpc("notes_missing_embeddings", { p_limit: BATCH_SIZE });
 
   if (error) {
     console.error("sweep_embed_query_failed", error.message);
-    return 0;
+    return { count: 0, debug: { stage: "rpc", error: error.message } };
   }
-  if (!rows?.length) return 0;
+  if (!rows?.length) return { count: 0, debug: { stage: "no_rows_found" } };
+
+  const failures: unknown[] = [];
+  const skipped: unknown[] = [];
 
   const embedder = embeddingProvider();
   let embedded = 0;
@@ -199,7 +214,10 @@ async function backfillEmbeddings(admin: SupabaseClient): Promise<number> {
     { note_id: string; user_id: string; language: string; title: string; summary: string; raw_text: string | null }
   >) {
     const attempts = await failedAttempts(admin, row.note_id, "embed");
-    if (attempts >= MAX_ATTEMPTS) continue;
+    if (attempts >= MAX_ATTEMPTS && !force) {
+      skipped.push({ note_id: row.note_id, attempts });
+      continue;
+    }
 
     try {
       const content = `${row.title}\n${row.summary}\n\n${row.raw_text ?? ""}`;
@@ -239,10 +257,9 @@ async function backfillEmbeddings(admin: SupabaseClient): Promise<number> {
 
       embedded += 1;
     } catch (e) {
-      console.warn("sweep_embed_failed", {
-        note_id: row.note_id,
-        error: e instanceof HttpError ? e.code : String(e),
-      });
+      const errInfo = { note_id: row.note_id, error: e instanceof HttpError ? e.code : String(e) };
+      console.warn("sweep_embed_failed", errInfo);
+      failures.push(errInfo);
       await recordJob(
         admin,
         {
@@ -257,7 +274,7 @@ async function backfillEmbeddings(admin: SupabaseClient): Promise<number> {
     }
   }
 
-  return embedded;
+  return { count: embedded, debug: { candidates: rows.length, failures, skipped } };
 }
 
 /** Notes whose audio has outlived their owner's `audio_retention_days` (SB-009). */

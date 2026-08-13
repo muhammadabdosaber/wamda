@@ -1975,6 +1975,76 @@ of the Tasks and Notes screens:
 Both the newly-correct urgent case and the deliberately-untouched old `high`
 note behaved exactly as the two prior fixes (SB-043 and this one) predict.
 
+## SB-045 · Search always returned "no results" — until it was three bugs, not one
+
+Owner report: searching the *literal text* of an existing note — "مراجعة UAT
+Documents الساعة 10 بكرة" — returned "لا توجد نتائج". In the same message,
+the owner supplied a real `COHERE_API_KEY` for the first time. The two turned
+out to be one investigation, and it took three separate confirmations, each
+only visible after fixing the one before it.
+
+**Bug 1 — hybrid mode required an embedding no key could produce.**
+`functions/search` defaults to `mode: "hybrid"`, and hybrid always calls
+`embeddingProvider().embed(query, "query")` before it ever reaches the
+lexical arm or the RPC. `supabase secrets list --project-ref
+hfjpotjbrrnghuqhxoux` confirmed no `COHERE_API_KEY` had ever been set on
+hosted — so `requireEnv("COHERE_API_KEY")` threw on *every* search, lexical
+matches included, because the throw happened before lexical ever got a
+chance to run.
+
+**Bug 2 — the client turned every error into "no results".**
+`web/src/features/Search.tsx` had `.catch(() => setHits([]))`: whatever the
+server said, right or wrong, rendered as an empty state indistinguishable
+from a genuine zero-match search. No console line, no code, nothing to
+diagnose from — the same swallowed-error shape as bugs #8, #9, and #10
+below, this time client-side. Fixed by keeping the real `ApiError` code and
+rendering it through the existing `errorLabel()` catalogue, the same
+contract `Notes.tsx`'s `unreachable` state already used.
+
+**Bug 3 — the key alone did not fix it, and this one only appeared after
+setting the key.** Calling `sweep` right after adding the secret returned
+`{"embedded":0,"debug":{"candidates":14,"skipped":[...14 notes, each
+"attempts":5]}}`. Every one of the 12 pre-existing notes (plus 2 more
+enriched since) had already hit `MAX_ATTEMPTS` while `COHERE_API_KEY` was
+missing — the sweep's own retry cap, designed for exactly "a vendor key left
+as a placeholder" per its own comment, now stood between the fixed key and
+the notes it should have unblocked. An optional stage is supposed to degrade
+a note, never fail it (ADR-0007) — but degrading *permanently*, past the
+point the real blocker is gone, breaks that promise just as thoroughly as
+failing it would.
+
+**Verified in this order, each one for real before moving to the next:**
+
+1. `supabase secrets list` — confirmed the key was genuinely absent, not a
+   guess.
+2. The real Cohere key, called directly with the exact request shape
+   `providers.ts` sends (`POST v1/embed`, `model: embed-multilingual-v3.0`,
+   `input_type: search_query`) — returned a real 1024-dim vector. Proved the
+   key itself works, independent of whether the platform had picked it up.
+3. `supabase secrets set COHERE_API_KEY=...` on hosted, then `POST
+   /functions/v1/sweep {}` — `embedded: 0`, but now with a real 14-candidate,
+   14-skipped debug payload instead of a silent zero. This is what surfaced
+   bug 3 — before this call, "the key fixes it" looked true.
+4. Added a `forceEmbedBackfill` flag to `sweep` (bypasses `MAX_ATTEMPTS` in
+   the embedding path only, never sent by the cron trigger), deployed, then
+   `POST /functions/v1/sweep {"forceEmbedBackfill":true}` →
+   `{"embedded":14,"debug":{"failures":[]}}`. Every one of the 14 real,
+   pre-existing notes now has a real embedding, from a real Cohere call.
+5. `POST /functions/v1/sweep {}` again, unforced — `{"embedded":0,"debug":
+   {"stage":"no_rows_found"}}`. Steady state: nothing left to backfill, and
+   the routine per-note retry cap is back in effect for whatever comes next.
+6. `web`: typecheck, RTL guard, 23 tests, build — all pass with the
+   `Search.tsx` fix.
+
+**Not verified, and said so rather than assumed:** the actual search round
+trip through the real, signed-in app — does typing that query now return the
+UAT Documents note. Every layer under it is proven for real (the key works,
+the embeddings exist, the RPC and client code are unchanged from their
+last-known-good state), but I have no owner session to complete the last
+hop with. Consistent with this project's own rule: that final confirmation
+is the owner's to make, the same way every voice-capture bug here was only
+closed by a real recording, not a passing test.
+
 ## Thirteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
@@ -2098,20 +2168,22 @@ re-reading the code.
 
 ### Anything requiring a vendor API key
 
-No `ANTHROPIC_API_KEY` or `COHERE_API_KEY` was available, so these never
-executed against a real service. (`ELEVENLABS_API_KEY` was added 2026-08-11 —
-see SB-007 below; it is no longer in this list.)
+`ANTHROPIC_API_KEY` and `ELEVENLABS_API_KEY` were added earlier (see SB-007);
+`COHERE_API_KEY` was added 2026-08-13 — see "SB-045" above. All three vendor
+keys now exist on hosted.
 
-- **Embeddings and semantic search.** `COHERE_API_KEY` was never supplied, so
-  the semantic arm has never run. Search was exercised lexically only, with
-  `p_embedding => null`, and `note_embeddings` is empty. Cross-lingual
-  retrieval — the phase-2 claim that an Arabic query finds an English note —
-  therefore remains entirely untested.
-- **Relation detection.** `relate_note()` needs an embedding, so it has never
-  produced a row either.
+- ~~**Embeddings and semantic search.**~~ **Superseded 2026-08-13.**
+  `COHERE_API_KEY` is now set, and `sweep`'s forced backfill embedded all 14
+  `ready` notes for real (`embedded: 14, failures: []`), each a genuine
+  Cohere API call. Still open: the fused search *response* itself, through a
+  real signed-in search, has not been independently observed by me — see
+  SB-045's "not verified" note. `relate_note()` was invoked for all 14 notes
+  as part of the same backfill; whether it produced any `note_relations` row
+  is unconfirmed, since nothing reads that table yet.
 - **Weekly digest.** Batch submission and collection never executed.
 - **Cross-lingual retrieval.** The phase-2 claim that an Arabic query finds an
-  English note is a property of the chosen model, untested here.
+  English note is a property of the chosen model, untested here — SB-006,
+  still open, needs a deliberate two-note test now that embeddings exist.
 
 ### Client-side gaps
 

@@ -10,6 +10,36 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — search always said "no results", for three stacked reasons
+
+Owner report, arriving with a real `COHERE_API_KEY`: searching the exact text
+of an existing note returned nothing. It took three separate bugs, each
+hidden by the one before it, to actually fix.
+
+`functions/search` defaults to hybrid mode, which embeds the query before
+touching the lexical arm — with no Cohere key ever set on hosted, that throw
+happened before a lexical match had any chance to run, on every search, ever.
+Compounding it, `Search.tsx` had `.catch(() => setHits([]))`: any error, for
+any reason, rendered as a plain empty state, no console line, indistinguishable
+from a real zero-match search. Fixed by surfacing the real `ApiError` code
+through the existing `errorLabel()` catalogue — the same contract `Notes.tsx`
+already uses for its own unreachable-server state.
+
+Setting the key did not finish the job either: all 14 `ready` notes had
+already exhausted `sweep`'s `MAX_ATTEMPTS` retry cap while the key was
+missing, so the fixed key alone would never have retried them on any future
+cron tick. Added a narrow `forceEmbedBackfill` flag to `sweep` — bypasses the
+cap in the embedding-backfill path only, never sent by the cron trigger — ran
+it once, and confirmed `embedded: 14, failures: []`, then confirmed a normal
+unforced run afterward reports zero remaining candidates.
+
+Verified at every layer that could be verified without an owner's own
+session: the Cohere key itself (direct API call, real vector back), the
+secret's presence on hosted, the backfill's real embedded count, and the web
+build (typecheck, RTL guard, 23 tests). **Not verified:** the actual search
+returning results inside the real signed-in app — no owner session was
+available to complete that last hop. See `docs/00-verification.md` "SB-045".
+
 ### Fixed — the priority rail on Tasks could never show a color, for any priority
 
 Owner review, before the enrichment fix below shipped: no task ever showed a
