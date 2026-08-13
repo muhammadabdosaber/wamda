@@ -888,15 +888,20 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* A priority rail pinned to the row's leading edge. `normal` renders it
-   transparent -- no rail at all -- because most tasks are normal and a bar on
-   every row is the visual noise this product removes. */
+/* A priority rail pinned to the row's leading edge. No modifier class (the
+   `normal`/null case, most rows) means no `background` at all here -- a
+   plain <span> paints nothing by default, which is the "no rail" state.
+   IMPORTANT: this rule must set no `background` of its own. `.task-row .rail`
+   is two classes (specificity 0,2,0) and beats a one-class `.rail-urgent`
+   (0,1,0) regardless of source order -- an explicit `background: transparent`
+   here silently wins over every modifier below and the rail can never show
+   a color for any priority. Caught 2026-08-13 with a computed-style check in
+   a real browser, not by reading the rule. */
 .task-row .rail {
   position: absolute;
   inset-inline-start: 0;
   inset-block: 0;
   inline-size: 4px;
-  background: transparent;
   border-start-start-radius: var(--radius);
   border-end-start-radius: var(--radius);
 }

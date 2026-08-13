@@ -10,6 +10,22 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the priority rail on Tasks could never show a color, for any priority
+
+Owner review, before the enrichment fix below shipped: no task ever showed a
+colored indicator regardless of priority. Root cause is CSS specificity, not
+logic: `.task-row .rail { background: transparent; }` is two classes
+(specificity 0,2,0) and beats a one-class modifier like `.rail-urgent`
+(0,1,0) **regardless of source order** — so the transparent background always
+won, silently, for every priority level. Confirmed with a computed-style
+check in a real browser (`getComputedStyle(rail).backgroundColor` ===
+`rgba(0,0,0,0)` even with `class="rail rail-urgent"` applied), not by reading
+the rule and assuming. Fixed by removing the competing `background` entirely
+from the base `.rail` rule — a plain `<span>` paints nothing by default,
+which was always the intended "no rail" state for `normal`/no-priority rows.
+Re-verified the same way post-fix: `urgent` → `rgb(186,26,26)`, `high` →
+`rgb(148,163,184)`, `low` → `rgb(203,213,225)`, `normal` → still transparent.
+
 ### Fixed — enrichment invented priority, and answered in the wrong dialect
 
 Owner review of the first batch of really-classified notes (SB-012) found two
