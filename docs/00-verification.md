@@ -1975,7 +1975,7 @@ of the Tasks and Notes screens:
 Both the newly-correct urgent case and the deliberately-untouched old `high`
 note behaved exactly as the two prior fixes (SB-043 and this one) predict.
 
-## SB-045 · Search always returned "no results" — until it was three bugs, not one
+## SB-045 · Search always returned "no results" — then "too many" — four bugs, not one
 
 Owner report: searching the *literal text* of an existing note — "مراجعة UAT
 Documents الساعة 10 بكرة" — returned "لا توجد نتائج". In the same message,
@@ -2036,14 +2036,65 @@ failing it would.
 6. `web`: typecheck, RTL guard, 23 tests, build — all pass with the
    `Search.tsx` fix.
 
-**Not verified, and said so rather than assumed:** the actual search round
-trip through the real, signed-in app — does typing that query now return the
-UAT Documents note. Every layer under it is proven for real (the key works,
-the embeddings exist, the RPC and client code are unchanged from their
-last-known-good state), but I have no owner session to complete the last
-hop with. Consistent with this project's own rule: that final confirmation
-is the owner's to make, the same way every voice-capture bug here was only
-closed by a real recording, not a passing test.
+**The owner completed the last hop** — the round trip I had no session to
+test myself. Result: search worked, and it surfaced a fourth bug in the same
+message, in the owner's own words: "جمع لي تقريبا كل الملاحظات" (gathered
+almost every one of my notes).
+
+**Bug 4 — the semantic arm had no relevance floor.** `search_notes`'s
+semantic CTE ranked every note with an embedding by cosine distance and
+excluded none of them. With a 14-20 note corpus, "top `candidates` (200)"
+is not a filter at all — the whole corpus qualifies, rides RRF fusion, and
+shows up in results for any query regardless of actual relevance. This is
+the same shape as bug 3 above: a limit written for a scale (a large corpus)
+the project has not reached yet, silently doing nothing at the scale it
+actually runs at today.
+
+First attempt reused `relate_note()`'s cutoff (similarity ≥ 0.78, i.e.
+distance ≤ 0.22) — caught as WRONG before shipping, by testing it, not by
+re-reading it harder. `relate_note()` compares two `search_document`-type
+embeddings (Cohere embeds those symmetrically); search compares a
+`search_query`-type embedding against `search_document`-type ones — a
+different, asymmetric vector space the same model was trained for, with no
+reason to assume the same number applies. Measured the real distribution
+directly instead: 6 real notes, 3 real queries, real
+`embed-multilingual-v3.0` calls via `POST v1/embed`. Result: the CORRECT top
+match for each query scored similarity 0.41-0.53; the LEAST-relevant note
+for that same query still scored 0.34-0.46. Short, single-sentence Arabic
+notes compress into a narrow band for this model — no clean gap exists to
+cut at. Landed on distance ≤ 0.6 (similarity ≥ 0.40): a measured, permissive
+floor, honestly documented as imprecise, not a tuned one.
+Migration `20260813000300_search_semantic_threshold.sql`.
+
+Verified against a fresh 3-note corpus, built and searched through a real
+signed-in local session (water leak / sales report / birthday gift):
+query "مشكلة سباكة في البيت" (a plumbing problem, sharing no words with the
+water-leak note's text) returned 2 of 3 — the water-leak note and, more
+marginally, the birthday note — correctly excluding the unrelated sales
+report. Real improvement, not perfect precision; see 11-features.md 3.9 for
+the honest gap.
+
+**Three more gaps from the same owner report, all UX rather than data
+bugs:**
+
+- **No result count.** `Search.tsx` now shows `t.plural("searchResultCount",
+  hits.length)` beside the input — new plural key, same six-CLDR-category
+  shape as `taskCount`.
+- **The search box scrolled away with long result lists.** `.search-input`
+  is now `position: sticky; inset-block-start: 0` inside `.main`. Verified
+  with `getBoundingClientRect()` before and after a programmatic
+  `main.scrollTop = 300`: `top` was identical both times — it did not move
+  while `main.scrollTop` visibly did.
+- **Clicking a result did nothing.** No note-detail wiring existed in
+  `Search.tsx` at all. Wired it to the same `NoteDetail` component
+  `Notes.tsx` already uses. `NoteDetail`'s `enrichment` prop was typed as
+  the full `Enrichment` (`suggested_action`, `action_due_at` required) but
+  the component only ever reads `title`/`summary`/`category` — narrowed the
+  prop type to `Pick<Enrichment, "title" | "summary" | "category">` so a
+  search hit (whose RPC does not return those other two fields) can open the
+  same sheet without inventing fake values for fields nothing displays.
+  Verified live: clicking a result opened the real detail sheet, correct
+  title/summary/category/date, correct raw text.
 
 ## Thirteen real bugs this caught
 

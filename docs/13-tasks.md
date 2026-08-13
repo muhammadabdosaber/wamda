@@ -78,22 +78,22 @@ blocked on.
 
 ## M2 — Enrichment and semantic search
 
-### SB-005 · Embeddings and the semantic arm · `done` (mostly) · M
+### SB-005 · Embeddings and the semantic arm · `done` · M
 
 Supply `COHERE_API_KEY` and run the embedding stage for real for the first time.
 
 - **Blocked on:** ~~the key. Nothing else.~~ Unblocked 2026-08-13 — owner
   supplied a real key. See SB-045 for the full trace (the key alone was not
-  enough; a second, independent bug had to be found too).
+  enough; three more independent bugs had to be found too).
 - **Start at:** `supabase/functions/_shared/providers.ts`, `pipeline.ts` stage 4.
 - **Accept:** `note_embeddings` has a 1024-dim row for every `ready` note ✅
   — confirmed 14/14 via `sweep`'s own count, real Cohere calls, not a guess;
-  `functions/search` returns fused results with `p_embedding` non-null 🟡 —
-  true by code (unchanged since it was written), not independently
-  re-observed through a live authenticated search (I have no owner session
-  to test with — see SB-045); `relate_note()` produces at least one real row
-  ⬜ — it was *called* for all 14 notes as part of the backfill, but nothing
-  reads `note_relations` yet to confirm any pair cleared the 0.78 threshold.
+  `functions/search` returns fused results with `p_embedding` non-null ✅ —
+  confirmed live by the owner, then by me on a fresh local corpus, both
+  through a real signed-in session (see SB-045); `relate_note()` produces at
+  least one real row ⬜ — it was *called* for all 14 notes as part of the
+  backfill, but nothing reads `note_relations` yet to confirm any pair
+  cleared the 0.78 threshold.
 - **Watch for:** the same class of bug as #7 in `00-verification.md` — an
   embedding failure must never lose the enrichment that already succeeded.
   (This held: all 14 notes stayed `ready` throughout, on both the earlier
@@ -200,7 +200,7 @@ before it was found to be actively harmful.
    "not done") still shows its original `high` rail color — both exactly as
    expected.
 
-### SB-045 · Search returned "no results" for every query — two stacked bugs · `done` (mostly) · M
+### SB-045 · Search returned "no results", then "too many results" — four stacked bugs · `done` · M
 
 Owner report, 2026-08-13: searching the *exact literal text* of an existing
 note ("مراجعة UAT Documents الساعة 10 بكرة") returned "لا توجد نتائج". Same
@@ -263,13 +263,55 @@ blocker is fixed is a real gap in that promise, not a feature.
 - `web` typecheck + RTL guard + 23 tests + build all pass with the
   `Search.tsx` change.
 
-**Not verified — no owner session available to me:** the actual search
-round trip through the real, authenticated UI (does typing the query now
-return the UAT Documents note). Everything downstream of "does the RPC get a
-real embedding and does `note_embeddings` have real rows" is proven; the
-final hop — the owner's own browser, the owner's own session — needs the
-owner to try it, the same way every voice-capture bug in this project was
-ultimately confirmed by a real recording, not by code review.
+**Confirmed by the owner, 2026-08-13, closing the "not verified" gap above:**
+search returned results in the real app. It also surfaced a fourth,
+independent bug in the same round trip, plus three UX gaps.
+
+**Bug 4 — the semantic arm had no relevance floor.** The owner's own words:
+searching returned "تقريبا كل الملاحظات" (almost every note). Root cause:
+the semantic CTE in `search_notes` ranked every note with an embedding by
+distance and excluded none of them — with a corpus this small (14-20 notes),
+that meant nearly the whole corpus qualified for `candidates` (200) and rode
+RRF fusion into the results for *any* query, regardless of relevance.
+
+First fix attempt reused `relate_note()`'s 0.78-similarity cutoff — wrong,
+and caught before it shipped: that number compares two DOCUMENT-type
+embeddings (Cohere embeds `search_document` symmetrically), while search
+compares a QUERY embedding against DOCUMENT embeddings, a different,
+asymmetric space the same model was trained for. Measured directly instead —
+6 real notes, 3 real queries, real `embed-multilingual-v3.0` calls: the
+correct top match per query scored similarity 0.41–0.53; the least-relevant
+note for the *same* query still scored 0.34–0.46. Short single-sentence
+Arabic notes compress into a narrow band for this model; there is no clean
+gap. Landed on distance ≤ 0.6 (similarity ≥ 0.40) — a measured, permissive
+floor, not a precise one. New migration
+`20260813000300_search_semantic_threshold.sql`.
+
+Verified against a fresh 3-note local corpus (water leak / sales report /
+birthday gift), signed in as the real local test user: query "مشكلة سباكة في
+البيت" (a plumbing problem, no shared words with the water-leak note) now
+returns 2 of 3 notes — the water-leak note and the birthday note — correctly
+excluding the sales report. Not perfect precision (birthday note is a
+marginal include), but a measured, real improvement over "returns
+everything," and honestly short of ideal — see 11-features.md 3.9.
+
+**Three UX gaps, same report:**
+1. **No result count.** Added `searchResultCount` to the plural catalogue
+   (same six-CLDR-category pattern as `taskCount`), rendered beside the
+   input.
+2. **Search input scrolled away with the results.** `.search-input` is now
+   `position: sticky; inset-block-start: 0` inside `.main` (its scrolling
+   ancestor) — confirmed via `getBoundingClientRect()` before/after a
+   programmatic scroll: identical `top`, i.e. it did not move.
+3. **Clicking a result did nothing.** `Search.tsx` had no note-detail wiring
+   at all. Reused `Notes.tsx`'s exact pattern (`NoteDetail` in an `open`
+   state, `.note-card`/`.note-open` classes). `NoteDetail`'s `enrichment`
+   prop was typed as the full `Enrichment` (`suggested_action`,
+   `action_due_at` included) but only ever reads `title`/`summary`/
+   `category` — narrowed to `Pick<Enrichment, "title"|"summary"|"category">`
+   so a search hit (which `search_notes` does not return those two fields
+   for) can open the same view. Verified live: clicking a result opened the
+   real detail sheet with the real raw text.
 
 ## M3 — Voice
 

@@ -66,10 +66,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 3.3 | Lexical search across spelling variants | ✅ | `verify.sql` |
 | 3.4 | Unenriched notes still findable | ✅ | `verify.sql` |
 | 3.5 | Semantic (vector) search arm | ✅ `COHERE_API_KEY` supplied 2026-08-13 (SB-045); all 14 `ready` notes carry a real 1024-dim embedding, confirmed via `sweep`'s own report, not by reading the code | `functions/search` |
-| 3.6 | RRF hybrid fusion of both arms | 🟡 both arms now have real data to fuse; the fused *response* itself was not independently re-verified through a live user search (needs real auth, see SB-045) | migration `…000500` |
+| 3.6 | RRF hybrid fusion of both arms | ✅ confirmed twice through a real signed-in session: by the owner on hosted, then by me on a fresh 3-note local corpus — a query sharing no words with a note's text still found it via the semantic arm | migration `…000500` |
 | 3.7 | Related notes via nearest neighbour (0.78 threshold) | 🟡 `relate_note()` was invoked for all 14 backfilled notes; whether any pair cleared the 0.78 threshold and produced a row is unconfirmed — no client surface reads `note_relations` yet | migration `…000500` |
 | 3.8 | Cross-lingual retrieval (AR query → EN note) | ⬜ **the load-bearing phase-2 assumption** — SB-006, still untested | untested |
-| 3.9 | Fusion weights / threshold tuned on a real corpus | ❌ needs ~100 notes | — |
+| 3.9 | Fusion weights / threshold tuned on a real corpus | 🟡 semantic arm now has a distance floor (0.6), but it's a measured-not-tuned placeholder — 6 notes, 3 queries; real precision tuning still needs ~100 notes | migration `…000300` (SB-045) |
 
 ## 4. Client / UX
 
@@ -81,7 +81,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.4 | Arabic plurals, all four categories | ✅ | `i18n/index.ts` |
 | 4.5 | Enum/label split — DB stores `task`, UI shows مهمة | ✅ | `i18n/ar.ts` |
 | 4.6 | Timeline of notes | ✅ | `features/Notes.tsx` |
-| 4.7 | Search screen | 🟡 lexical only | `features/Search.tsx` |
+| 4.7 | Search screen | ✅ hybrid (lexical + semantic), result count shown, sticky input while scrolling, results open the real note detail sheet — all confirmed live (SB-045) | `features/Search.tsx` |
 | 4.8 | Weekly digest screen | ⬜ | `features/Digest.tsx` |
 | 4.9 | Installable PWA, manifest + service worker | 🟡 built and emitted; install flow untested on iOS | `vite.config.ts` |
 | 4.10 | Pending-sync indicator | ✅ | `Capture.tsx` |
@@ -156,10 +156,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 46 |
-| 🟡 partial | 8 |
+| ✅ working | 48 |
+| 🟡 partial | 7 |
 | ⬜ built, unrun | 15 |
-| ❌ not built | 20 |
+| ❌ not built | 19 |
 
 The 20 in `⬜` are the honest headline, and most of them unblock with one API
 key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key

@@ -791,6 +791,17 @@ body {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   margin-block-end: 16px;
+  /* Stays reachable while a long result list scrolls under it inside `.main`
+     (its nearest scrolling ancestor) -- the box is already opaque, so
+     results never show through. */
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+}
+
+.search-count {
+  margin-block-start: -8px;
+  margin-block-end: 16px;
 }
 
 /* ---- auth ---- */

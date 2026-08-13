@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { categoryLabel, errorLabel, type Translator } from "../i18n";
 import { directionOfContent } from "../core/language";
 import { ApiError, search } from "../data/api";
+import { NoteDetail } from "./NoteDetail";
 
 interface Hit {
   note_id: string;
@@ -19,6 +20,8 @@ export function Search({ t, language }: { t: Translator; language: string }) {
   // Distinct from "zero hits": a request that never reached the server (or
   // failed there) must not read to the user as "you have no matching notes".
   const [error, setError] = useState<string | null>(null);
+  // The hit whose detail sheet is open -- same pattern as Notes.tsx's `open`.
+  const [open, setOpen] = useState<Hit | null>(null);
 
   useEffect(() => {
     const trimmed = query.trim();
@@ -63,19 +66,38 @@ export function Search({ t, language }: { t: Translator; language: string }) {
       {busy && <p className="muted">{t.t("loading")}</p>}
 
       {error && !busy && <p className="center">{errorLabel(t, error)}</p>}
+      {hits && hits.length > 0 && !busy && (
+        <p className="muted search-count">{t.plural("searchResultCount", hits.length)}</p>
+      )}
       {hits?.length === 0 && !busy && !error && <p className="center">{t.t("searchNoResults")}</p>}
 
       {hits?.map((hit) => (
-        <div key={hit.note_id} className="card" dir={directionOfContent(hit.language)}>
-          {hit.title && <h3>{hit.title}</h3>}
-          <p>{hit.summary ?? ""}</p>
-          {hit.category && (
-            <div className="chips">
-              <span className="chip">{categoryLabel(t, hit.category)}</span>
-            </div>
-          )}
+        <div key={hit.note_id} className="card note-card" dir={directionOfContent(hit.language)}>
+          <button className="note-open" onClick={() => setOpen(hit)}>
+            {hit.title && <h3>{hit.title}</h3>}
+            <p>{hit.summary ?? ""}</p>
+            {hit.category && (
+              <div className="chips">
+                <span className="chip">{categoryLabel(t, hit.category)}</span>
+              </div>
+            )}
+          </button>
         </div>
       ))}
+
+      {open && (
+        <NoteDetail
+          t={t}
+          noteId={open.note_id}
+          enrichment={{
+            title: open.title,
+            summary: open.summary ?? "",
+            category: open.category ?? "other",
+          }}
+          contentLanguage={open.language ?? language}
+          onClose={() => setOpen(null)}
+        />
+      )}
     </>
   );
 }

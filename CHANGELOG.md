@@ -10,6 +10,27 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — search then said "too many results", plus three UX gaps
+
+Owner tried the just-fixed search and reported it gathered "تقريبا كل
+الملاحظات" (almost every note). Root cause: the semantic arm ranked every
+note with an embedding and excluded none of them — with today's small corpus,
+that meant nearly the whole corpus qualified and rode fusion into results for
+any query. Added a distance floor to the semantic arm, but reused `relate_note()`'s
+0.78-similarity cutoff was wrong and caught before shipping — that number is
+for a different comparison (document-vs-document, not query-vs-document).
+Measured the real distribution instead (6 notes, 3 queries, real Cohere
+calls): landed on distance ≤ 0.6, a permissive floor grounded in real numbers,
+not a precisely tuned one — see `docs/00-verification.md` "SB-045" for the
+measurements.
+
+Same report also flagged: no result count (added, matching `taskCount`'s
+plural pattern), the search box scrolling away with long result lists (now
+sticky), and clicking a result doing nothing (now opens the same note-detail
+sheet `Notes.tsx` uses). Verified live against a fresh local corpus and a
+real signed-in session: relevant results only, count visible, input pinned
+while scrolling, click opens the real note.
+
 ### Fixed — search always said "no results", for three stacked reasons
 
 Owner report, arriving with a real `COHERE_API_KEY`: searching the exact text
