@@ -177,7 +177,8 @@ function TaskRow({
 }) {
   const e = note.note_enrichments[0]!;
   const done = Boolean(note.completed_at);
-  const railClass = RAIL[e.priority] ?? "rail";
+  const railClass = (e.priority ? RAIL[e.priority] : null) ?? "rail";
+  const priority = priorityLabel(t, e.priority);
 
   return (
     <div className={`task-row${done ? " done" : ""}`}>
@@ -198,9 +199,9 @@ function TaskRow({
       <button className="task-body" onClick={onOpen} dir={directionOfContent(note.detected_language ?? note.input_language)}>
         <span className="task-title">{e.title ?? e.summary}</span>
         <span className="chips">
-          {e.priority !== "normal" && (
+          {priority && (
             <span className={e.priority === "urgent" ? "chip urgent" : "chip"}>
-              {priorityLabel(t, e.priority)}
+              {priority}
             </span>
           )}
           <span className="chip">{e.action_due_at ? t.date(e.action_due_at) : t.t("tasksNoDate")}</span>

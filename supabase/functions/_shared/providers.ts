@@ -48,6 +48,13 @@ export class ScribeASR implements ASRProvider {
     // Word timestamps let the client scrub audio against the transcript later.
     form.append("timestamps_granularity", "word");
     form.append("diarize", "false");
+    // Scribe otherwise writes audio events -- "[يسعل]", "[يضحك]" -- into
+    // `text` itself, as if the user had said them. They then reach the
+    // enrichment prompt as note content and render back at the user under
+    // "النص كما كُتب". Confirmed against the real recording that produced one:
+    // with the parameter omitted the transcript begins "[يسعل] طيب دي صفحة
+    // التسجيل..."; with it false, the same sentence comes back clean.
+    form.append("tag_audio_events", "false");
 
     const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
       method: "POST",

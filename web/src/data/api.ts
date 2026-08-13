@@ -104,7 +104,8 @@ export interface Enrichment {
   title: string | null;
   summary: string;
   category: string;
-  priority: string;
+  /** Null when the note stated no urgency of its own -- the common case. */
+  priority: string | null;
   suggested_action: string;
   action_due_at: string | null;
   language: string;

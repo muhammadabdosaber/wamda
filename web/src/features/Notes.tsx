@@ -353,7 +353,7 @@ function NoteCard({
             {/* Chips render LOCALIZED labels from stored identifiers. The row
                 holds 'task'; the word "مهمة" lives only in the catalogue. */}
             <span className="chip">{categoryLabel(t, enrichment.category)}</span>
-            {enrichment.priority !== "normal" && (
+            {priorityLabel(t, enrichment.priority) && (
               <span className={enrichment.priority === "urgent" ? "chip urgent" : "chip"}>
                 {priorityLabel(t, enrichment.priority)}
               </span>

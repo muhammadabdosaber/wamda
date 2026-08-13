@@ -108,6 +108,52 @@ The highest-value unknown in the project, and it is one afternoon of work.
   `notes_missing_embeddings()` + `sweep`, migration `…000700`.
 - **Accept:** after one sweep run, zero `ready` notes are missing an embedding.
 
+### SB-043 · Enrichment quality: dialect, voice, and false priority · `done` · M
+
+Owner feedback after the first batch of real classified notes (2026-08-13),
+against real data: 8 of 12 notes carried a priority the owner had never
+signaled, one ("مشكلة في صفحة التسجيل" — a bug report, not urgent) landed as
+`مهم` purely because "مشكلة" reads as alarming. Separately, a note recorded in
+Egyptian Arabic came back summarized in Modern Standard Arabic, third person
+— "المستخدم يجرب..." instead of the owner's own voice.
+
+**Root causes, both structural, not prompt-wording issues:**
+1. `priority` was `NOT NULL` in both the schema and the JSON Schema's
+   `required` list — the model had no way to say "the note expressed no
+   urgency", so it inferred urgency from topic instead.
+2. The system prompt hardcoded "Write ALL free text ... in Modern Standard
+   Arabic (العربية الفصحى)" — dialect was never a variable.
+
+**Fixed:**
+- `priority` is nullable end to end: `note_enrichments.priority` (new
+  migration `20260813000200_enrichment_priority_optional.sql`), the JSON
+  Schema (`anyOf` with `null`, default), the prompt (explicit table with
+  `null` as the labeled default, worked examples showing a described problem
+  ≠ urgency), and the client (`priorityLabel` returns `null` for both `null`
+  and `normal` so neither renders a chip — matching the existing
+  `actionLabel` contract).
+- Prompt now instructs matching the note's own dialect and register, and
+  writing in the user's own voice ("بجرب التسجيل...") rather than reporting
+  about them ("المستخدم يجرب..."). Same rule applied to the digest prompt.
+- `ScribeASR.transcribe` now sends `tag_audio_events: false` — a second,
+  unrelated bug found while re-testing: without it, ElevenLabs writes
+  `[يسعل]`/`[يضحك]` directly into `raw_text`, which then reaches the
+  enrichment prompt as note content and the user's own "as written" view.
+- `PROMPT_VERSION` bumped to `2026-08-13.1` — old enrichments are preserved,
+  not overwritten (see the comment on the constant).
+
+**Verified against the real Anthropic API**, not just typechecked — see
+`docs/00-verification.md` for the transcript. All four test cases behaved as
+intended, including that an *actual* explicit deadline still produces
+`priority: urgent` with a correctly resolved `action_due_at` — the fix
+removes false positives, not the feature itself.
+
+- **Not done:** re-running enrichment on the 12 pre-existing notes — owner
+  decision was to leave them as is and judge only new notes going forward.
+  A note can carry a date but not a TIME within that date-shaped context (the
+  gym-then-book note kept only the first of two stated times) — not touched
+  by this change, left as a known gap.
+
 ## M3 — Voice
 
 ### SB-007 · First real transcription · `done` · M
@@ -129,7 +175,7 @@ out to be silence/noise test recordings, not speech — this proved the
 pipeline mechanics (auth, RLS, Storage, vendor call, confidence gating, status
 transition) but not ASR quality on real Arabic speech. That gap is SB-013.
 
-### SB-012 · Voice capture on a real phone · `in progress` · M
+### SB-012 · Voice capture on a real phone · `done` · M
 
 **Desktop Chrome fully proven (2026-08-11):** the local database holds voice
 notes with real recordings uploaded, transcribed, and enriched end to end —
@@ -182,19 +228,42 @@ still wrong, and is listed below.
   directly — an insert can never fix this, `on conflict do nothing` will skip
   it every time. Added a `verify.sql` assertion so this can't drift silently
   again. Pushed to hosted and confirmed live via `supabase db query --linked`.
-- **Also open:** `providers.ts` sends every recording to ElevenLabs as
-  `note.m4a` regardless of its real container. Not the cause of the empty
-  transcripts, but it should carry the true extension.
-- **Do:** deploy the fix, then record → upload → transcribe → enrich on the
-  same iPhone, three notes end to end. Then Android — untested in either
-  direction so far.
-- **Accept:** three notes end to end per device; `MediaRecorder` availability on
-  iOS Safari recorded either way; if unavailable, the degradation path is the
-  thing that gets verified instead.
+**Done (2026-08-13).** After the bucket fix, a recording made directly from
+Safari (the browser tab, not the home-screen-installed PWA — the same
+ambiguity flagged earlier in this task, now resolved by the transcript
+literally describing which one) ran the **entire pipeline successfully for
+the first time**, end to end, on the hosted stack:
+
+| stage | result |
+| --- | --- |
+| record + upload | real audio, correct MIME, accepted by Storage |
+| transcribe | real Arabic text, confidence **0.925** |
+| enrich | `category: task`, `priority: normal`, `suggested_action: review_later` |
+| final status | `ready` |
+
+Transcript: *"طيب أنا دلوقتي بجرب التسجيل من، آآآ، الصفحة بتاعة الـ web من على
+الـ browser directly من على... من على Safari. عايز أتأكد إذا كانت هتشتغل ولا
+لأ"* — the recording is literally the user testing this exact path, and it
+worked. Enrichment summary: *"المستخدم يجرب تسجيل الصوت من صفحة الويب مباشرة
+عبر متصفح Safari للتأكد من عمل الميزة بشكل صحيح."* Confirmed via
+`supabase db query --linked` against `notes` and `note_enrichments`, not
+inferred from a status flag.
+
+Six real bugs were found and fixed getting here (grant scope, MIME codec
+suffix, missing vendor key, discarded error codes, a stale client session,
+and the bucket config drift) — see `docs/00-verification.md` bugs #8–12 for
+the full trace of each.
+
+- **Not done:** Android, in either browser or an installed PWA — untested in
+  both directions so far. `providers.ts` still sends every recording to
+  ElevenLabs as `note.m4a` regardless of its real container; not the cause of
+  any bug found, but still wrong and still open.
 
 ### SB-013 · Measure ASR quality on the user's dialect · `todo` · M
 
-- **Blocked on:** SB-012.
+- **Blocked on:** nothing — SB-012 is done. The one real utterance transcribed
+  so far (0.925 confidence, correct text) is encouraging but is one data
+  point, not a WER measurement.
 - **Do:** 20 utterances the user would actually speak; count word errors by hand.
 - **Accept:** a WER number in `docs/00-verification.md`. If it is bad, open a
   task to evaluate Azure `ar-AE` — `ASRProvider` is one interface.

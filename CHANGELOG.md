@@ -10,6 +10,54 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — enrichment invented priority, and answered in the wrong dialect
+
+Owner review of the first batch of really-classified notes (SB-012) found two
+real problems, both structural rather than wording: `priority` was `NOT
+NULL`, so a note that stated no urgency still got one — a bug-report note
+("مشكلة في صفحة التسجيل") came back `high` purely because "مشكلة" sounds
+alarming. And the prompt hardcoded Modern Standard Arabic output regardless
+of the note's own dialect, so an Egyptian Arabic recording came back
+summarized in فصحى, third person — "المستخدم يجرب..." instead of the owner's
+own voice.
+
+`priority` is now nullable end to end — schema, JSON Schema, prompt, and
+client (`priorityLabel` renders no chip for `null`, matching the existing
+`"none"`-action contract). The prompt now matches the note's dialect and
+writes in first person. Same fix applied to the digest prompt, which turned
+out to have never actually run yet (`weekly_digests`: zero rows).
+
+Also found while re-verifying: ElevenLabs was writing audio-event tags
+("[يسعل]") directly into `raw_text` because `tag_audio_events` was never set.
+Fixed with `tag_audio_events: false`, confirmed against the real recording
+that produced one.
+
+Verified against the real Anthropic API with the real shipped prompt module,
+not a copy: the flagged note now returns `priority: null`; a note with an
+actual stated deadline still correctly returns `urgent` with the right
+resolved date — the fix removes the false positive, not the feature.
+
+### Closed — SB-012: voice capture proven end to end on hosted, real speech
+
+After the Storage bucket fix, the next recording — made directly from Safari,
+a real spoken sentence rather than a silence test — ran the entire pipeline
+clean: upload, `transcribe` (ElevenLabs, confidence 0.925, correct Arabic
+text), `enrich` (`category: task`, `priority: normal`), `notes.status =
+ready`. Confirmed via `supabase db query --linked` against `notes` and
+`note_enrichments`, not read off the app's UI.
+
+Six real, independently-discovered bugs stood between the first attempt and
+this: a grant regression silently dropping `audio_path`, iOS's
+codec-qualified MIME type failing an exact-match check, a missing hosted
+`ELEVENLABS_API_KEY`, a diagnostic banner that discarded the real error code
+off every failure, a stale client session, and hosted Storage's
+`allowed_mime_types` stuck on a value from before its defining migration ever
+ran. None were visible by reading the code — every one came from a real
+device hitting the real hosted stack. Full trace in `docs/00-verification.md`.
+
+Still open: Android, in both a browser and an installed PWA — untested in
+either direction.
+
 ### Fixed — hosted Storage rejected every non-Chrome recording since the bucket was created
 
 After the microphone was fixed and silence detection deployed, an iPhone
