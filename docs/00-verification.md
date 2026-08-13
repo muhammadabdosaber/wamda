@@ -1939,7 +1939,43 @@ gym-then-book note, "الساعة 5... وبعد كده... الساعة 6") keeps
 in `action_due_at` — the schema has one due-date field, so this is a schema
 gap, not a prompt bug.
 
-## Twelve real bugs this caught
+## SB-044 · The priority rail never showed a color, for any priority
+
+Right after SB-043 deployed, the owner sent a screenshot contradicting an
+earlier claim in this session that the colored rail was already working:
+**no task showed a colored line, urgent included.**
+
+`.task-row .rail { background: transparent; }` in `global.css` is two
+classes — specificity `(0,2,0)`. `.rail-urgent { background: var(--danger); }`
+is one class — `(0,1,0)`. CSS resolves competing declarations by specificity
+first, source order only as a tiebreak among equal-specificity rules, so the
+base rule's `transparent` always beat every modifier below it regardless of
+where each was written. No priority could ever paint the rail.
+
+**Confirmed with `getComputedStyle` in a real browser**, before touching the
+file: a `<span class="rail rail-urgent">` resolved to `background-color:
+rgba(0, 0, 0, 0)` — transparent, despite the modifier class being present and
+correctly written.
+
+**Fixed** by deleting the competing `background: transparent` from the base
+`.task-row .rail` rule. Re-checked the same way: `rail rail-urgent` →
+`rgb(186, 26, 26)`. A plain `<span>` with no modifier class already paints
+nothing on its own, so the "no rail" state for `normal`/no-priority rows is
+unchanged.
+
+**Confirmed live on hosted, on real data, after deploy** — owner screenshots
+of the Tasks and Notes screens:
+
+| note | priority | rail shown |
+| --- | --- | --- |
+| "عندي مهمة مهمة جدًا إني أراجع الـ UAT Documents..." (explicit urgency signal) | `urgent` | red |
+| "مشكلة في صفحة التسجيل الجديدة" (one of the 12 pre-existing, not re-enriched per SB-043) | `high` (unchanged, pre-fix classification) | its original color, unchanged |
+| new notes carrying no urgency signal | `null` | no rail |
+
+Both the newly-correct urgent case and the deliberately-untouched old `high`
+note behaved exactly as the two prior fixes (SB-043 and this one) predict.
+
+## Thirteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -2029,8 +2065,16 @@ gap, not a prompt bug.
     exists — only an explicit `UPDATE` can. Fixed with exactly that, in a new
     migration, plus a `verify.sql` assertion so hosted's bucket config can't
     drift from the migration again without a test noticing.
+13. **CSS specificity, not source order, decided which rule painted the
+    priority rail — and a two-class base rule always won.** `.task-row .rail`
+    set an explicit `background: transparent`; every priority's color came
+    from a one-class modifier (`.rail-urgent` etc.) written later in the
+    file but at lower specificity, so it could never override the base rule
+    no matter how it was reordered. No task showed a colored rail for any
+    priority, ever — a bug this session first claimed was already fixed,
+    corrected only by the owner's own screenshot. See "SB-044" above.
 
-None were visible by reading the code. Numbers 7, 8, 9, 10, and 12 in
+None were visible by reading the code. Numbers 7, 8, 9, 10, 12, and 13 in
 particular only appeared from a specific combination of state no test suite
 was going to
 stumble into — a second vendor key absent while the first was present, a

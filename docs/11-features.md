@@ -102,6 +102,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.25 | Filter notes by category | ✅ scrolling chip bar, only categories actually present; shown from one category up — verified against a single-category timeline, the state that had made it invisible in production | `Notes.tsx` (SB-041) |
 | 4.26 | One note per row, summary clamped | ✅ single column at every width (375 / 730 / 1400 measured, one track each); `line-clamp: 3` measured live | `Notes.tsx` · `global.css` (SB-041) |
 | 4.27 | Avatar menu instead of an always-visible sign-out | ✅ Escape closes and returns focus; anchors correctly in both RTL and LTR | `components/AccountMenu.tsx` (SB-042) |
+| 4.28 | Colored priority rail on Tasks (`urgent` red, `high`/`low` distinct, `normal`/no signal → no rail) | ✅ CSS specificity bug meant it never painted for any priority — fixed and confirmed both via `getComputedStyle` and live on hosted with real classified notes | `global.css` · `Tasks.tsx` (SB-044) |
 
 ## 5. Auth, data, security
 
@@ -155,7 +156,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 44 |
+| ✅ working | 45 |
 | 🟡 partial | 6 |
 | ⬜ built, unrun | 18 |
 | ❌ not built | 20 |

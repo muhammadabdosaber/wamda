@@ -154,6 +154,36 @@ removes false positives, not the feature itself.
   gym-then-book note kept only the first of two stated times) — not touched
   by this change, left as a known gap.
 
+### SB-044 · Priority rail on Tasks never showed a color, for any priority · `done` · S
+
+Owner feedback right after SB-043 shipped, contradicting an earlier claim in
+this session that the rail was already correct: screenshot showed **no
+colored line on any task**, urgent included.
+
+**Root cause:** `.task-row .rail { background: transparent; }` in
+`global.css` is two classes (specificity 0,2,0). A one-class modifier like
+`.rail-urgent { background: var(--danger); }` (0,1,0) can never beat that,
+regardless of which rule appears later in the stylesheet — CSS specificity,
+not source order, decides. So the base rule's `transparent` always won and no
+priority could ever paint the rail.
+
+**Fixed:** removed the competing `background: transparent` from the base
+`.task-row .rail` rule. A plain `<span>` with no modifier class already
+paints nothing, which was always the intended "no rail" state for
+`normal`/no-priority rows — the explicit `transparent` was redundant even
+before it was found to be actively harmful.
+
+**Verified twice:**
+1. Before/after `getComputedStyle` check in a real browser:
+   `class="rail rail-urgent"` resolved to `rgba(0,0,0,0)` before the fix,
+   `rgb(186,26,26)` after.
+2. After deploy, on real hosted data: owner screenshot of the Tasks screen
+   shows a red rail on a new note carrying an explicit urgency signal
+   ("مهمة مهمة جدًا") classified `priority: urgent`, and the pre-existing
+   "مشكلة في صفحة التسجيل الجديدة" note (left unre-enriched per SB-043's
+   "not done") still shows its original `high` rail color — both exactly as
+   expected.
+
 ## M3 — Voice
 
 ### SB-007 · First real transcription · `done` · M
