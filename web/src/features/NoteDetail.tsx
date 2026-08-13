@@ -24,7 +24,10 @@ export function NoteDetail({
 }: {
   t: Translator;
   noteId: string;
-  enrichment: Enrichment | undefined;
+  // Only these three fields are ever read below. Narrowed to them (rather
+  // than the full `Enrichment`) so a search hit -- which the RPC does not
+  // return `suggested_action`/`action_due_at` for -- can open this view too.
+  enrichment: Pick<Enrichment, "title" | "summary" | "category"> | undefined;
   contentLanguage: string;
   onClose: () => void;
 }) {

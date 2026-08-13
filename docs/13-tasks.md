@@ -78,23 +78,34 @@ blocked on.
 
 ## M2 — Enrichment and semantic search
 
-### SB-005 · Embeddings and the semantic arm · `blocked` · M
+### SB-005 · Embeddings and the semantic arm · `done` · M
 
 Supply `COHERE_API_KEY` and run the embedding stage for real for the first time.
 
-- **Blocked on:** the key. Nothing else.
+- **Blocked on:** ~~the key. Nothing else.~~ Unblocked 2026-08-13 — owner
+  supplied a real key. See SB-045 for the full trace (the key alone was not
+  enough; three more independent bugs had to be found too).
 - **Start at:** `supabase/functions/_shared/providers.ts`, `pipeline.ts` stage 4.
-- **Accept:** `note_embeddings` has a 1024-dim row for every `ready` note;
-  `functions/search` returns fused results with `p_embedding` non-null;
-  `relate_note()` produces at least one real row.
+- **Accept:** `note_embeddings` has a 1024-dim row for every `ready` note ✅
+  — confirmed 14/14 via `sweep`'s own count, real Cohere calls, not a guess;
+  `functions/search` returns fused results with `p_embedding` non-null ✅ —
+  confirmed live by the owner, then by me on a fresh local corpus, both
+  through a real signed-in session (see SB-045); `relate_note()` produces at
+  least one real row ⬜ — it was *called* for all 14 notes as part of the
+  backfill, but nothing reads `note_relations` yet to confirm any pair
+  cleared the 0.78 threshold.
 - **Watch for:** the same class of bug as #7 in `00-verification.md` — an
   embedding failure must never lose the enrichment that already succeeded.
+  (This held: all 14 notes stayed `ready` throughout, on both the earlier
+  degraded path and this backfill.)
 
 ### SB-006 · Cross-lingual retrieval test · `blocked` · S
 
 The highest-value unknown in the project, and it is one afternoon of work.
 
-- **Blocked on:** SB-005.
+- **Blocked on:** ~~SB-005~~ nothing structural anymore — SB-005's embeddings
+  now exist for real. Still not run: needs a deliberate two-note test
+  (one Arabic, one English, no shared tokens), not just the general backfill.
 - **Do:** store one English note and one Arabic note about the same subject with
   **no shared tokens**; query each in the other language.
 - **Accept:** each query returns the other-language note in the top 3. Result
@@ -102,11 +113,16 @@ The highest-value unknown in the project, and it is one afternoon of work.
 - **If it fails:** stop and re-plan M7. The "English costs no migration" claim
   is downstream of this single fact.
 
-### SB-008 · Backfill embeddings for existing notes · `blocked` · S
+### SB-008 · Backfill embeddings for existing notes · `done` · S
 
-- **Blocked on:** SB-005. The mechanism already exists —
-  `notes_missing_embeddings()` + `sweep`, migration `…000700`.
-- **Accept:** after one sweep run, zero `ready` notes are missing an embedding.
+- **Blocked on:** ~~SB-005~~ resolved 2026-08-13 — see SB-045. The mechanism
+  already existed — `notes_missing_embeddings()` + `sweep`,
+  migration `…000700` — but needed a one-time `forceEmbedBackfill` bypass of
+  its own retry cap, added as part of SB-045, because all 14 notes had
+  already exhausted `MAX_ATTEMPTS` while the key was missing.
+- **Accept:** after one sweep run, zero `ready` notes are missing an
+  embedding. ✅ confirmed: a forced run reported `embedded: 14, failures: []`,
+  and the very next unforced run reported `candidates: 0`.
 
 ### SB-043 · Enrichment quality: dialect, voice, and false priority · `done` · M
 
@@ -183,6 +199,119 @@ before it was found to be actively harmful.
    "مشكلة في صفحة التسجيل الجديدة" note (left unre-enriched per SB-043's
    "not done") still shows its original `high` rail color — both exactly as
    expected.
+
+### SB-045 · Search returned "no results", then "too many results" — four stacked bugs · `done` · M
+
+Owner report, 2026-08-13: searching the *exact literal text* of an existing
+note ("مراجعة UAT Documents الساعة 10 بكرة") returned "لا توجد نتائج". Same
+message the owner added a real `COHERE_API_KEY` alongside — the two turned
+out to be the same investigation.
+
+**Root cause, two bugs stacked, each hiding the other:**
+
+1. `functions/search` defaults to `mode: "hybrid"`, which always calls
+   `embeddingProvider().embed(...)` on the query text *before* it ever
+   reaches the lexical arm or the RPC. With no `COHERE_API_KEY` ever set on
+   hosted, `requireEnv("COHERE_API_KEY")` threw on every single search —
+   lexical-only would have matched this note, but hybrid mode never gave it
+   the chance.
+2. `web/src/features/Search.tsx` had `.catch(() => setHits([]))` — any
+   thrown error, for any reason, silently became "no results" with no
+   console line and no way to distinguish a real failure from a genuine
+   empty search. The same swallowed-error shape as bugs #8–10 in
+   `00-verification.md`, this time on the client instead of a server RPC.
+
+Confirmed with `supabase secrets list --project-ref hfjpotjbrrnghuqhxoux`
+before touching anything: no `COHERE_API_KEY` entry existed.
+
+**A third problem, found only after fixing the first two:** setting the key
+did not, by itself, make search work either. `sweep`'s embedding backfill
+(SB-008) reported `embedded: 0` even with 14 real candidates — every one of
+the 12 pre-existing notes plus 2 more had already hit `MAX_ATTEMPTS` (5)
+while the key was missing, and the retry cap does not know *why* a note
+failed, only that it did. Optional stages degrade a note rather than failing
+it (ADR-0007) — but degrade-forever with no path back once the actual
+blocker is fixed is a real gap in that promise, not a feature.
+
+**Fixed:**
+- Set `COHERE_API_KEY` as a hosted Edge Function secret (owner supplied the
+  real key; confirmed length ~40 chars, not the 3-char local placeholder).
+- Added a `forceEmbedBackfill` body flag to `sweep`, scoped narrowly: it
+  bypasses `MAX_ATTEMPTS` in the embedding-backfill path only, for exactly
+  this scenario (a systemic, since-resolved vendor outage), and is never
+  sent by the cron trigger itself — routine ticks keep the existing
+  per-note protection.
+- `Search.tsx` now distinguishes a real error from zero hits: the caught
+  error is logged (`console.error("search_failed", ...)`) and rendered via
+  the existing `errorLabel()` catalogue instead of the generic
+  "لا توجد نتائج" — the same contract `Notes.tsx`'s `unreachable` state
+  already uses.
+
+**Verified, each step for real:**
+- `POST /functions/v1/sweep` (unforced), immediately after setting the
+  secret: `{"embedded":0,"debug":{"candidates":14,"skipped":[14 notes, each
+  "attempts":5]}}` — proved bug #3 before fixing it, not assumed.
+- The real Cohere key, called directly with the exact request shape
+  `providers.ts` sends (`v1/embed`, `search_query`, `embed-multilingual-v3.0`):
+  returned a real 1024-dim vector — proved the key itself was valid,
+  independent of whether Supabase picked it up.
+- `POST /functions/v1/sweep` with `{"forceEmbedBackfill":true}`:
+  `{"embedded":14,"debug":{"failures":[]}}`.
+- `POST /functions/v1/sweep` again, unforced, right after:
+  `{"embedded":0,"debug":{"stage":"no_rows_found"}}` — steady state, nothing
+  left to backfill.
+- `web` typecheck + RTL guard + 23 tests + build all pass with the
+  `Search.tsx` change.
+
+**Confirmed by the owner, 2026-08-13, closing the "not verified" gap above:**
+search returned results in the real app. It also surfaced a fourth,
+independent bug in the same round trip, plus three UX gaps.
+
+**Bug 4 — the semantic arm had no relevance floor.** The owner's own words:
+searching returned "تقريبا كل الملاحظات" (almost every note). Root cause:
+the semantic CTE in `search_notes` ranked every note with an embedding by
+distance and excluded none of them — with a corpus this small (14-20 notes),
+that meant nearly the whole corpus qualified for `candidates` (200) and rode
+RRF fusion into the results for *any* query, regardless of relevance.
+
+First fix attempt reused `relate_note()`'s 0.78-similarity cutoff — wrong,
+and caught before it shipped: that number compares two DOCUMENT-type
+embeddings (Cohere embeds `search_document` symmetrically), while search
+compares a QUERY embedding against DOCUMENT embeddings, a different,
+asymmetric space the same model was trained for. Measured directly instead —
+6 real notes, 3 real queries, real `embed-multilingual-v3.0` calls: the
+correct top match per query scored similarity 0.41–0.53; the least-relevant
+note for the *same* query still scored 0.34–0.46. Short single-sentence
+Arabic notes compress into a narrow band for this model; there is no clean
+gap. Landed on distance ≤ 0.6 (similarity ≥ 0.40) — a measured, permissive
+floor, not a precise one. New migration
+`20260813000300_search_semantic_threshold.sql`.
+
+Verified against a fresh 3-note local corpus (water leak / sales report /
+birthday gift), signed in as the real local test user: query "مشكلة سباكة في
+البيت" (a plumbing problem, no shared words with the water-leak note) now
+returns 2 of 3 notes — the water-leak note and the birthday note — correctly
+excluding the sales report. Not perfect precision (birthday note is a
+marginal include), but a measured, real improvement over "returns
+everything," and honestly short of ideal — see 11-features.md 3.9.
+
+**Three UX gaps, same report:**
+1. **No result count.** Added `searchResultCount` to the plural catalogue
+   (same six-CLDR-category pattern as `taskCount`), rendered beside the
+   input.
+2. **Search input scrolled away with the results.** `.search-input` is now
+   `position: sticky; inset-block-start: 0` inside `.main` (its scrolling
+   ancestor) — confirmed via `getBoundingClientRect()` before/after a
+   programmatic scroll: identical `top`, i.e. it did not move.
+3. **Clicking a result did nothing.** `Search.tsx` had no note-detail wiring
+   at all. Reused `Notes.tsx`'s exact pattern (`NoteDetail` in an `open`
+   state, `.note-card`/`.note-open` classes). `NoteDetail`'s `enrichment`
+   prop was typed as the full `Enrichment` (`suggested_action`,
+   `action_due_at` included) but only ever reads `title`/`summary`/
+   `category` — narrowed to `Pick<Enrichment, "title"|"summary"|"category">`
+   so a search hit (which `search_notes` does not return those two fields
+   for) can open the same view. Verified live: clicking a result opened the
+   real detail sheet with the real raw text.
 
 ## M3 — Voice
 

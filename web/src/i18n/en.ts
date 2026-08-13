@@ -140,4 +140,12 @@ export const enPlurals: Record<PluralKey, Record<Intl.LDMLPluralRule, string>> =
     many: "{n} tasks",
     other: "{n} tasks",
   },
+  searchResultCount: {
+    zero: "No results",
+    one: "1 result",
+    two: "{n} results",
+    few: "{n} results",
+    many: "{n} results",
+    other: "{n} results",
+  },
 };

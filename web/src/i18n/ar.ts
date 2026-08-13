@@ -187,6 +187,16 @@ export const arPlurals = {
     many: "{n} مهمة",
     other: "{n} مهمة",
   },
+  // The result count shown beside the search box, same six-category need as
+  // taskCount above.
+  searchResultCount: {
+    zero: "لا نتائج",
+    one: "نتيجة واحدة",
+    two: "نتيجتان",
+    few: "{n} نتائج",
+    many: "{n} نتيجة",
+    other: "{n} نتيجة",
+  },
 } as const;
 
 /**
