@@ -2096,7 +2096,62 @@ bugs:**
   Verified live: clicking a result opened the real detail sheet, correct
   title/summary/category/date, correct raw text.
 
-## Thirteen real bugs this caught
+## SB-046 · Production was completely dead — deployed before its env vars existed
+
+**Symptom, found live:** `wamda-a8k.pages.dev` rendered its shell fine, but
+every Supabase call was blocked and a real sign-in attempt threw immediately.
+
+**Root cause: no Git connection at all, so nothing rebuilt the client's
+baked-in config.** `wamda` had been deployed by hand with `wrangler pages
+deploy` in a prior session — the "commit message" shown next to each
+deployment in the Cloudflare UI was just local git metadata `wrangler`
+attaches, not evidence of a webhook. Confirmed once the owner's own
+screenshot of Settings → "Git" showed **No Git connection**. The owner then
+connected the GitHub repo (`muhammadabdosaber/second-brain`, root `web`,
+build `npm run build`, output `dist`, production branch `main`, automatic
+deployments on) and added `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` as
+Production variables — but the *first* build the new Git connection
+triggered ran at connect-time, before those variables were saved. That build
+went live with both vars empty.
+
+Two things degrade independently, both by design, when
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` are empty at `vite build` time —
+each meant for a *fresh checkout with no `.env.local` yet*, not a broken
+production deploy:
+
+- `web/vite.config.ts`'s `buildCsp()` catches the invalid URL and leaves
+  `connect-src` as `'self'` only, so the CSP meta tag baked into the shipped
+  HTML blocks every cross-origin call to Supabase outright.
+- `web/src/data/api.ts:34-37` falls back to
+  `createClient("http://127.0.0.1:54421", "anon-key-not-configured")` rather
+  than throwing, so the client that *does* build points at a local dev
+  address nobody in production can reach.
+
+Confirmed live, in order: a real login attempt in a fresh tab logged
+`Connecting to 'http://127.0.0.1:54421/auth/v1/otp' violates ... "connect-src
+'self'"` in the console — proving both fallbacks were active simultaneously.
+After the owner triggered a fresh deployment (Deployments → Retry) with the
+variables now saved, the built JS hash changed
+(`index-DLgB7sIk.js` → `index-DHD8tW5K.js`) and:
+
+- The CSP meta tag now reads
+  `connect-src 'self' https://hfjpotjbrrnghuqhxoux.supabase.co` (read
+  directly from the live `<meta http-equiv="Content-Security-Policy">`).
+- A `fetch()` to `.../auth/v1/otp` with a deliberately wrong `apikey` header
+  returned `401 Invalid API key` — proving the request now reaches Supabase
+  at all, past the CSP. The same call with the real anon key returned `500
+  Error sending magic link email` instead, which is the pre-existing Resend
+  sandbox-sender restriction (`onboarding@resend.dev` can only deliver to
+  the account's own verified address — see the SMTP note above), not a CSP
+  or config failure — confirmed by hitting the auth endpoint directly, not
+  inferred.
+
+No application code changed. The fix was entirely in Cloudflare Pages
+config: connect Git, save the two `VITE_`-prefixed variables under
+Production, then force one more build so the vars a Git-triggered build
+already reads got baked in.
+
+## Fourteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -2194,14 +2249,23 @@ bugs:**
     no matter how it was reordered. No task showed a colored rail for any
     priority, ever — a bug this session first claimed was already fixed,
     corrected only by the owner's own screenshot. See "SB-044" above.
+14. **A production deploy went live with its config vars silently empty, and
+    two independent fallbacks hid it instead of failing loud.** The first
+    build a newly-connected Git integration triggered ran before the env
+    vars were saved; both the CSP-builder and the Supabase client have a
+    deliberate "fresh checkout" fallback for an empty URL, so the site
+    rendered and looked normal instead of erroring — it just couldn't reach
+    the server. Nothing about this was visible without a real sign-in
+    attempt in a real browser tab reading the console. See "SB-046" above.
 
-None were visible by reading the code. Numbers 7, 8, 9, 10, 12, and 13 in
+None were visible by reading the code. Numbers 7, 8, 9, 10, 12, 13, and 14 in
 particular only appeared from a specific combination of state no test suite
 was going to
 stumble into — a second vendor key absent while the first was present, a
 voice note captured in the narrow window after a grant changed with nothing
-exercising that exact code path, and a device (iPhone Safari) that had never
-actually recorded a note before.
+exercising that exact code path, a device (iPhone Safari) that had never
+actually recorded a note before, and a deployment made before its own
+config existed.
 
 ## An operational gotcha worth knowing
 

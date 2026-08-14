@@ -10,6 +10,18 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — production deploy was live with empty Supabase config
+
+`wamda-a8k.pages.dev` had no Git connection — prior deploys were manual
+`wrangler pages deploy` runs. After connecting the GitHub repo, the very
+first Git-triggered build ran before `VITE_SUPABASE_URL`/
+`VITE_SUPABASE_ANON_KEY` were saved as Production variables, so it shipped
+with both empty. Two "fresh checkout" fallbacks (CSP `connect-src` narrowing
+to `'self'`, the Supabase client defaulting to `127.0.0.1:54421`) hid this as
+a normal-looking but fully non-functional site instead of an error. Fixed by
+triggering one more deployment now that the variables are saved — no app
+code changed. See `docs/00-verification.md` "SB-046".
+
 ### Fixed — search then said "too many results", plus three UX gaps
 
 Owner tried the just-fixed search and reported it gathered "تقريبا كل

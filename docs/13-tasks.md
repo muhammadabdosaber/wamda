@@ -313,6 +313,32 @@ everything," and honestly short of ideal — see 11-features.md 3.9.
    for) can open the same view. Verified live: clicking a result opened the
    real detail sheet with the real raw text.
 
+### SB-046 · Production deploy went live with empty config vars · `done` · S
+
+Found live, 2026-08-13/14: `wamda-a8k.pages.dev` rendered its shell but every
+Supabase call was blocked. Root cause: `wamda` had no Git connection at all —
+prior deploys were manual `wrangler pages deploy` runs, which surface local
+git commit messages in the Cloudflare UI in a way that looks exactly like a
+webhook-triggered build. Once the owner connected the GitHub repo and saved
+`VITE_SUPABASE_URL`/`VITE_SUPABASE_ANON_KEY` as Production variables, the
+build the *connect* action itself had already triggered had run before the
+variables existed, so it shipped with both empty.
+
+Two independent "fresh checkout" fallbacks then hid the breakage instead of
+erroring loud: `web/vite.config.ts`'s CSP builder leaves `connect-src`
+`'self'`-only on an unparseable URL, and `web/src/data/api.ts` falls back to
+a local dev address (`127.0.0.1:54421`) and a placeholder anon key rather
+than throwing at module scope. A real sign-in attempt in a fresh tab
+confirmed both: console showed a CSP violation naming `127.0.0.1:54421`.
+Fixed by triggering one more deployment (Deployments → Retry) now that the
+variables were saved — no app code changed. Verified after: built JS hash
+changed, the live CSP meta tag now names
+`https://hfjpotjbrrnghuqhxoux.supabase.co`, and a direct `fetch()` to
+`/auth/v1/otp` with the real anon key reached Supabase (`500 Error sending
+magic link email` — the pre-existing Resend sandbox-sender limit, not a CSP
+or config failure) where the same call with a wrong key correctly got `401
+Invalid API key`. See `docs/00-verification.md` SB-046.
+
 ## M3 — Voice
 
 ### SB-007 · First real transcription · `done` · M
