@@ -82,7 +82,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.5 | Enum/label split — DB stores `task`, UI shows مهمة | ✅ | `i18n/ar.ts` |
 | 4.6 | Timeline of notes | ✅ | `features/Notes.tsx` |
 | 4.7 | Search screen | ✅ hybrid (lexical + semantic), result count shown, sticky input while scrolling, results open the real note detail sheet — all confirmed live (SB-045) | `features/Search.tsx` |
-| 4.8 | Weekly digest screen | ⬜ | `features/Digest.tsx` |
+| 4.8 | Weekly digest screen, with a picker over past weeks | ✅ renders real content (SB-018); picker over multiple stored weeks added and driven live — newest selected by default, switching chips swaps in that week's own headline/themes/wins/open_loops | `features/Digest.tsx` (SB-049) |
 | 4.9 | Installable PWA, manifest + service worker | 🟡 built and emitted; install flow untested on iOS | `vite.config.ts` |
 | 4.10 | Pending-sync indicator | ✅ | `Capture.tsx` |
 | 4.11 | Self-hosted fonts (Public Sans + Noto Sans Arabic) | ✅ both `loaded` in a browser, Arabic renders in Noto; CDN `<link>` removed | `global.css` · `web/public/fonts/` (SB-011) |

@@ -58,6 +58,7 @@ blocked on.
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **done** |
 | SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
+| SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -580,6 +581,96 @@ the full trace of each.
 
 - **Accept:** one real weekly digest exists, generated from at least a week of
   real notes; the fallback path is exercised deliberately at least once. ✅
+
+### SB-049 · Browse past weekly reviews, not just the latest one · `done` · S
+
+Owner request, 2026-08-15, after asking how the review is produced and where
+it is kept. The answer surfaced a gap that is **purely client-side**: every
+week is already stored forever, and the screen throws all but one away.
+
+**What is already true** (verified by reading, not assumed):
+
+| Question | Answer | Where |
+|---|---|---|
+| Is the review computed on open? | No. Precomputed by cron; the screen is a plain read | `Digest.tsx:31-41` |
+| Is every week persisted? | Yes, one row per `(user_id, period_start, language)` | `20260801000200_enums_and_tables.sql:248` |
+| Is any week ever deleted? | No — there is no retention job on `weekly_digests` (unlike `ai_jobs`, SB-004). Rows die only with the account, via the `on delete cascade` that `delete-account` relies on | `20260807000100_ai_jobs_retention.sql` covers `ai_jobs` only |
+| Can the client read old rows? | Yes — `weekly_digests_select` policy **and** `grant select … to authenticated` both exist | `20260801000400_rls.sql:55,162` |
+| Would listing them be slow? | No — `weekly_digests_user_idx (user_id, period_start desc, language)` is exactly this query's index | `20260801000300_indexes.sql:66` |
+
+So: **no migration, no Edge Function change, no vendor call, no new cost.**
+The only defect is `.limit(1)` in the client. That is the whole task, and the
+reason it is `S`.
+
+**Steps**
+
+1. `web/src/features/Digest.tsx` — widen the query. Select
+   `id, content, language, period_start, period_end`, keep
+   `.order("period_start", { ascending: false })`, and replace `.limit(1)`
+   with a bounded window (`.limit(26)` ≈ half a year). Bounded, not
+   unbounded: this list grows one row a week forever and nothing else caps
+   it.
+2. Hold two pieces of state: the fetched rows, and the selected
+   `period_start`. Default the selection to the newest row, so the screen's
+   current behaviour is what an owner who never touches the picker sees.
+3. Render a week picker above the review. **Reuse `.filter-bar` /
+   `.filter-chip`** from SB-041 (`global.css:566-598`) rather than inventing
+   a second horizontal chip pattern — it already handles overflow scroll,
+   hidden scrollbars, and `aria-pressed`.
+4. Label each chip **at render time from the date**, never from a stored
+   string — rule 2. Newest row gets `digestThisWeek`; the rest get a range
+   formatted with `Intl.DateTimeFormat` under the active locale, so Arabic
+   numerals and month names come from the platform, not from a table.
+5. New i18n keys in **both** `web/src/i18n/ar.ts` and `en.ts`:
+   `digestThisWeek`, and `digestHistoryLabel` for the picker's
+   `aria-label` (matching how `filterLabel` is used in `Notes.tsx:147`).
+6. Empty state: keep `digestEmpty` for "no rows at all". Do **not** add a
+   per-week empty state — the picker only ever offers weeks that exist.
+7. RTL: no physical properties; `cd web && npm run verify` runs
+   `check-rtl.mjs` and will fail the build on a `margin-left`.
+
+**One decision to make, not to guess**
+
+The query filters `.eq("language", language)` on the *UI* language, while
+digests are written under the *note enrichment's* language (`digest/index.ts`
+keys `custom_id` as `user_id__language`, and `DIGEST_PROMPTS` only has `ar`).
+Switching the UI to English therefore shows an empty history even though
+Arabic reviews exist. Today that is invisible because the screen shows one
+row or none. A history list makes it look like data was lost. Either keep the
+filter and accept it, or drop it and render each row under
+`directionOfContent(row.language)` — which `Digest.tsx:49` already does.
+Prefer the second; state which was chosen in the PR.
+
+**Accept**
+
+- Selecting an earlier week renders **that week's** `headline`/`themes`/
+  `wins`/`open_loops`/`suggestion`, verified against two rows with different
+  `period_start` values — not one row plus an assumption.
+- The newest week is selected on open, so a user who ignores the picker sees
+  what they see today.
+- `cd web && npm run verify` passes (typecheck + RTL guard + tests + build).
+
+**Verification note.** A genuine multi-week test needs at least two rows.
+Hosted may not have two yet. Do not fake this by editing `limit`; seed a
+second row on the local stack with the service role
+(`weekly_digests` is `grant all … to service_role`) with a distinct
+`period_start`, and record in `docs/00-verification.md` that the second row
+was seeded rather than generated — that distinction is the point of the
+ledger.
+
+> **Done (2026-08-15).** Implemented as scoped above: `.limit(1)` →
+> `.limit(26)`, no `.eq("language", …)` filter (chose to drop it, per the
+> "decision" section — each row already renders under its own
+> `directionOfContent`), state for the selected row defaulting to the
+> newest, a `.filter-bar`/`.filter-chip` picker, `Intl.DateTimeFormat` labels
+> computed at render time, new `digestThisWeek`/`digestHistoryLabel` keys in
+> both catalogues. `npm run verify` green. Local stack had zero
+> `weekly_digests` rows, so seeded two directly via `service_role` (disclosed
+> as seeded, not generated) and drove the picker live: newest week selected
+> by default, clicking the older chip swapped in that week's own content,
+> confirmed via `get_page_text` rather than assumed. Evidence:
+> `docs/00-verification.md` "SB-049 · Browse past weekly reviews, not just
+> the latest".
 
 ## M6 — Hardening
 

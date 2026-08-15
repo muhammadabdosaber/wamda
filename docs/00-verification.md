@@ -2251,6 +2251,52 @@ a still-small corpus, but a re-measurement to do once there is enough data
 for "correct" and "incorrect" to actually separate. See `docs/13-tasks.md`
 SB-048.
 
+## SB-049 · Browse past weekly reviews, not just the latest
+
+Owner asked how the weekly review is produced, where it lives, and whether
+past weeks could be browsed. Reading the code (`Digest.tsx`,
+`functions/digest`, the `weekly_digests` schema) showed every week was
+already stored forever with no retention job — `.limit(1)` in the client was
+the only thing throwing history away. Filed as SB-049, then implemented the
+same session.
+
+**Changed:** `Digest.tsx` now selects up to 26 rows (`order by period_start
+desc`, no language filter — a digest is written in the note language, not
+the UI language) instead of one, keeps the newest selected by default, and
+renders a `.filter-bar` picker (reusing SB-041's chip styling) over the rest.
+Each chip's label is computed at render time from `period_start`/`period_end`
+via `Intl.DateTimeFormat`, never stored — the newest chip reads
+"هذا الأسبوع", older ones read a day-month range. New i18n keys
+`digestThisWeek`, `digestHistoryLabel` in both `ar.ts` and `en.ts`.
+
+**Ran, not just typechecked:**
+
+- `cd web && npm run verify` — typecheck, RTL guard, 23 tests, build. All
+  green.
+- Local stack brought up (`supabase start`, `Second_Brain` containers
+  healthy). The local database had **zero** `weekly_digests` rows — no batch
+  digest had ever completed against it — so a real multi-week test needed
+  data. **Seeded two rows** directly via `service_role`
+  (`period_start` 2026-08-01 and 2026-08-08, distinct `content` JSON each)
+  for the local test user. This is disclosed as seeded, not generated, per
+  the task's own instruction not to fake multi-week coverage by editing the
+  query limit instead.
+- Dev server up on `:5174`, signed in as `muhammad@example.test`. Opened the
+  digest tab: **two chips rendered** — "هذا الأسبوع" and "1 أغسطس – 7
+  أغسطس" — with the newest week's content showing by default (headline
+  "الأسبوع ده كان معظمه شغل على SB-046 وإصلاح النشر."). Clicked the older
+  chip: content swapped to that week's own headline ("الأسبوع اللي فات كان
+  معظمه بناء شاشة المهام والبحث."), themes, wins, and suggestion — confirmed
+  via `get_page_text`, not assumed from the click alone.
+- Console during this test showed `timeline_failed` / `503` errors from the
+  **Notes** screen's Edge Function call — unrelated to this change; `Digest`
+  reads straight through PostgREST by design (see the comment in
+  `Digest.tsx`) and rendered correctly regardless of Edge Runtime state.
+
+**Not re-verified:** the batch-generation pipeline itself (`digest-enqueue`/
+`digest-collect`, SB-017/SB-018) — this task only touched how the client
+reads already-written rows, not how they get written.
+
 ## Fifteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

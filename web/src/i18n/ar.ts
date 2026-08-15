@@ -84,6 +84,8 @@ export const ar = {
 
   digestTitle: "مراجعة الأسبوع",
   digestEmpty: "ستظهر مراجعتك الأسبوعية هنا يوم السبت.",
+  digestThisWeek: "هذا الأسبوع",
+  digestHistoryLabel: "تصفّح مراجعات الأسابيع السابقة",
 
   settingsLanguage: "اللغة",
   offline: "أنت غير متصل — تُحفظ ملاحظاتك على جهازك.",

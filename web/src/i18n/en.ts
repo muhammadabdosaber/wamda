@@ -62,6 +62,8 @@ export const en: Messages = {
 
   digestTitle: "Weekly review",
   digestEmpty: "Your weekly review will appear here on Saturday.",
+  digestThisWeek: "This week",
+  digestHistoryLabel: "Browse past weekly reviews",
 
   settingsLanguage: "Language",
   offline: "You're offline — notes are saved on your device.",

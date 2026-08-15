@@ -10,6 +10,18 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — browse past weekly reviews, not just the latest (SB-049)
+
+The weekly review screen kept only `.limit(1)` — every week was already
+stored forever with no retention job, so history was being thrown away on
+the client for no reason. `Digest.tsx` now fetches up to 26 rows and shows a
+week picker (reusing the Notes category filter bar's chip styling); the
+newest week is selected by default, and each older chip is labelled from its
+`period_start`/`period_end` at render time via `Intl.DateTimeFormat` rather
+than a stored string. Verified live: seeded a second week locally and
+confirmed switching chips swaps in that week's own content. See
+`docs/00-verification.md` "SB-049".
+
 ### Fixed — sign-in was dead: the deployed anon key was a *masked* key
 
 `VITE_SUPABASE_ANON_KEY` in Cloudflare held `eyJhbGci` followed by 200 `•`
