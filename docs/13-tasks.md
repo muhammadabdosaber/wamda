@@ -352,9 +352,11 @@ bullets and `0` non-ASCII at the key site in the new bundle, then a real
 click on «أرسل رمز الدخول» produced `POST /auth/v1/otp → 200` with the UI
 advancing to the code-entry step.
 
-Not verified: the signed-in timeline / tasks / search screens against
-hosted. The owner's stuck «جارٍ تجهيز البيانات…» report was inside the
-broken-key window and is *expected* to be gone, but nobody has looked.
+**Confirmed by the owner, 2026-08-15:** signed in with the emailed code and
+reports the app working, including the Tasks screen that had been stuck on
+«جارٍ تجهيز البيانات…» — that stuck state was a symptom of the masked key,
+not a separate bug. Owner report on a real hosted session, not an
+instrumented per-screen measurement.
 
 ### SB-047 · Fail loud on a malformed Supabase config, don't fall back · `open` · S
 

@@ -20,9 +20,11 @@ threw *before dispatching*: no Network entry, no console error, just a
 generic error on screen. Found by downloading the deployed bundle and
 counting code points. Fixed by re-entering the real key and redeploying; a
 real click on «أرسل رمز الدخول» now produces `POST /auth/v1/otp → 200` and
-the UI advances to code entry. Signed-in screens still unverified against
-hosted. Filed SB-047 to make a malformed config fail loudly instead of
-falling back. See `docs/00-verification.md` "SB-046 · Part two".
+the UI advances to code entry. Owner then signed in with the emailed code
+and confirmed the app working, including the Tasks screen that had been
+stuck on «جارٍ تجهيز البيانات…». Filed SB-047 to make a malformed config
+fail loudly instead of falling back. See `docs/00-verification.md`
+"SB-046 · Part two".
 
 ### Fixed — production deploy was live with empty Supabase config
 

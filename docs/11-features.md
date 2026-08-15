@@ -108,7 +108,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | # | Feature | State | Owner |
 |---|---|---|---|
-| 5.1 | Email OTP sign-in (6-digit) | ✅ end to end | `features/Auth.tsx` |
+| 5.1 | Email OTP sign-in (6-digit) | ✅ end to end; re-confirmed on hosted 2026-08-15 after SB-046 — real click → `POST /auth/v1/otp → 200`, owner entered the code and signed in | `features/Auth.tsx` |
 | 5.2 | Arabic RTL email template | ✅ | `supabase/templates/magic_link.html` |
 | 5.3 | Profile auto-provisioned on signup | ✅ | migration `…000200` trigger |
 | 5.4 | RLS on every public table | ✅ 12 checks | migration `…000400` |
@@ -139,7 +139,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
-| 6.10 | Staging / production deployment | ✅ live: hosted Supabase (`hfjpotjbrrnghuqhxoux`) + PWA on Cloudflare Pages (`wamda-a8k.pages.dev`); real note captured end to end from the production URL | SB-016 |
+| 6.10 | Staging / production deployment | ✅ live: hosted Supabase (`hfjpotjbrrnghuqhxoux`) + PWA on Cloudflare Pages (`wamda-a8k.pages.dev`); real note captured end to end from the production URL. **Now Git-connected** (`muhammadabdosaber/second-brain`, root `web`, auto-deploy on `main`) — before 2026-08-14 every deploy was a manual `wrangler pages deploy`, which the Cloudflare UI renders indistinguishably from a webhook build. Two outages came from that transition: a build published before its env vars were saved, then a masked anon key pasted into them — see `00-verification.md` SB-046 | SB-016 · SB-046 |
 
 ## 7. Phase 2 — English
 

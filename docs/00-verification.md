@@ -2210,12 +2210,17 @@ with the screen advancing to the code-entry step («أرسلنا رمزًا مك
 the code itself was left to the owner — this agent does not type
 authentication codes on a user's behalf.
 
-Still not verified past that point: nothing has confirmed the signed-in
-timeline, tasks, or search screens load against hosted since the outage.
-The owner separately reported the Tasks screen stuck on «جارٍ تجهيز
-البيانات…», which was during the broken-key window and is expected to have
-gone with it — but that is a prediction, not a measurement, and stays in
-"Did NOT run" until someone signs in and looks.
+**Owner-confirmed, 2026-08-15**, closing the gap this section opened: the
+owner entered the code, signed in, and reports the app working — including
+the Tasks screen that had been stuck on «جارٍ تجهيز البيانات…» during the
+broken-key window. That stuck state was a *symptom* of the masked key, as
+predicted here, not a separate bug.
+
+Scope of that confirmation, stated plainly: it is the owner's report on a
+real signed-in session against hosted, which is the strongest evidence this
+project has for a client-side screen. It is not an instrumented measurement
+— no per-screen network trace or row count was captured — so treat it as
+"the owner used it and it worked", not as a per-feature assertion.
 
 ## Fifteen real bugs this caught
 
