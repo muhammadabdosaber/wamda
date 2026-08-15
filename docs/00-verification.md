@@ -2222,6 +2222,17 @@ project has for a client-side screen. It is not an instrumented measurement
 — no per-screen network trace or row count was captured — so treat it as
 "the owner used it and it worked", not as a per-feature assertion.
 
+**One screen upgraded past that caveat, same day:** the owner also reported
+clicking a search result did nothing. Before chasing it as a new bug, the
+question was whether it was *another* symptom of the broken-key window
+rather than a separate defect — `Search.tsx`'s open-on-click wiring (SB-045)
+hadn't been exercised against hosted since the outage. Confirmed with a
+screenshot: clicking a result from the "كنت بتكلم عن عشوائي" query above
+opened `NoteDetail` with the correct title, category chip, date (١٢ أغسطس),
+and raw text («خليهم يجربوا كده مرة كمان، معهم هيشتغلوا ولا لأ؟»). It was the
+outage, not a second bug — closes SB-045's click-to-open claim against
+hosted, not just the local corpus it was originally verified on.
+
 ## Semantic search reviewed on a real hosted query — confirms Cohere, flags a false positive
 
 Owner shared the raw search response for query "كنت بتكلم عن عشوائي" against
