@@ -313,7 +313,7 @@ everything," and honestly short of ideal — see 11-features.md 3.9.
    for) can open the same view. Verified live: clicking a result opened the
    real detail sheet with the real raw text.
 
-### SB-046 · Production deploy went live with empty config vars · `done` · S
+### SB-046 · Production was dead twice: empty config vars, then a masked key · `done` · M
 
 Found live, 2026-08-13/14: `wamda-a8k.pages.dev` rendered its shell but every
 Supabase call was blocked. Root cause: `wamda` had no Git connection at all —
@@ -338,6 +338,41 @@ changed, the live CSP meta tag now names
 magic link email` — the pre-existing Resend sandbox-sender limit, not a CSP
 or config failure) where the same call with a wrong key correctly got `401
 Invalid API key`. See `docs/00-verification.md` SB-046.
+
+**Then sign-in was still dead, for a second, unrelated reason.** The value
+saved as `VITE_SUPABASE_ANON_KEY` in Cloudflare was a *masked rendering* of
+the key: `eyJhbGci` plus 200 `•` characters, pasted from a UI that displays
+it obscured. Measured on the deployed artefact — 200 `U+2022` in the bundle,
+against a real key of 208 pure-ASCII characters, so the mask had preserved
+the length exactly and looked plausible. `•` is illegal in an HTTP header
+value, so `fetch` threw before dispatching: **no Network entry, no console
+error**, just `errorGeneric` on screen. Fixed by re-entering the real key
+and redeploying (`index-DHD8tW5K.js` → `index-DnCT3Jfi.js`). Verified: `0`
+bullets and `0` non-ASCII at the key site in the new bundle, then a real
+click on «أرسل رمز الدخول» produced `POST /auth/v1/otp → 200` with the UI
+advancing to the code-entry step.
+
+Not verified: the signed-in timeline / tasks / search screens against
+hosted. The owner's stuck «جارٍ تجهيز البيانات…» report was inside the
+broken-key window and is *expected* to be gone, but nobody has looked.
+
+### SB-047 · Fail loud on a malformed Supabase config, don't fall back · `open` · S
+
+Twice in one day a misconfigured deploy presented as a working-looking site
+with an unhelpful generic error, because `web/src/data/api.ts` prefers a
+placeholder over a throw and `buildCsp()` prefers `'self'` over a failure.
+Both fallbacks are correct for a fresh checkout and wrong for a deploy.
+
+Proposal: keep the fallbacks, but validate shape at startup and surface a
+specific diagnostic — the anon key should be three dot-separated
+base64url segments, and `VITE_SUPABASE_URL` should parse as an absolute
+`https:` URL. Anything else renders the existing "not configured" banner
+with the reason named, instead of letting a broken value reach `fetch`.
+A build-time assert in `vite.config.ts` would catch it even earlier, before
+a bad bundle can be published at all.
+
+Not started. Filed because the diagnosis cost real time twice and left no
+signal in either the console or the Network tab.
 
 ## M3 — Voice
 

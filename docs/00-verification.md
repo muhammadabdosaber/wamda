@@ -2096,7 +2096,7 @@ bugs:**
   Verified live: clicking a result opened the real detail sheet, correct
   title/summary/category/date, correct raw text.
 
-## SB-046 · Production was completely dead — deployed before its env vars existed
+## SB-046 · Production was completely dead — twice, for two different reasons
 
 **Symptom, found live:** `wamda-a8k.pages.dev` rendered its shell fine, but
 every Supabase call was blocked and a real sign-in attempt threw immediately.
@@ -2151,7 +2151,73 @@ config: connect Git, save the two `VITE_`-prefixed variables under
 Production, then force one more build so the vars a Git-triggered build
 already reads got baked in.
 
-## Fourteen real bugs this caught
+### Part two: sign-in was still dead, and the key was a *masked* key
+
+That fix cleared the CSP, but the owner reported sign-in still failed —
+"حدث خطأ" on every attempt, no code ever arriving. What made this one hard
+is that the owner's own DevTools showed **nothing at all**: no console
+error, and no request in the Network tab. Meanwhile a `fetch()` I issued by
+hand to the same endpoint, with the key typed out from
+`web/.env.production.local`, returned `200`. Two contradictory results
+against the same project.
+
+**Root cause: the value saved as `VITE_SUPABASE_ANON_KEY` in Cloudflare was
+a masked rendering of the key, not the key.** It was the first 8 characters
+(`eyJhbGci`) followed by **200 `•` characters** — pasted from a UI that
+displays the key obscured. Measured directly on the deployed artefact, by
+downloading it and counting code points rather than eyeballing it:
+
+```
+U+2022 BULLET count in whole bundle:  200
+real key length (.env.production.local):  208, pure ASCII, 3 JWT parts
+8 real chars + 200 bullets = 208  ← the mask preserved the length exactly
+```
+
+`•` is `U+2022`, outside the ISO-8859-1 range HTTP header values are
+restricted to, so **`fetch` throws synchronously before dispatching**:
+`Failed to read the 'headers' property from 'RequestInit': String contains
+non ISO-8859-1 code point`. That single fact explains every symptom:
+
+| Observation | Why |
+| --- | --- |
+| No entry in the Network tab | the request was never dispatched |
+| No console error | `supabase-js` catches the throw and returns it as `{ error }` |
+| Generic "حدث خطأ" on screen | `Auth.tsx` maps any `error` to `errorGeneric` |
+| A hand-issued `fetch` worked | it used the real key, not the deployed one |
+
+**Cost note, recorded because it is the point of this ledger:** this
+session saw the exact signature — `charCodeAt` returning `8226` for every
+character of the `apikey` header, measured in-page — and *dismissed it* as
+an artefact of the agent harness masking secrets in tool output. That was
+wrong, and it cost an extra round trip through the owner. The tell that
+should have settled it immediately: the bullets were computed by
+`charCodeAt` **inside the page**, so no output-layer masking could have
+produced them.
+
+**Confirmed fixed, end to end.** After the owner re-entered the real key
+and redeployed (`index-DHD8tW5K.js` → `index-DnCT3Jfi.js`), the deployed
+bundle was re-downloaded and measured again — `0` bullets, `0` non-ASCII
+characters at the key site, a 208-character run splitting into 3 JWT parts.
+Then the real UI was driven: typed an address, clicked «أرسل رمز الدخول»,
+and instrumented `window.fetch` recorded
+
+```
+POST https://hfjpotjbrrnghuqhxoux.supabase.co/auth/v1/otp → 200 {}
+```
+
+with the screen advancing to the code-entry step («أرسلنا رمزًا مكوّنًا من
+ستة أرقام إلى بريدك», the «رمز التحقق» field, the «تأكيد» button). Entering
+the code itself was left to the owner — this agent does not type
+authentication codes on a user's behalf.
+
+Still not verified past that point: nothing has confirmed the signed-in
+timeline, tasks, or search screens load against hosted since the outage.
+The owner separately reported the Tasks screen stuck on «جارٍ تجهيز
+البيانات…», which was during the broken-key window and is expected to have
+gone with it — but that is a prediction, not a measurement, and stays in
+"Did NOT run" until someone signs in and looks.
+
+## Fifteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`
    had no table-level privileges — every client query would have failed
@@ -2257,15 +2323,26 @@ already reads got baked in.
     rendered and looked normal instead of erroring — it just couldn't reach
     the server. Nothing about this was visible without a real sign-in
     attempt in a real browser tab reading the console. See "SB-046" above.
+15. **The deployed anon key was a *masked* key — 8 real characters and 200
+    `•` — and the failure it caused was invisible in every tool you would
+    reach for.** `•` is `U+2022`, illegal in an HTTP header value, so
+    `fetch` threw *before dispatching*: nothing in the Network tab, nothing
+    in the console (`supabase-js` catches it and returns `{ error }`), just
+    a generic "something went wrong" on screen. Found by downloading the
+    deployed bundle and counting code points. The length matched the real
+    key exactly (8 + 200 = 208), which is precisely what a length-preserving
+    mask does and why the value looked plausible in the Cloudflare UI. See
+    "SB-046 · Part two" above.
 
-None were visible by reading the code. Numbers 7, 8, 9, 10, 12, 13, and 14 in
-particular only appeared from a specific combination of state no test suite
-was going to
+None were visible by reading the code. Numbers 7, 8, 9, 10, 12, 13, 14, and
+15 in particular only appeared from a specific combination of state no test
+suite was going to
 stumble into — a second vendor key absent while the first was present, a
 voice note captured in the narrow window after a grant changed with nothing
 exercising that exact code path, a device (iPhone Safari) that had never
-actually recorded a note before, and a deployment made before its own
-config existed.
+actually recorded a note before, a deployment made before its own config
+existed, and a credential that was the right length, the right prefix, and
+still not the credential.
 
 ## An operational gotcha worth knowing
 
