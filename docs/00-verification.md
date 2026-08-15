@@ -2222,6 +2222,24 @@ project has for a client-side screen. It is not an instrumented measurement
 — no per-screen network trace or row count was captured — so treat it as
 "the owner used it and it worked", not as a per-feature assertion.
 
+## Semantic search reviewed on a real hosted query — confirms Cohere, flags a false positive
+
+Owner shared the raw search response for query "كنت بتكلم عن عشوائي" against
+their real hosted notes. Both hits carried `lexical_rank: null` and a
+`semantic_rank` (1 and 2) — direct proof the lexical arm found nothing
+(`websearch_to_tsquery` ANDs every word in the query, and this one shares no
+complete word with either note) and Cohere's embedding comparison alone
+produced the results. Confirms SB-045's mechanism end to end on real data,
+not just the local test corpus.
+
+One of the two, though, has no evident connection to the query — the exact
+false-positive risk SB-045 already named when it described the `0.6`
+distance floor as "measured, not tuned" on 6 notes. Filed as SB-048: not a
+bug to fix now, since tightening the number today would be another guess on
+a still-small corpus, but a re-measurement to do once there is enough data
+for "correct" and "incorrect" to actually separate. See `docs/13-tasks.md`
+SB-048.
+
 ## Fifteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

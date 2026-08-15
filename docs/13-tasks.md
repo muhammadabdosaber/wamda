@@ -376,6 +376,35 @@ a bad bundle can be published at all.
 Not started. Filed because the diagnosis cost real time twice and left no
 signal in either the console or the Network tab.
 
+### SB-048 · Retune the semantic distance threshold once the corpus is large · `open` · S
+
+Owner request, 2026-08-15, after reviewing a real hosted search: raise the
+semantic arm's threshold once the note count grows. Confirmed why with the
+raw RPC response for query "كنت بتكلم عن عشوائي" — **both** hits had
+`lexical_rank: null`, `semantic_rank` set (1 and 2), i.e. Cohere alone
+surfaced them, lexical found nothing because `websearch_to_tsquery` ANDs
+every word in a multi-word colloquial query. One result ("نص غير مفهوم") is
+a defensible match; the other ("تجربة الحل مرة أخرى مع الفريق") has no
+apparent connection to the query — exactly the false-positive risk
+`0.6`/SB-045 already named as a known cost of a permissive floor measured on
+6 notes.
+
+**Not actionable yet.** `distance <= 0.6` in
+`supabase/migrations/20260813000300_search_semantic_threshold.sql` was
+measured against a 6-note corpus specifically because there wasn't a bigger
+one — tightening it now would be another guess, not a tuning. Re-run the
+same methodology (`docs/00-verification.md` "SB-045") once the corpus is
+big enough that "top match" vs. "next several" separate into a real gap
+rather than the 0.41–0.53-vs-0.34–0.46 band already measured. `docs/11-
+features.md` 3.9 puts that around ~100 notes; re-check that number against
+whatever the corpus actually is when this is picked up, since it was itself
+a guess.
+
+Acceptance: re-run the measurement script (the one behind the 0.6 figure,
+not a re-guess), report the new similarity bands for correct vs. incorrect
+matches, and pick a new `max_distance` from *that* data, in a new migration
+(never edit `20260813000300` in place).
+
 ## M3 — Voice
 
 ### SB-007 · First real transcription · `done` · M
