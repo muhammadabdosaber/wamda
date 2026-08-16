@@ -100,3 +100,23 @@ export function requireEnv(name: string): string {
   if (!v) throw new HttpError(500, "missing_configuration", `${name} is not set`);
   return v;
 }
+
+/**
+ * Gate for service-only functions (`sweep`, `digest`) -- callable by pg_cron,
+ * never by a user or an anonymous visitor.
+ *
+ * The platform's own `verify_jwt` is not enough here: it accepts ANY JWT
+ * signed with the project secret, and the anon key -- shipped in every
+ * browser bundle by design -- is exactly such a JWT. So before this check,
+ * anyone could trigger a real Anthropic Batch submission (`digest enqueue`)
+ * or an uncapped vendor-retry pass (`sweep` with `forceEmbedBackfill`).
+ * The pg_cron jobs already send the service-role key from Vault
+ * (migrations 20260801000800 / 20260807000300), so the caller either holds
+ * the one credential that never leaves the server, or it gets a 403.
+ */
+export function requireServiceRole(req: Request): void {
+  const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  if (!bearer || bearer !== requireEnv("SUPABASE_SERVICE_ROLE_KEY")) {
+    throw new HttpError(403, "forbidden");
+  }
+}

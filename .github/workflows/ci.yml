@@ -26,6 +26,12 @@ jobs:
           cache-dependency-path: web/package-lock.json
       - run: npm ci
         working-directory: web
+      # docs/08-security.md's open item: the PWA's supply chain is its npm
+      # tree, and every package in it runs on the origin with access to
+      # localStorage. Gate on production deps only -- a dev-tool advisory
+      # should not block a release, but one in shipped code must.
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: web
       # The single command the project verifies with locally.
       - run: npm run verify
         working-directory: web

@@ -14,7 +14,7 @@
 
 import Anthropic from "npm:@anthropic-ai/sdk";
 
-import { errorResponse, HttpError, json, preflight, requireEnv } from "../_shared/http.ts";
+import { errorResponse, HttpError, json, preflight, requireEnv, requireServiceRole } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { SUPPORTED } from "../_shared/language.ts";
 
@@ -76,6 +76,9 @@ Deno.serve(async (req) => {
 
   try {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed");
+    // Service-triggered only. The anon key passes the platform's JWT check;
+    // this does not accept it -- `enqueue` is real vendor spend per call.
+    requireServiceRole(req);
 
     const body = await req.json().catch(() => ({}));
     const admin = serviceClient();

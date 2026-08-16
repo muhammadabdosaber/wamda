@@ -6,7 +6,7 @@
 // would be the one dependency-fetch-at-test-time exception in a codebase
 // that otherwise refuses to depend on anything not vendored or self-hosted.
 
-import { preflight } from "./http.ts";
+import { HttpError, preflight, requireServiceRole } from "./http.ts";
 
 function assertEquals<T>(actual: T, expected: T, msg: string) {
   if (actual !== expected) {
@@ -76,5 +76,65 @@ Deno.test("preflight: a missing Origin is rejected the same as a foreign one", a
     await res.body?.cancel();
   } finally {
     Deno.env.delete("ALLOWED_ORIGIN");
+  }
+});
+
+// SECURITY_REVIEW.md F1: sweep/digest are service-only, and the platform's
+// verify_jwt accepts the PUBLIC anon key -- so the gate that actually keeps
+// an anonymous visitor from triggering vendor spend is requireServiceRole.
+// The rejection cases are the point; the happy path exists so a refactor
+// cannot silently lock pg_cron out.
+
+const SERVICE_KEY = "test-service-role-key-abcdefghijklmnop";
+
+function postRequest(bearer?: string): Request {
+  const headers = new Headers();
+  if (bearer !== undefined) headers.set("Authorization", `Bearer ${bearer}`);
+  return new Request("http://localhost/functions/v1/sweep", { method: "POST", headers });
+}
+
+function expectForbidden(req: Request, msg: string) {
+  try {
+    requireServiceRole(req);
+  } catch (e) {
+    if (e instanceof HttpError && e.status === 403) return;
+    throw new Error(`${msg}: expected HttpError 403, got ${String(e)}`);
+  }
+  throw new Error(`${msg}: expected a throw, got none`);
+}
+
+Deno.test("requireServiceRole: the service-role key passes", () => {
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY);
+  try {
+    requireServiceRole(postRequest(SERVICE_KEY)); // must not throw
+  } finally {
+    Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+  }
+});
+
+Deno.test("requireServiceRole: the anon key (any other bearer) is rejected", () => {
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY);
+  try {
+    expectForbidden(postRequest("the-public-anon-key"), "anon bearer");
+  } finally {
+    Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+  }
+});
+
+Deno.test("requireServiceRole: a missing Authorization header is rejected", () => {
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY);
+  try {
+    expectForbidden(postRequest(), "no header");
+  } finally {
+    Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
+  }
+});
+
+Deno.test("requireServiceRole: an empty bearer is rejected", () => {
+  Deno.env.set("SUPABASE_SERVICE_ROLE_KEY", SERVICE_KEY);
+  try {
+    expectForbidden(postRequest(""), "empty bearer");
+  } finally {
+    Deno.env.delete("SUPABASE_SERVICE_ROLE_KEY");
   }
 });

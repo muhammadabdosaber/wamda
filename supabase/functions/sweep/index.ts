@@ -29,7 +29,7 @@
  * incident of its own.
  */
 
-import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
+import { errorResponse, HttpError, json, preflight, requireServiceRole } from "../_shared/http.ts";
 import { recordJob, serviceClient } from "../_shared/supabase.ts";
 import { runEnrichment, runTranscription } from "../_shared/pipeline.ts";
 import { embeddingProvider } from "../_shared/providers.ts";
@@ -57,6 +57,9 @@ Deno.serve(async (req) => {
 
   try {
     if (req.method !== "POST") throw new HttpError(405, "method_not_allowed");
+    // Service-triggered only. The anon key passes the platform's JWT check;
+    // this does not accept it.
+    requireServiceRole(req);
 
     const admin = serviceClient();
     const body = await req.json().catch(() => ({}));

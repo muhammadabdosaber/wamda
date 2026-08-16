@@ -145,7 +145,11 @@ Deno.serve(async (req) => {
       const { error: linkError } = await admin
         .from("notes")
         .update({ audio_path: path, status: "queued" })
-        .eq("id", noteId);
+        .eq("id", noteId)
+        // Redundant with the ownership check above today, but service-role
+        // queries filter by user_id by hand as an invariant (docs/08) -- this
+        // write must not outlive that check through a future refactor.
+        .eq("user_id", user.id);
       if (linkError) throw new HttpError(500, "audio_path_write_failed");
 
       return json(

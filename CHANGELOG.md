@@ -10,6 +10,37 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Security — full-codebase review, first fixes (SECURITY_REVIEW.md)
+
+A structured security review of the whole codebase (multi-tenant isolation,
+auth, OWASP, secrets, billing readiness, portability, code quality) is now
+in `SECURITY_REVIEW.md` at the repo root, with per-finding severity and a
+status column. Verdict: 0 Critical; 1 High — `sweep` and `digest` are
+service-only but accept the public anon key as sufficient JWT, so anyone
+with the bundle can trigger real vendor spend.
+
+That High is now fixed, with owner sign-off since it touches the
+authorization flow: `requireServiceRole()` in `_shared/http.ts` compares
+the bearer to `SUPABASE_SERVICE_ROLE_KEY` at the top of both handlers, and
+4 new Deno tests prove the anon-style/missing/empty bearers all get 403
+while the service key passes (9 tests total, all green). Not yet live on
+hosted — needs `supabase functions deploy sweep digest`. Also owner-approved:
+OTP expiry shortened 3600 → 600 s in `config.toml` (hosted after the next
+config push). Owner-deferred: column-scoping the `notes` INSERT grant, folded
+into the future billing schema work.
+
+Also fixed in this pass (non-schema, non-auth): `/search`'s Cohere embedding
+call now goes through the same `enforceRateLimit` gate as enrich/transcribe
+(built and type-checked; the 429 path has not run live — no Cohere key in
+this worktree); the `audio-url` service-role write now filters by `user_id`
+per the docs/08 invariant; `web/public/_headers` ships clickjacking and
+sniffing protection Cloudflare Pages will serve on the next deploy
+(confirmed present in `dist/` by a real build); `npm audit fix` cleared the
+nanoid dev-tree advisory (tree now 0 vulnerabilities, ran for real); CI's
+web job gained an `npm audit --omit=dev --audit-level=high` step (not yet
+executed on a runner). `deno check`, the 5 Deno tests, and the full
+`npm run verify` suite all pass after the changes.
+
 ### Added — browse past weekly reviews, not just the latest (SB-049)
 
 The weekly review screen kept only `.limit(1)` — every week was already
