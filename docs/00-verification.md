@@ -2297,6 +2297,57 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## Security review · first fixes (SECURITY_REVIEW.md)
+
+**2026-08-16.** A full-codebase security review (requested by the owner ahead
+of the move to dedicated infrastructure and paid tiers) is written to
+`SECURITY_REVIEW.md` at the repo root — findings, severities, and a status
+column that tracks fixes. Read that file for the substance; this entry
+records only what *ran*.
+
+**Changed:** `functions/search` now calls `enforceRateLimit(admin, user.id,
+"embed")` before the paid Cohere embedding call (finding F7 — the one
+vendor-spending endpoint SB-002 didn't cover); `functions/notes`'s
+`audio-url` service-role write gained `.eq("user_id", user.id)` (F2, the
+docs/08 invariant); `web/public/_headers` added so Cloudflare Pages serves
+`frame-ancestors 'none'` / `X-Frame-Options: DENY` / `nosniff` /
+`Referrer-Policy` / `Permissions-Policy` — the directives the `<meta>` CSP
+structurally cannot carry (F11); CI's web job gained
+`npm audit --omit=dev --audit-level=high` (F15).
+
+**Ran, not just typechecked:**
+
+- `npx -y deno check supabase/functions/search/index.ts
+  supabase/functions/notes/index.ts` — clean. (Deno itself is not installed
+  on this machine; the npm-distributed `deno` 2.9.5 was used.)
+- `npx -y deno test --allow-env supabase/functions/_shared/http.test.ts` —
+  5 passed, 0 failed.
+- `cd web && npm run verify` — typecheck, RTL guard, 23 tests, build, all
+  green; `dist/_headers` confirmed present in the build output.
+- `npm audit fix` then `npm audit` — nanoid bumped past the GHSA advisory;
+  **0 vulnerabilities** in the full tree, verified by the re-run.
+
+**Built, not run:** the `/search` 429 path has not been exercised over live
+HTTP — the semantic arm needs the Cohere key, absent from this worktree —
+so F7 sits at the same evidence level SB-002 had before its 61-call proof.
+The `_headers` file is not live until the next Pages deploy. The CI audit
+step has not executed on a real runner.
+
+**Owner-gated items, resolved the same session:** the High finding —
+`sweep`/`digest` accept the public anon key as a sufficient JWT, so anyone
+with the bundle can trigger real vendor spend — was approved and fixed:
+`requireServiceRole()` (`_shared/http.ts`) compares the bearer to
+`SUPABASE_SERVICE_ROLE_KEY` at the top of both handlers. Proven at unit
+level, not live: `npx -y deno check` over all 8 functions is clean, and
+`http.test.ts` grew from 5 to 9 tests — service key passes; anon-style,
+missing, and empty bearers each get 403. The gate is **not live on hosted
+until both functions are redeployed**; after that, the cron jobs (which
+send the service-role key from Vault) should keep returning 200 with no
+change on their side. OTP expiry was approved and cut 3600 → 600 in
+`config.toml` (BOM-checked; hosted takes it on the next config push with
+`SUPABASE_AUTH_SITE_URL` set). The `notes` INSERT-grant migration was
+explicitly deferred by the owner into the future billing schema work.
+
 ## Fifteen real bugs this caught
 
 1. **Missing table grants.** RLS policies were correct, but `authenticated`

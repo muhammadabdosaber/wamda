@@ -1,0 +1,17 @@
+# Cloudflare Pages header rules -- served with every response from the deploy.
+#
+# This file exists because two CSP directives cannot live in the <meta> CSP
+# the build bakes into index.html: browsers ignore `frame-ancestors` there by
+# spec (see web/vite.config.ts and docs/08-security.md). The full CSP stays in
+# the meta tag -- duplicating it here would be a second copy to drift -- so
+# this file carries only what the meta tag structurally cannot.
+#
+# `microphone` is deliberately NOT disabled: voice capture is a core feature.
+# HSTS is deliberately absent: Cloudflare serves it at the edge already.
+
+/*
+  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), geolocation=(), payment=(), usb=()

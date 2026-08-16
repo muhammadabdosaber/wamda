@@ -15,6 +15,7 @@ import { errorResponse, HttpError, json, preflight } from "../_shared/http.ts";
 import { authenticate, recordJob, serviceClient, userClient } from "../_shared/supabase.ts";
 import { resolveLanguage, SUPPORTED } from "../_shared/language.ts";
 import { embeddingProvider } from "../_shared/providers.ts";
+import { enforceRateLimit } from "../_shared/rateLimit.ts";
 
 type Mode = "hybrid" | "semantic" | "lexical";
 const MODES: Mode[] = ["hybrid", "semantic", "lexical"];
@@ -49,6 +50,12 @@ Deno.serve(async (req) => {
     // A lexical-only search should not pay an embedding round trip.
     let vector: number[] | null = null;
     if (mode === "hybrid" || mode === "semantic") {
+      // Same gate as /enrich and /transcribe (SB-002), same reasoning: this
+      // is the one line in /search that costs vendor money per call. The
+      // `embed` stage rows this function already writes are the counter.
+      const admin = serviceClient();
+      await enforceRateLimit(admin, user.id, "embed");
+
       const embedder = embeddingProvider();
       const started = Date.now();
       // "query" input type, not "document" -- Cohere embeds the two
@@ -57,7 +64,7 @@ Deno.serve(async (req) => {
       vector = v;
 
       await recordJob(
-        serviceClient(),
+        admin,
         {
           userId: user.id,
           stage: "embed",
