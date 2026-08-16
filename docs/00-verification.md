@@ -2340,13 +2340,53 @@ with the bundle can trigger real vendor spend — was approved and fixed:
 `SUPABASE_SERVICE_ROLE_KEY` at the top of both handlers. Proven at unit
 level, not live: `npx -y deno check` over all 8 functions is clean, and
 `http.test.ts` grew from 5 to 9 tests — service key passes; anon-style,
-missing, and empty bearers each get 403. The gate is **not live on hosted
-until both functions are redeployed**; after that, the cron jobs (which
-send the service-role key from Vault) should keep returning 200 with no
-change on their side. OTP expiry was approved and cut 3600 → 600 in
-`config.toml` (BOM-checked; hosted takes it on the next config push with
-`SUPABASE_AUTH_SITE_URL` set). The `notes` INSERT-grant migration was
-explicitly deferred by the owner into the future billing schema work.
+missing, and empty bearers each get 403. OTP expiry was approved and cut
+3600 → 600 in `config.toml` (BOM-checked). The `notes` INSERT-grant
+migration was explicitly deferred by the owner into the future billing
+schema work.
+
+### Deployed to hosted (2026-08-16, same session)
+
+PR #31 merged to `main`; the owner asked for the three deploy steps to be
+run against the live project (`hfjpotjbrrnghuqhxoux`, `wamda-a8k.pages.dev`).
+This worktree had no `.env` and was not `supabase link`ed (expected — see
+"A new `git worktree` has no vendor keys" below), but a cached CLI login
+existed at the machine level, so linking and deploying were possible without
+any secret living in this checkout.
+
+- **`supabase functions deploy sweep digest search notes
+  --project-ref hfjpotjbrrnghuqhxoux`** — all four bundled and deployed;
+  CLI returned `"message":"Deployed Functions."`. Confirmed one of them is
+  actually serving the new code path: `curl -X OPTIONS
+  https://hfjpotjbrrnghuqhxoux.supabase.co/functions/v1/sweep -H "Origin:
+  https://evil.example"` → `403` (the existing `ALLOWED_ORIGIN` preflight
+  gate, proving the function responds). **Not yet confirmed:** the
+  `requireServiceRole()` gate itself has not been exercised with a real
+  anon-key POST against production, and no scheduled `sweep-worker` /
+  `digest-enqueue` cron tick has fired against the new code yet — check
+  `cron.job_run_details` after the next `*/5` tick.
+- **Cloudflare Pages** — no manual step needed: its GitHub integration
+  auto-deployed the merge commit (check run `Cloudflare Pages`: `success`
+  on `d1e0419`). Confirmed live with a real request:
+  `curl -sI https://wamda-a8k.pages.dev/` returns
+  `content-security-policy: frame-ancestors 'none'`, `x-frame-options:
+  DENY`, `x-content-type-options: nosniff`, `referrer-policy:
+  strict-origin-when-cross-origin`, and the `permissions-policy` line — all
+  five headers from `_headers`, present on the real response, not inferred
+  from the file existing in `dist/`.
+- **`SUPABASE_AUTH_SITE_URL=https://wamda-a8k.pages.dev supabase config
+  push --project-ref hfjpotjbrrnghuqhxoux`** — first run applied the auth
+  diff (`otp_expiry = 3600` → `600`) and then hit an unrelated error on the
+  Storage section. A second run confirmed the auth push actually took:
+  `Remote Auth config is up to date`.
+  **Unrelated pre-existing issue surfaced, not fixed:** `config.toml`
+  carries `[storage.vector] enabled = true` (a newer Supabase CLI default,
+  untouched by this review), and the hosted project is on the free tier,
+  which rejects it — `402 Please upgrade the project to a paid tier to
+  enable vector buckets`. Auth/API/DB sections all pushed clean; only
+  Storage errors, every time `config push` runs, until either the project
+  upgrades or `config.toml` sets `enabled = false` to match the free tier.
+  Left for the owner to decide — out of scope for this review.
 
 ## Fifteen real bugs this caught
 

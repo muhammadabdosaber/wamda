@@ -49,7 +49,7 @@ no credential leak, and no unauthenticated data access.
 
 ### Category 1 — Multi-tenant data isolation
 
-**F1 · Service-only endpoints (`sweep`, `digest`) callable with the public anon key — HIGH — `Fixed` (owner-approved; live after redeploy)**
+**F1 · Service-only endpoints (`sweep`, `digest`) callable with the public anon key — HIGH — `Fixed` (owner-approved; live on hosted)**
 - **Location:** [supabase/functions/sweep/index.ts:54](supabase/functions/sweep/index.ts:54), [supabase/functions/digest/index.ts:73](supabase/functions/digest/index.ts:73)
 - **Risk:** Both functions are designed to be called only by `pg_cron` (which
   sends the service-role key from Vault), but neither checks *who called
@@ -73,12 +73,17 @@ no credential leak, and no unauthenticated data access.
 - **Status:** `Fixed` (2026-08-16) — `requireServiceRole()` added to
   `_shared/http.ts` and called at the top of both handlers. Proven at unit
   level: 4 new Deno tests (service key passes; anon-style bearer, missing
-  header, and empty bearer all 403) pass alongside the existing 5. Not yet
-  exercised against a live stack. **Goes live only after redeploying both
-  functions to hosted** (`supabase functions deploy sweep digest`); until
-  then production still has the old code. After deploy, confirm the cron
-  jobs still succeed (`cron.job_run_details`) — they send the service-role
-  key from Vault, so no change on their side is expected.
+  header, and empty bearer all 403) pass alongside the existing 5.
+  **Deployed to hosted** (`supabase functions deploy sweep digest search
+  notes --project-ref hfjpotjbrrnghuqhxoux`, 2026-08-16) — confirmed live: a
+  preflight against the deployed `sweep` URL returns `403` as expected. The
+  anon-key-rejection path itself was not re-exercised over live HTTP (would
+  require sending a real anon-key POST, which was not done against
+  production). **Still to confirm:** the next scheduled `sweep-worker` /
+  `digest-enqueue` cron tick succeeds against the new code
+  (`cron.job_run_details`) — the Vault-sourced service-role key should pass
+  the new gate unchanged, but that has not been observed on an actual cron
+  firing yet.
 
 **F2 · `notes/audio-url` service-role write not filtered by `user_id` — LOW — `Fixed`**
 - **Location:** [supabase/functions/notes/index.ts:145](supabase/functions/notes/index.ts:145)
@@ -136,7 +141,7 @@ no credential leak, and no unauthenticated data access.
   `[auth.sessions]` `timebox`/`inactivity_timeout`.
 - **Status:** `Accepted Risk` (documented; no code change).
 
-**F4 · Email OTP valid for 1 hour — LOW — `Fixed` (owner-approved; hosted needs a config push)**
+**F4 · Email OTP valid for 1 hour — LOW — `Fixed` (owner-approved; live on hosted)**
 - **Location:** [supabase/config.toml:256](supabase/config.toml:256) (`otp_expiry = 3600`)
 - **Risk:** A six-digit code sitting in an inbox stays usable for an hour.
   Combined with the 30-verifications-per-5-min-per-IP limit, brute force is
@@ -145,11 +150,21 @@ no credential leak, and no unauthenticated data access.
   code within a minute or two.
 - **Fix:** `otp_expiry = 600` (10 minutes). *Auth config; changed after
   owner confirmation (2026-08-16).*
-- **Status:** `Fixed` in config.toml (no BOM — verified). Local takes it on
-  the next `supabase start`; **hosted takes it only when the owner runs**
-  `SUPABASE_AUTH_SITE_URL=https://wamda-a8k.pages.dev supabase config push`
-  (per the file's own warning, the site-URL env must be set or the push
-  breaks production sign-in emails again).
+- **Status:** `Fixed` in config.toml (no BOM — verified). **Pushed to
+  hosted** (2026-08-16, `SUPABASE_AUTH_SITE_URL=https://wamda-a8k.pages.dev
+  supabase config push --project-ref hfjpotjbrrnghuqhxoux`, site URL set per
+  the file's own warning) — the CLI reported `Remote Auth config is up to
+  date` on a follow-up run, confirming `otp_expiry = 600` is live in
+  production. Local takes it on the next `supabase start`.
+  **Unrelated, pre-existing issue surfaced by this push, not part of this
+  review:** the same `config push` fails on the Storage section —
+  `config.toml`'s `[storage.vector] enabled = true` (a newer CLI default)
+  can't apply because the hosted project is on the free tier, which
+  returns `402 Please upgrade the project to a paid tier to enable vector
+  buckets`. Auth/API/DB config all pushed fine; only Storage errors. Left
+  as-is — either set `enabled = false` in `config.toml` to match the free
+  tier, or ignore until/unless the project upgrades. Flagged for the owner,
+  not fixed here (out of scope for this review).
 
 **Verified sound (no finding):**
 - **No passwords exist at all** — passwordless email OTP only, so password
@@ -291,7 +306,7 @@ no credential leak, and no unauthenticated data access.
 
 ### Category 6 — Portability for future infrastructure changes
 
-**F11 · No security headers at the hosting layer (Cloudflare Pages) — MEDIUM — `Fixed` (pending next deploy)**
+**F11 · No security headers at the hosting layer (Cloudflare Pages) — MEDIUM — `Fixed` (live)**
 - **Location:** `web/public/` (no `_headers` file existed); gap explicitly
   recorded in [docs/08-security.md](docs/08-security.md) and
   [web/vite.config.ts:18](web/vite.config.ts:18)
@@ -308,10 +323,15 @@ no credential leak, and no unauthenticated data access.
   `Permissions-Policy` disabling unused sensors. HSTS deliberately omitted —
   Cloudflare already serves it, and a wrong `max-age` at the app layer is
   hard to walk back. Takes effect on the next Pages deploy.
-- **Status:** `Fixed` in the repo (2026-08-16) — file created, confirmed
-  present in `dist/` by a real build. **Not yet live**: the headers only
-  exist on wamda-a8k.pages.dev after the next deploy; verify with
-  `curl -sI https://wamda-a8k.pages.dev | grep -i frame` afterwards.
+- **Status:** `Fixed` (2026-08-16) — file created, confirmed present in
+  `dist/` by a real build. Cloudflare Pages auto-deployed it via its GitHub
+  integration on the merge to `main` (check run `Cloudflare Pages`:
+  `success`). **Confirmed live** —
+  `curl -sI https://wamda-a8k.pages.dev/` returns
+  `content-security-policy: frame-ancestors 'none'`, `x-frame-options: DENY`,
+  `x-content-type-options: nosniff`, `referrer-policy:
+  strict-origin-when-cross-origin`, and the `permissions-policy` line, all
+  present on the real response.
 
 **F12 · Environment-tied literals to touch when the domain moves — LOW — `Not Started`**
 - **Locations:**
