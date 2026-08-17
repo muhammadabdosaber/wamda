@@ -1,0 +1,572 @@
+{
+  "meta": {
+    "displayName": "Second Brain",
+    "version": "1.0.0",
+    "description": "Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).",
+    "generatedAt": "2026-08-17",
+    "techStack": {
+      "language": "TypeScript (Deno 2 on the server, React 19 on the client)",
+      "framework": "Supabase Edge Functions + PostgREST backend, Vite PWA frontend",
+      "database": "PostgreSQL 17 (Supabase) with pgvector, pg_trgm, unaccent",
+      "auth": "Supabase Auth — email OTP (6-digit code), JWT Bearer"
+    }
+  },
+  "prerequisites": {
+    "description": "Local dev runs the full Supabase stack via the Supabase CLI (Docker-backed) plus a Vite dev server for the client. No separate Deno install is needed — the CLI bundles the Edge Runtime.",
+    "tools": [
+      {
+        "name": "Docker Desktop",
+        "version": "any recent",
+        "required": true,
+        "category": "runtime",
+        "description": "Backs the local Supabase stack (Postgres, PostgREST, Auth, Storage, Realtime, Edge Runtime, Studio, Mailpit)."
+      },
+      {
+        "name": "Supabase CLI",
+        "version": "latest",
+        "required": true,
+        "category": "runtime",
+        "description": "Runs/manages the local stack (`supabase start`), applies migrations, serves Edge Functions."
+      },
+      {
+        "name": "Node.js",
+        "version": ">= 20",
+        "required": true,
+        "category": "runtime",
+        "description": "Builds and runs the web/ Vite PWA client."
+      }
+    ],
+    "setupSteps": [
+      {
+        "step": 1,
+        "title": "Configure environment",
+        "command": "cp .env.example .env && cp supabase/functions/.env.example supabase/functions/.env",
+        "description": "supabase/functions/.env is gitignored and holds real vendor keys (Anthropic, ElevenLabs, Cohere) — copy from a checkout that has them if one exists; a fresh git worktree never carries it."
+      },
+      {
+        "step": 2,
+        "title": "Start the local Supabase stack",
+        "command": "supabase start",
+        "description": "Boots Postgres, PostgREST, Auth, Storage, Realtime, the Edge Runtime, Studio, and Mailpit on the ports remapped in supabase/config.toml (54421-54429)."
+      },
+      {
+        "step": 3,
+        "title": "Verify the schema",
+        "command": "docker exec -i supabase_db_Second_Brain psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify.sql",
+        "description": "Runs 12 live assertions (RLS, normalization, idempotency, search). Expect 'ALL SCHEMA CHECKS PASSED'."
+      },
+      {
+        "step": 4,
+        "title": "Install and verify the web client",
+        "command": "cd web && npm install && npm run verify",
+        "description": "verify = typecheck + RTL guard (check-rtl.mjs) + vitest (21 tests) + production build."
+      },
+      {
+        "step": 5,
+        "title": "Run the dev server",
+        "command": "npm run dev",
+        "description": "Vite dev server for the PWA client."
+      }
+    ]
+  },
+  "workspaces": [
+    {
+      "id": "web",
+      "name": "web",
+      "type": "frontend",
+      "description": "React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled).",
+      "port": 5173,
+      "entrypoint": "web/src/main.tsx"
+    },
+    {
+      "id": "supabase-functions",
+      "name": "supabase/functions",
+      "type": "backend",
+      "description": "Eight Deno Edge Functions: notes, transcribe, enrich, search, digest, export, delete-account, sweep. Own every vendor API call and multi-step orchestration; nothing else touches ElevenLabs/Anthropic/Cohere.",
+      "port": 54421,
+      "entrypoint": "supabase/functions/notes/index.ts"
+    },
+    {
+      "id": "supabase-migrations",
+      "name": "supabase/migrations",
+      "type": "package",
+      "description": "20 additive SQL migrations: schema, enums, RLS policies, RPCs, indexes, pg_cron schedules (sweep, digest, ai_jobs retention), operational views.",
+      "port": 54422,
+      "entrypoint": "supabase/migrations/20260801000100_extensions_and_text.sql"
+    }
+  ],
+  "infrastructure": [
+    {
+      "id": "postgres",
+      "name": "Postgres 17 (Supabase local)",
+      "type": "database",
+      "image": "supabase/postgres",
+      "port": 54422,
+      "description": "Canonical store. pgvector for embeddings, pg_trgm for fuzzy tag matching, unaccent + custom normalize_ar() for Arabic text search. Every public table has RLS enabled (verify.sql check 12).",
+      "features": ["RLS multi-tenancy", "pgvector HNSW index", "pg_cron scheduled jobs", "generated tsvector search_vector column"]
+    },
+    {
+      "id": "postgrest-gateway",
+      "name": "PostgREST / API Gateway",
+      "type": "proxy",
+      "image": "supabase/kong",
+      "port": 54421,
+      "description": "Routes REST CRUD (simple reads/writes under RLS) and proxies /functions/v1/* to the Edge Runtime.",
+      "features": ["Auto-generated REST over Postgres", "RLS-enforced, no app code needed for simple CRUD"]
+    },
+    {
+      "id": "edge-runtime",
+      "name": "Supabase Edge Runtime (Deno 2)",
+      "type": "app",
+      "image": "supabase/edge-runtime",
+      "port": 54421,
+      "description": "Serves the 8 Edge Functions. Only place vendor keys (Anthropic, ElevenLabs, Cohere) are readable. Known local gotcha: serves stale compiled code after a file edit until a full `supabase stop && supabase start`.",
+      "features": ["Deno 2", "per_worker hot-reload policy", "inspector on :8083"]
+    },
+    {
+      "id": "storage",
+      "name": "Supabase Storage",
+      "type": "app",
+      "image": "supabase/storage-api",
+      "port": 54421,
+      "description": "Private `audio` bucket. Client uploads voice notes directly via a signed URL scoped to <user_id>/ — audio bytes never pass through an Edge Function.",
+      "features": ["Signed upload URLs", "50MiB file size limit", "S3-compatible protocol"]
+    },
+    {
+      "id": "studio",
+      "name": "Supabase Studio",
+      "type": "monitoring",
+      "image": "supabase/studio",
+      "port": 54423,
+      "description": "Local admin UI. Connects as Postgres superuser, so it's the only reader of not-granted-to-authenticated views (failed_ai_jobs, capture_latency_stats, stuck_notes, cost_summary).",
+      "features": ["Table editor", "SQL editor", "Operational views"]
+    },
+    {
+      "id": "mailpit",
+      "name": "Mailpit (local SMTP catcher)",
+      "type": "app",
+      "image": "supabase/mailpit",
+      "port": 54424,
+      "description": "Catches outgoing auth emails locally so the 6-digit OTP sign-in code never leaves the machine in dev.",
+      "features": ["Local email inbox UI"]
+    },
+    {
+      "id": "analytics",
+      "name": "Supabase Analytics",
+      "type": "logging",
+      "image": "supabase/logflare",
+      "port": 54427,
+      "description": "Postgres-backed log aggregation for the local stack.",
+      "features": []
+    }
+  ],
+  "dockerDiagram": {
+    "description": "Local Supabase CLI-managed container topology (supabase/config.toml, ports remapped to 54421-54429 to avoid a clash with another local Supabase project). Not a hand-authored docker-compose.yml — the Supabase CLI generates and manages it.",
+    "nodes": [
+      { "id": "kong", "label": "API Gateway (Kong)", "type": "proxy", "port": 54421 },
+      { "id": "postgres", "label": "Postgres 17", "type": "database", "port": 54422 },
+      { "id": "edge-runtime", "label": "Edge Runtime (Deno 2)", "type": "app", "port": 54421 },
+      { "id": "storage-api", "label": "Storage API", "type": "app", "port": 54421 },
+      { "id": "auth", "label": "GoTrue (Auth)", "type": "app", "port": 54421 },
+      { "id": "studio", "label": "Studio", "type": "monitoring", "port": 54423 },
+      { "id": "mailpit", "label": "Mailpit", "type": "logging", "port": 54424 },
+      { "id": "analytics", "label": "Analytics (Logflare)", "type": "logging", "port": 54427 }
+    ],
+    "edges": [
+      { "from": "kong", "to": "auth", "label": "HTTP" },
+      { "from": "kong", "to": "storage-api", "label": "HTTP" },
+      { "from": "kong", "to": "edge-runtime", "label": "HTTP /functions/v1/*" },
+      { "from": "auth", "to": "postgres", "label": "TCP 5432 (auth schema)" },
+      { "from": "storage-api", "to": "postgres", "label": "TCP 5432 (storage metadata)" },
+      { "from": "edge-runtime", "to": "postgres", "label": "TCP 5432 (service role)" },
+      { "from": "studio", "to": "postgres", "label": "TCP 5432 (superuser)" },
+      { "from": "postgres", "to": "edge-runtime", "label": "pg_cron -> pg_net -> HTTPS (sweep, digest schedules)" }
+    ]
+  },
+  "systemArchitectureDiagram": {
+    "description": "Client capture is local-first; every vendor call is server-side only. Matches docs/01-architecture.md.",
+    "subgraphs": [
+      {
+        "id": "client_layer",
+        "label": "React PWA (installable: iOS / Android / desktop)",
+        "nodes": [
+          { "id": "capture_ui", "label": "Capture -> IndexedDB (durable, offline)", "type": "app" },
+          { "id": "outbox", "label": "Outbox replay (web/src/data/outbox.ts)", "type": "app" }
+        ]
+      },
+      {
+        "id": "api_layer",
+        "label": "Supabase",
+        "nodes": [
+          { "id": "postgrest", "label": "PostgREST (CRUD under RLS)", "type": "app" },
+          { "id": "storage_node", "label": "Storage (private audio bucket, signed URLs)", "type": "app" },
+          { "id": "edge_functions", "label": "Edge Functions: notes / transcribe / enrich / search / digest / export / delete-account / sweep", "type": "app" },
+          { "id": "pg_cron", "label": "pg_cron (sweep every 5 min, weekly digest, retention)", "type": "queue" }
+        ]
+      },
+      {
+        "id": "data_layer",
+        "label": "Postgres",
+        "nodes": [
+          { "id": "db", "label": "Postgres (pgvector, unaccent, pg_trgm)", "type": "database" }
+        ]
+      },
+      {
+        "id": "vendor_layer",
+        "label": "Vendors (server-side only, never reach the client)",
+        "nodes": [
+          { "id": "elevenlabs", "label": "ElevenLabs Scribe (ASR)", "type": "app" },
+          { "id": "anthropic", "label": "Anthropic Claude Opus 5 (enrichment + weekly digest via Batch API)", "type": "app" },
+          { "id": "cohere", "label": "Cohere embed-multi-v3 (1024-dim vectors)", "type": "app" }
+        ]
+      }
+    ],
+    "edges": [
+      { "from": "capture_ui", "to": "outbox", "label": "durable local write" },
+      { "from": "outbox", "to": "postgrest", "label": "HTTPS JWT (replay on reconnect)" },
+      { "from": "outbox", "to": "edge_functions", "label": "HTTPS JWT" },
+      { "from": "capture_ui", "to": "storage_node", "label": "PUT audio (signed URL, direct upload)" },
+      { "from": "edge_functions", "to": "db", "label": "supabase-js (service role / RLS)" },
+      { "from": "edge_functions", "to": "elevenlabs", "label": "HTTPS (transcribe)" },
+      { "from": "edge_functions", "to": "anthropic", "label": "HTTPS (enrich, digest)" },
+      { "from": "edge_functions", "to": "cohere", "label": "HTTPS (embed)" },
+      { "from": "pg_cron", "to": "edge_functions", "label": "pg_net HTTPS (sweep, digest-enqueue)" },
+      { "from": "postgrest", "to": "db", "label": "SQL under RLS" }
+    ]
+  },
+  "swaggerSchemas": {
+    "matchStatus": "Verified Parity (9/9 documented endpoints, docs/03-api.md)",
+    "openapi": "n/a — hand-documented, not OpenAPI-generated",
+    "servedAt": "/functions/v1",
+    "securityScheme": "Supabase JWT (Authorization: Bearer <access_token>); sweep is service-role-only, invoked by pg_cron/pg_net, not client-facing",
+    "servers": [
+      { "url": "http://127.0.0.1:54421", "description": "Local Supabase CLI stack (module paths below already include /functions/v1)" },
+      { "url": "(not yet deployed)", "description": "Production hosted Supabase project — blocked on SB-016, see docs/13-tasks.md" }
+    ],
+    "schemas": [
+      { "name": "Note", "description": "Canonical note row: source (text|voice), status, input_language, detected_language, raw_text, client_created_at vs created_at (two timestamps, deliberately)." },
+      { "name": "NoteEnrichment", "description": "One row per (note, language, prompt_version): title, summary, category, priority, suggested_action, action_due_at, context (people/places/artifacts/open_questions), model." },
+      { "name": "Tag", "description": "Language-neutral slug identity plus tag_labels per language — never a display string as the key." },
+      { "name": "ApiError", "description": "{ error: { code }, language } — machine code only, never a human sentence; client owns all user-facing text via i18n." }
+    ]
+  },
+  "modules": [
+    {
+      "id": "notes",
+      "name": "notes",
+      "basePath": "/functions/v1/notes",
+      "description": "Capture and timeline. Idempotent on client_id so an offline retry never creates a duplicate note.",
+      "color": "#6366f1",
+      "icon": "📝",
+      "files": ["supabase/functions/notes/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Capture a note (text or voice). Idempotent on client_id." },
+        { "method": "GET", "path": "/", "auth": true, "permission": null, "description": "Keyset-paginated timeline (cursor = client_created_at, not OFFSET). Omits raw_text." },
+        { "method": "POST", "path": "/audio-url", "auth": true, "permission": null, "description": "Signed Storage upload URL for a voice note, scoped to <user_id>/." }
+      ]
+    },
+    {
+      "id": "transcribe",
+      "name": "transcribe",
+      "basePath": "/functions/v1/transcribe",
+      "description": "Stage 1 of the AI pipeline: audio -> raw_text + confidence via ElevenLabs Scribe. Idempotent on existing raw_text.",
+      "color": "#0ea5e9",
+      "icon": "🎤",
+      "files": ["supabase/functions/transcribe/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Transcribe a voice note's audio. Returns cached raw_text on retry, no repeat ASR call." }
+      ]
+    },
+    {
+      "id": "enrich",
+      "name": "enrich",
+      "basePath": "/functions/v1/enrich",
+      "description": "Stages 3-5: Anthropic Opus 5 enrichment (summary/category/tags/priority), Cohere embedding, SQL nearest-neighbour relations. Idempotent on (note, language, prompt_version); force:true overrides.",
+      "color": "#8b5cf6",
+      "icon": "✨",
+      "files": ["supabase/functions/enrich/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Run enrichment + embedding + relation-detection for a note." }
+      ]
+    },
+    {
+      "id": "search",
+      "name": "search",
+      "basePath": "/functions/v1/search",
+      "description": "Hybrid / semantic / lexical retrieval. lexical mode skips the embedding call entirely.",
+      "color": "#f59e0b",
+      "icon": "🔍",
+      "files": ["supabase/functions/search/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Search notes: mode = hybrid | semantic | lexical, optional category filter." }
+      ]
+    },
+    {
+      "id": "digest",
+      "name": "digest",
+      "basePath": "/functions/v1/digest",
+      "description": "Weekly AI review. Two-phase: enqueue (submit Anthropic Batch job) / collect (poll and store result). Cron-triggered via pg_cron + pg_net, Vault-stored secrets.",
+      "color": "#10b981",
+      "icon": "📅",
+      "files": ["supabase/functions/digest/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "{action: \"enqueue\" | \"collect\"} — normally invoked by the digest-enqueue/digest-collect pg_cron schedules, not directly by the client." }
+      ]
+    },
+    {
+      "id": "export",
+      "name": "export",
+      "basePath": "/functions/v1/export",
+      "description": "Full data export. Runs entirely under the caller's own client (RLS) — no user_id filter anywhere in the function; RLS is the reason no other user's data is reachable.",
+      "color": "#64748b",
+      "icon": "📦",
+      "files": ["supabase/functions/export/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "GET", "path": "/", "auth": true, "permission": null, "description": "Every note, enrichment, and tag the caller owns. Includes raw_text and archived notes; not paginated." }
+      ]
+    },
+    {
+      "id": "delete-account",
+      "name": "delete-account",
+      "basePath": "/functions/v1/delete-account",
+      "description": "Irreversible account deletion. Requires the caller to type back their own email as confirmation. Deletes Storage audio objects first, then auth.admin.deleteUser() cascades through every FK-referencing table.",
+      "color": "#ef4444",
+      "icon": "⚠️",
+      "files": ["supabase/functions/delete-account/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "{confirm_email} — 400 confirmation_mismatch if it doesn't match the authenticated session's own email." }
+      ]
+    },
+    {
+      "id": "sweep",
+      "name": "sweep",
+      "basePath": "/functions/v1/sweep",
+      "description": "Not client-facing. Invoked by the sweep-worker pg_cron job (*/5 * * * *) via pg_net, using Vault-stored URL/service-role secrets. Unsticks notes stranded in transcribing/enriching, retries stale queued notes (capped at 5 attempts via ai_jobs before marking failed), backfills missing embeddings, and deletes expired audio from Storage.",
+      "color": "#a855f7",
+      "icon": "🧹",
+      "files": ["supabase/functions/sweep/index.ts"],
+      "permissions": [],
+      "endpoints": [
+        { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts." }
+      ]
+    }
+  ],
+  "systemEndpoints": [],
+  "coreLayer": {
+    "security": [
+      {
+        "name": "Row-Level Security policies",
+        "file": "supabase/migrations/20260801000400_rls.sql",
+        "description": "Every public table scoped to auth.uid(); the authorization layer, not defense-in-depth — the client ships the anon key precisely because RLS makes that safe."
+      },
+      {
+        "name": "Rate limiting",
+        "file": "supabase/functions/_shared/rateLimit.ts",
+        "description": "ai_jobs-backed gate (rate_limit_hit(), migration 20260806000100_rate_limit.sql): 60 calls / 15 min per user/stage, checked before /enrich and /transcribe reach the pipeline."
+      },
+      {
+        "name": "ALLOWED_ORIGIN / CORS",
+        "file": "supabase/functions/_shared/http.ts",
+        "description": "Rejects a foreign or missing preflight Origin at 403 when ALLOWED_ORIGIN is configured; defaults to * locally."
+      }
+    ],
+    "middleware": [
+      {
+        "name": "language resolution",
+        "file": "supabase/functions/_shared/language.ts",
+        "description": "resolveLanguage() — the single place per request that decides language (explicit -> profile -> Accept-Language -> 'ar'), then carried explicitly into every downstream stage.",
+        "guards": ["Request Pipeline"]
+      },
+      {
+        "name": "HTTP response helpers",
+        "file": "supabase/functions/_shared/http.ts",
+        "description": "Shared JSON response / error envelope helpers ({error:{code}}, language, direction, Content-Language header) used by every function.",
+        "guards": ["Request Pipeline"]
+      }
+    ],
+    "services": [
+      {
+        "name": "supabase client factory",
+        "file": "supabase/functions/_shared/supabase.ts",
+        "description": "Constructs the service-role / user-scoped supabase-js client per request.",
+        "exports": ["createClient helpers"]
+      },
+      {
+        "name": "vendor providers",
+        "file": "supabase/functions/_shared/providers.ts",
+        "description": "Thin clients for ElevenLabs (ASR), Anthropic (enrichment + digest), Cohere (embeddings) — the only place their API keys are read.",
+        "exports": ["ElevenLabs client", "Anthropic client", "Cohere client"]
+      },
+      {
+        "name": "enrichment logic",
+        "file": "supabase/functions/_shared/enrichment.ts",
+        "description": "Prompt construction and response parsing for the Anthropic enrichment call.",
+        "exports": ["enrichNote"]
+      },
+      {
+        "name": "shared pipeline",
+        "file": "supabase/functions/_shared/pipeline.ts",
+        "description": "One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.",
+        "exports": ["pipeline stage runners"]
+      }
+    ]
+  },
+  "dataFlow": {
+    "requestPipeline": [
+      {
+        "step": "HTTPS request reaches the API gateway (Kong) on :54421",
+        "detail": "Supabase CLI-managed gateway routes /functions/v1/* to the Edge Runtime."
+      },
+      {
+        "step": "CORS / ALLOWED_ORIGIN check",
+        "detail": "A foreign or missing preflight Origin is rejected at 403 when configured.",
+        "coreRef": "security"
+      },
+      {
+        "step": "Edge Function invoked (Deno 2, per_worker hot reload)",
+        "detail": "Supabase JWT verified; caller's user extracted from the Authorization: Bearer token."
+      },
+      {
+        "step": "Rate limit checked",
+        "detail": "rate_limit_hit() against ai_jobs — 60 calls / 15 min per user/stage — before the pipeline is reached, for /enrich and /transcribe.",
+        "coreRef": "security"
+      },
+      {
+        "step": "Language resolved once",
+        "detail": "resolveLanguage(): explicit param -> profile -> Accept-Language -> 'ar'. Carried explicitly into every downstream stage; no stage infers language on its own.",
+        "coreRef": "middleware"
+      },
+      {
+        "step": "Handler executes business logic",
+        "detail": "Idempotency checked first (client_id for notes, existing raw_text for transcribe, (note,language,prompt_version) for enrich) before any vendor call is made.",
+        "coreRef": "services"
+      },
+      {
+        "step": "Vendor call (ElevenLabs / Anthropic / Cohere) when required",
+        "detail": "Only Edge Functions ever hold these keys; the client never does.",
+        "coreRef": "services"
+      },
+      {
+        "step": "Postgres query via supabase-js",
+        "detail": "RLS enforces per-user isolation; no manual user_id filter needed (e.g. GET /export relies purely on RLS).",
+        "coreRef": "services"
+      },
+      {
+        "step": "JSON response returned",
+        "detail": "Echoes the language served, direction (rtl/ltr), and a Content-Language header."
+      }
+    ],
+    "errorPipeline": [
+      "Exception raised in handler or a vendor call fails",
+      "Mapped to a machine error code (never a human sentence) — see docs/03-api.md's code table",
+      "Internal errors logged server-side, returned to the client as internal_error only",
+      "HTTP status returned: 401 unauthenticated, 404 note_not_found, 409 note_has_no_text/audio, 422 enrichment_refused, 429 rate_limited, 502 transcription_failed/embedding_failed, 400 confirmation_mismatch, 500 internal_error"
+    ],
+    "tenantIsolation": "Enforced entirely by Postgres RLS scoped to auth.uid() on every public table (verify.sql check 12: every table has RLS enabled). Edge Functions generally don't add their own user_id filters on top — GET /export is the clearest example: RLS alone is why no other user's data is reachable."
+  },
+  "permissions": {
+    "description": "No RBAC permission-slug system. Access control is entirely Postgres Row-Level Security scoped to auth.uid() — every table's policy IS the authorization layer (see coreLayer.security and docs/08-security.md). There is no admin role or permission catalog to enumerate.",
+    "catalog": [],
+    "details": []
+  },
+  "sqlQueries": [
+    {
+      "id": "capture-note",
+      "label": "Idempotent note capture RPC",
+      "module": "notes",
+      "file": "supabase/migrations/20260801000500_rpc.sql",
+      "function": "public.capture_note(p_client_id, p_source, p_language, p_raw_text, p_client_created)",
+      "tables": ["notes"],
+      "purpose": "Insert on (user_id, client_id); on conflict does UPDATE (not DO NOTHING) purely so RETURNING still yields the id on a replay, letting the client resolve its local record to the same row instead of creating a duplicate.",
+      "sql": "insert into public.notes (client_id, source, input_language, raw_text, client_created_at, status)\nvalues ($1, $2, coalesce($3,'ar'), nullif(btrim($4),''), coalesce($5, now()),\n        case when $2 = 'text' then 'queued'::note_status else 'draft'::note_status end)\non conflict (user_id, client_id) do update set updated_at = now()\nreturning id;",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/notes" }]
+    },
+    {
+      "id": "search-notes",
+      "label": "Hybrid lexical + semantic search (Reciprocal Rank Fusion, k=60)",
+      "module": "search",
+      "file": "supabase/migrations/20260801000500_rpc.sql",
+      "function": "public.search_notes(p_query, p_language, p_embedding, p_mode, p_categories, p_limit)",
+      "tables": ["notes", "note_embeddings", "note_enrichments"],
+      "purpose": "SECURITY INVOKER so the caller's own RLS filters results (a SECURITY DEFINER version would have to hand-reimplement ownership filtering). Fetches top-200 candidates per arm (lexical ts_rank_cd, semantic cosine distance), fuses by RRF since BM25 ranks and cosine distances aren't on comparable scales. LEFT JOINs note_enrichments so an unenriched note is still findable.",
+      "sql": "with lexical as (\n  select id, row_number() over (order by ts_rank_cd(search_vector, tsq) desc) as rnk\n  from notes where mode in ('hybrid','lexical') and search_vector @@ tsq\n    and status='ready' and archived_at is null limit 200\n), semantic as (\n  select note_id as id, row_number() over (order by embedding <=> p_embedding) as rnk\n  from note_embeddings where mode in ('hybrid','semantic') and language = p_language limit 200\n), fused as (\n  select coalesce(l.id,s.id) as id,\n         coalesce(1.0/(60+l.rnk),0) + coalesce(1.0/(60+s.rnk),0) as score\n  from lexical l full outer join semantic s on s.id = l.id\n)\nselect n.*, e.title, e.summary from fused f\njoin notes n on n.id = f.id\nleft join note_enrichments e on e.note_id = n.id and e.language = p_language\norder by f.score desc limit p_limit;",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/search" }]
+    },
+    {
+      "id": "attach-tags",
+      "label": "Tag identity collapse (slug + per-language label)",
+      "module": "enrich",
+      "file": "supabase/migrations/20260801000500_rpc.sql",
+      "function": "public.attach_tags(p_user_id, p_note_id, p_language, p_labels)",
+      "tables": ["tags", "tag_labels", "note_tags"],
+      "purpose": "Pipeline-internal (not granted to authenticated). Slugifies each model-returned Arabic label so two spellings of one concept converge on one tags row, then stores the display label per language in tag_labels.",
+      "sql": "insert into tags (user_id, slug) values ($1, slugify($2)) on conflict (user_id, slug) do update set slug = excluded.slug returning id;\ninsert into tag_labels (tag_id, language, label) values ($tag_id, $language, btrim($label)) on conflict (tag_id, language) do nothing;\ninsert into note_tags (note_id, tag_id, user_id) values ($note_id, $tag_id, $user_id) on conflict (note_id, tag_id) do nothing;",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/enrich" }]
+    },
+    {
+      "id": "relate-note",
+      "label": "Nearest-neighbour note relation detection",
+      "module": "enrich",
+      "file": "supabase/migrations/20260801000500_rpc.sql",
+      "function": "public.relate_note(p_user_id, p_note_id, p_language, p_threshold=0.78, p_limit=5)",
+      "tables": ["note_embeddings", "note_relations"],
+      "purpose": "No model call — pure SQL cosine similarity against the note's own embedding, same model, same user, same language. Inserts up to 5 relations above a 0.78 similarity threshold.",
+      "sql": "with src as (select embedding, model from note_embeddings where note_id=$note_id and language=$language limit 1),\nnearest as (select distinct on (e.note_id) e.note_id, 1-(e.embedding <=> (select embedding from src)) as similarity\n  from note_embeddings e join notes n on n.id=e.note_id\n  where e.user_id=$user_id and e.note_id<>$note_id and e.language=$language\n    and e.model=(select model from src) and n.archived_at is null\n  order by e.note_id, e.embedding <=> (select embedding from src)),\npicked as (select * from nearest where similarity >= $threshold order by similarity desc limit $limit)\ninsert into note_relations (from_note_id, to_note_id, user_id, kind, score)\nselect $note_id, note_id, $user_id, 'similar', similarity from picked\non conflict (from_note_id, to_note_id, kind) do update set score = excluded.score;",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/enrich" }]
+    },
+    {
+      "id": "notes-missing-embeddings",
+      "label": "Embedding backfill candidates for sweep",
+      "module": "sweep",
+      "file": "supabase/migrations/20260801000700_sweep.sql",
+      "function": "public.notes_missing_embeddings(p_limit=25)",
+      "tables": ["notes", "note_enrichments", "note_embeddings"],
+      "purpose": "Anti-join expressed in SQL because PostgREST cannot express 'enrichment row with no matching embedding row' without pulling every ready note over the wire. Pipeline-internal, not granted to authenticated.",
+      "sql": "select n.id, e.user_id, e.language, e.title, e.summary, n.raw_text\nfrom note_enrichments e join notes n on n.id = e.note_id\nwhere n.status = 'ready' and n.archived_at is null\n  and not exists (select 1 from note_embeddings em where em.note_id = e.note_id and em.language = e.language)\norder by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),100);",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/sweep" }]
+    },
+    {
+      "id": "rate-limit-hit",
+      "label": "Per-user/stage rate limit check",
+      "module": "enrich / transcribe",
+      "file": "supabase/migrations/20260806000100_rate_limit.sql",
+      "function": "public.rate_limit_hit(p_user_id, p_stage, p_limit, p_window_minutes)",
+      "tables": ["ai_jobs"],
+      "purpose": "True once a user has p_limit+ ai_jobs rows for a stage within the trailing p_window_minutes (60 calls / 15 min in practice). Not granted to authenticated — a client must not be able to probe or reset its own limit.",
+      "sql": "select count(*) >= p_limit from ai_jobs\nwhere user_id = p_user_id and stage = p_stage\n  and created_at >= now() - make_interval(mins => p_window_minutes);",
+      "endpoints": [
+        { "method": "POST", "path": "/functions/v1/enrich" },
+        { "method": "POST", "path": "/functions/v1/transcribe" }
+      ]
+    },
+    {
+      "id": "purge-old-ai-jobs",
+      "label": "ai_jobs 90-day retention purge",
+      "module": "sweep / pg_cron",
+      "file": "supabase/migrations/20260807000100_ai_jobs_retention.sql",
+      "function": "public.purge_old_ai_jobs(p_days=90)",
+      "tables": ["ai_jobs"],
+      "purpose": "Scheduled daily at 03:00 UTC via pg_cron (job 'ai-jobs-retention'), no Vault secrets needed since it never leaves Postgres. Telemetry only (shape/cost/latency), never note content.",
+      "sql": "with deleted as (\n  delete from ai_jobs where created_at < now() - make_interval(days => p_days)\n  returning 1\n)\nselect count(*)::integer from deleted;",
+      "endpoints": []
+    },
+    {
+      "id": "notes-audio-expired",
+      "label": "Audio retention finder",
+      "module": "sweep",
+      "file": "supabase/migrations/20260807000200_audio_retention.sql",
+      "function": "public.notes_audio_expired(p_limit=25)",
+      "tables": ["notes", "profiles"],
+      "purpose": "Per-user retention (profiles.audio_retention_days, default 30) so it can't be a single global cutoff. Returns candidates for sweep, which deletes the Storage object via the Storage API (a raw SQL delete on storage.objects would only remove metadata and orphan the bytes) and clears audio_path.",
+      "sql": "select n.id, n.user_id, n.audio_path\nfrom notes n join profiles p on p.id = n.user_id\nwhere n.audio_path is not null\n  and n.client_created_at < now() - make_interval(days => p.audio_retention_days)\norder by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),100);",
+      "endpoints": [{ "method": "POST", "path": "/functions/v1/sweep" }]
+    }
+  ]
+}
