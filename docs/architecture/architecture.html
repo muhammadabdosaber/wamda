@@ -1,0 +1,3404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Second Brain — Architecture Map</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css" />
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/svg-pan-zoom@3.6.1/dist/svg-pan-zoom.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js"></script>
+    <style>
+        :root {
+            --bg: #0d1117;
+            --bg2: #161b22;
+            --bg3: #21262d;
+            --border: #30363d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #58a6ff;
+            --green: #3fb950;
+            --yellow: #d29922;
+            --red: #f85149;
+            --purple: #bc8cff;
+            --orange: #ff8c42;
+            --font-main: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            --font-code: 'Fira Code', monospace;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--font-main);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: var(--bg2);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 200;
+            height: 65px;
+        }
+        .header-top {
+            padding: 0 28px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+        }
+
+        .app-layout {
+            display: flex;
+            width: 100vw;
+            min-height: calc(100vh - 65px);
+        }
+
+        .sidebar {
+            width: 280px;
+            min-width: 280px;
+            background: var(--bg2);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            position: fixed;
+            top: 65px;
+            bottom: 0;
+            left: 0;
+            z-index: 100;
+        }
+
+        .sidebar-header {
+            padding: 16px 20px 12px 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .brand-icon {
+            font-size: 28px;
+        }
+        .brand-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            line-height: 1.2;
+        }
+        .brand-sub {
+            font-size: 11px;
+            color: var(--muted);
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+        .sidebar-badges {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            margin-top: 10px;
+        }
+
+        .badge {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 3px 8px;
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .badge-green {
+            background: rgba(63, 185, 80, 0.15);
+            color: var(--green);
+            border: 1px solid rgba(63, 185, 80, 0.4);
+            font-weight: 600;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .nav-btn {
+            background: none;
+            border: 1px solid transparent;
+            color: var(--muted);
+            padding: 10px 14px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            text-align: left;
+            transition: all .15s ease;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+        }
+        .nav-btn:hover {
+            background: var(--bg3);
+            color: var(--text);
+        }
+        .nav-btn.active {
+            background: rgba(88, 166, 255, 0.15);
+            color: var(--accent);
+            border-color: rgba(88, 166, 255, 0.4);
+            font-weight: 600;
+        }
+        .nav-btn-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .nav-count {
+            background: var(--bg3);
+            color: var(--muted);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+        .nav-btn.active .nav-count {
+            background: var(--accent);
+            color: #000;
+        }
+
+        .sidebar-footer {
+            padding: 14px 20px;
+            border-top: 1px solid var(--border);
+            font-size: 11px;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            flex: 1;
+            padding: 28px 36px;
+            max-width: 1500px;
+            width: calc(100vw - 280px);
+        }
+        .section { display: none; }
+        .section.active { display: block; }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-num {
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .stat-lbl {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 4px;
+        }
+
+        .sec-title {
+            font-size: 17px;
+            font-weight: 700;
+            margin: 24px 0 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text);
+        }
+
+        .grid3 { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+        .grid2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+        .grid1 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+
+        .card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 20px;
+            transition: border-color .2s;
+        }
+        .card:hover {
+            border-color: var(--accent);
+        }
+        .color-bar {
+            height: 3px;
+            border-radius: 3px;
+            margin-bottom: 12px;
+        }
+        .chead {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+        .card-title {
+            font-size: 15px;
+            font-weight: 600;
+        }
+        .card-sub {
+            font-size: 12px;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+        .card-desc {
+            font-size: 13px;
+            color: var(--muted);
+            line-height: 1.6;
+            margin: 10px 0;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 500;
+            margin: 2px;
+        }
+        .tb { background: rgba(88,166,255,.15); color: var(--accent); }
+        .tg { background: rgba(63,185,80,.15); color: var(--green); }
+        .tr { background: rgba(248,81,73,.15); color: var(--red); }
+        .ty { background: rgba(210,153,34,.15); color: var(--yellow); }
+        .tp { background: rgba(188,140,255,.15); color: var(--purple); }
+        .tq { background: var(--bg3); color: var(--muted); }
+
+        .endpoint {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            margin: 4px 0;
+            background: var(--bg3);
+        }
+        .method {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 7px;
+            border-radius: 4px;
+            min-width: 54px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+        .GET { background: rgba(63,185,80,.2); color: var(--green); }
+        .POST { background: rgba(88,166,255,.2); color: var(--accent); }
+        .PUT { background: rgba(210,153,34,.2); color: var(--yellow); }
+        .PATCH { background: rgba(255,140,66,.2); color: var(--orange); }
+        .DELETE { background: rgba(248,81,73,.2); color: var(--red); }
+
+        .ep-path { font-size: 12px; font-family: var(--font-code); color: var(--text); }
+        .ep-desc { font-size: 11px; color: var(--muted); margin-top: 2px; }
+        .lock { font-size: 10px; margin-left: 6px; opacity: .8; color: var(--purple); }
+
+        .search {
+            width: 100%;
+            padding: 10px 16px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            font-size: 14px;
+            margin-bottom: 20px;
+            outline: none;
+        }
+        .search:focus { border-color: var(--accent); }
+
+        .pipeline { display: flex; flex-direction: column; }
+        .pipe-step {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 16px;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            margin-top: -1px;
+        }
+        .pipe-step:first-child { border-radius: 8px 8px 0 0; }
+        .pipe-step:last-child { border-radius: 0 0 8px 8px; }
+        .pipe-num {
+            background: var(--accent);
+            color: #000;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            flex-shrink: 0;
+        }
+
+        .perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-bottom: 20px; }
+        .perm-item {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 8px 12px;
+            font-size: 12px;
+            font-family: var(--font-code);
+            color: var(--purple);
+        }
+
+        .perm-card {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-left: 4px solid var(--purple);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+        .perm-flow {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            margin-top: 8px;
+        }
+        .flow-arrow { color: var(--muted); font-weight: bold; }
+
+        .code-block {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 12px;
+            font-family: var(--font-code);
+            font-size: 12px;
+            color: var(--text);
+            overflow-x: auto;
+            white-space: pre-wrap;
+            margin-top: 8px;
+        }
+        .diagram-box {
+            position: relative;
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            overflow: hidden;
+            cursor: grab !important;
+        }
+        .diagram-box:active {
+            cursor: grabbing !important;
+        }
+        .diagram-box svg, .diagram-box svg * {
+            cursor: grab !important;
+        }
+        .diagram-box svg:active, .diagram-box svg:active * {
+            cursor: grabbing !important;
+        }
+        .diagram-toolbar {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(13, 17, 23, 0.85);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 4px 8px;
+        }
+        .diagram-toolbar button {
+            background: var(--bg3);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 4px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all 0.15s ease;
+        }
+        .diagram-toolbar button:hover {
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+        }
+
+        .mwcard {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 16px;
+            margin-bottom: 10px;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
+        th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+        th { background: var(--bg3); color: var(--muted); font-weight: 600; font-size: 12px; }
+
+        .sub-tab-btn {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 500;
+            transition: all .15s ease;
+        }
+        .sub-tab-btn:hover {
+            background: var(--bg3);
+            color: var(--text);
+        }
+        .sub-tab-btn.active {
+            background: var(--accent);
+            color: #000;
+            font-weight: 600;
+            border-color: var(--accent);
+        }
+        .swagger-view-pane {
+            display: none;
+        }
+        .swagger-view-pane.active {
+            display: block;
+        }
+
+        /* Comprehensive High-Contrast Dark Theme Overrides for Swagger UI */
+        #swagger-ui-container .swagger-ui {
+            color: var(--text) !important;
+            font-family: var(--font-main) !important;
+        }
+        #swagger-ui-container .swagger-ui * {
+            border-color: var(--border) !important;
+        }
+        #swagger-ui-container .swagger-ui .info {
+            margin: 15px 0 25px 0 !important;
+            background: transparent !important;
+        }
+        #swagger-ui-container .swagger-ui .info .title {
+            color: var(--text) !important;
+            font-size: 24px !important;
+        }
+        #swagger-ui-container .swagger-ui .info p,
+        #swagger-ui-container .swagger-ui .info li,
+        #swagger-ui-container .swagger-ui .info td,
+        #swagger-ui-container .swagger-ui .info a {
+            color: var(--muted) !important;
+        }
+        #swagger-ui-container .swagger-ui .scheme-container {
+            background: var(--bg2) !important;
+            border-radius: 8px !important;
+            padding: 16px !important;
+            box-shadow: none !important;
+            border: 1px solid var(--border) !important;
+            margin-bottom: 20px !important;
+        }
+        #swagger-ui-container .swagger-ui label,
+        #swagger-ui-container .swagger-ui .title,
+        #swagger-ui-container .swagger-ui .servers-title {
+            color: var(--text) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock-tag {
+            color: var(--text) !important;
+            border-bottom: 1px solid var(--border) !important;
+            font-size: 18px !important;
+            font-weight: 700 !important;
+            padding: 10px 0 !important;
+            margin: 20px 0 10px 0 !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock-tag small {
+            color: var(--muted) !important;
+            font-size: 13px !important;
+            font-weight: 400 !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock {
+            background: var(--bg2) !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            margin-bottom: 14px !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock .opblock-summary {
+            padding: 10px 14px !important;
+            border-bottom: 1px solid transparent !important;
+            display: flex !important;
+            align-items: center !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock .opblock-summary-path,
+        #swagger-ui-container .swagger-ui .opblock .opblock-summary-path__deprecated {
+            color: var(--text) !important;
+            font-family: var(--font-code) !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock .opblock-summary-description {
+            color: var(--muted) !important;
+            font-size: 12px !important;
+        }
+
+        /* HTTP Method Badges & Container States */
+        /* GET */
+        #swagger-ui-container .swagger-ui .opblock.opblock-get {
+            background: rgba(63, 185, 80, 0.08) !important;
+            border-color: rgba(63, 185, 80, 0.4) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock.opblock-get .opblock-summary-method {
+            background: #3fb950 !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 4px 10px !important;
+            text-shadow: none !important;
+        }
+        /* POST */
+        #swagger-ui-container .swagger-ui .opblock.opblock-post {
+            background: rgba(88, 166, 255, 0.08) !important;
+            border-color: rgba(88, 166, 255, 0.4) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock.opblock-post .opblock-summary-method {
+            background: #58a6ff !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 4px 10px !important;
+            text-shadow: none !important;
+        }
+        /* PUT */
+        #swagger-ui-container .swagger-ui .opblock.opblock-put {
+            background: rgba(210, 153, 34, 0.08) !important;
+            border-color: rgba(210, 153, 34, 0.4) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock.opblock-put .opblock-summary-method {
+            background: #d29922 !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 4px 10px !important;
+            text-shadow: none !important;
+        }
+        /* PATCH */
+        #swagger-ui-container .swagger-ui .opblock.opblock-patch {
+            background: rgba(255, 140, 66, 0.08) !important;
+            border-color: rgba(255, 140, 66, 0.4) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock.opblock-patch .opblock-summary-method {
+            background: #ff8c42 !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 4px 10px !important;
+            text-shadow: none !important;
+        }
+        /* DELETE */
+        #swagger-ui-container .swagger-ui .opblock.opblock-delete {
+            background: rgba(248, 81, 73, 0.08) !important;
+            border-color: rgba(248, 81, 73, 0.4) !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock.opblock-delete .opblock-summary-method {
+            background: #f85149 !important;
+            color: #ffffff !important;
+            font-weight: 700 !important;
+            border-radius: 4px !important;
+            padding: 4px 10px !important;
+            text-shadow: none !important;
+        }
+
+        /* Expanded Opblock Body & Sections */
+        #swagger-ui-container .swagger-ui .opblock-body {
+            background: var(--bg2) !important;
+            color: var(--text) !important;
+            border-top: 1px solid var(--border) !important;
+            padding: 16px !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock-section-header {
+            background: var(--bg3) !important;
+            color: var(--text) !important;
+            border-radius: 6px !important;
+            padding: 8px 12px !important;
+            border: 1px solid var(--border) !important;
+            margin-bottom: 12px !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock-section-header h4 {
+            color: var(--text) !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+        }
+        #swagger-ui-container .swagger-ui .opblock-description-wrapper,
+        #swagger-ui-container .swagger-ui .opblock-description-wrapper p,
+        #swagger-ui-container .swagger-ui .markdown p,
+        #swagger-ui-container .swagger-ui .renderedMarkdown,
+        #swagger-ui-container .swagger-ui .renderedMarkdown p {
+            color: var(--text) !important;
+            font-size: 13px !important;
+            line-height: 1.5 !important;
+        }
+
+        /* Parameter & Response Tables */
+        #swagger-ui-container .swagger-ui table {
+            background: transparent !important;
+            width: 100% !important;
+        }
+        #swagger-ui-container .swagger-ui table thead tr th,
+        #swagger-ui-container .swagger-ui table thead tr td {
+            color: var(--muted) !important;
+            border-bottom: 1px solid var(--border) !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            padding: 8px 12px !important;
+            background: transparent !important;
+        }
+        #swagger-ui-container .swagger-ui table.parameters td,
+        #swagger-ui-container .swagger-ui table.responses-table td {
+            color: var(--text) !important;
+            border-bottom: 1px solid var(--border) !important;
+            padding: 10px 12px !important;
+            background: transparent !important;
+        }
+        #swagger-ui-container .swagger-ui .parameter__name {
+            color: var(--text) !important;
+            font-family: var(--font-code) !important;
+            font-weight: 600 !important;
+            font-size: 13px !important;
+        }
+        #swagger-ui-container .swagger-ui .parameter__name.required:after {
+            color: var(--red) !important;
+        }
+        #swagger-ui-container .swagger-ui .parameter__type,
+        #swagger-ui-container .swagger-ui .parameter__extension {
+            color: var(--purple) !important;
+            font-family: var(--font-code) !important;
+            font-size: 12px !important;
+        }
+        #swagger-ui-container .swagger-ui .parameter__in {
+            color: var(--muted) !important;
+            font-family: var(--font-code) !important;
+            font-size: 11px !important;
+            font-style: italic !important;
+        }
+
+        /* Response Code Indicators & Links */
+        #swagger-ui-container .swagger-ui .responses-inner {
+            background: var(--bg) !important;
+            padding: 16px !important;
+            border-radius: 8px !important;
+            border: 1px solid var(--border) !important;
+            margin-top: 10px !important;
+        }
+        #swagger-ui-container .swagger-ui .responses-inner h4,
+        #swagger-ui-container .swagger-ui .responses-inner h5 {
+            color: var(--text) !important;
+            font-size: 13px !important;
+            font-weight: 600 !important;
+        }
+        #swagger-ui-container .swagger-ui .response-col_status {
+            color: var(--green) !important;
+            font-family: var(--font-code) !important;
+            font-weight: 700 !important;
+            font-size: 13px !important;
+        }
+        #swagger-ui-container .swagger-ui .response-col_description {
+            color: var(--text) !important;
+            font-size: 13px !important;
+        }
+        #swagger-ui-container .swagger-ui .response-col_links {
+            color: var(--muted) !important;
+        }
+
+        /* Models & Schema Boxes */
+        #swagger-ui-container .swagger-ui section.models {
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+            background: var(--bg2) !important;
+            margin-top: 30px !important;
+            padding: 16px !important;
+        }
+        #swagger-ui-container .swagger-ui section.models h4 {
+            color: var(--text) !important;
+            border-bottom: 1px solid var(--border) !important;
+            font-size: 16px !important;
+            font-weight: 700 !important;
+            padding-bottom: 10px !important;
+        }
+        #swagger-ui-container .swagger-ui .model-container {
+            background: var(--bg3) !important;
+            border-radius: 6px !important;
+            padding: 12px !important;
+            margin-top: 10px !important;
+            border: 1px solid var(--border) !important;
+        }
+        #swagger-ui-container .swagger-ui .model-box {
+            background: var(--bg3) !important;
+            color: var(--text) !important;
+            border-radius: 6px !important;
+            padding: 10px !important;
+        }
+        #swagger-ui-container .swagger-ui .model-title {
+            color: var(--accent) !important;
+            font-family: var(--font-code) !important;
+            font-weight: 600 !important;
+        }
+        #swagger-ui-container .swagger-ui .model,
+        #swagger-ui-container .swagger-ui .model-box pre {
+            color: var(--text) !important;
+            font-family: var(--font-code) !important;
+            font-size: 12px !important;
+        }
+        #swagger-ui-container .swagger-ui .prop-type {
+            color: var(--purple) !important;
+        }
+        #swagger-ui-container .swagger-ui .prop-format {
+            color: var(--muted) !important;
+        }
+
+        /* Code Snippets, Inputs & Interactive Controls */
+        #swagger-ui-container .swagger-ui pre,
+        #swagger-ui-container .swagger-ui .highlight-code pre,
+        #swagger-ui-container .swagger-ui .model-example pre,
+        #swagger-ui-container .swagger-ui .example pre {
+            background: var(--bg) !important;
+            color: var(--text) !important;
+            font-family: var(--font-code) !important;
+            font-size: 12px !important;
+            line-height: 1.6 !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 8px !important;
+            padding: 14px 16px !important;
+            margin: 6px 0 !important;
+            max-height: 400px !important;
+            overflow: auto !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        #swagger-ui-container .swagger-ui code,
+        #swagger-ui-container .swagger-ui pre code,
+        #swagger-ui-container .swagger-ui .model-example code,
+        #swagger-ui-container .swagger-ui .example code {
+            background: transparent !important;
+            color: inherit !important;
+            font-family: var(--font-code) !important;
+            font-size: inherit !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-shadow: none !important;
+            display: inline !important;
+        }
+        #swagger-ui-container .swagger-ui input[type=text],
+        #swagger-ui-container .swagger-ui select,
+        #swagger-ui-container .swagger-ui textarea {
+            background: var(--bg3) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 6px !important;
+            padding: 8px 12px !important;
+            font-family: var(--font-main) !important;
+            font-size: 13px !important;
+        }
+        #swagger-ui-container .swagger-ui input[type=text]:focus,
+        #swagger-ui-container .swagger-ui select:focus,
+        #swagger-ui-container .swagger-ui textarea:focus {
+            border-color: var(--accent) !important;
+            outline: none !important;
+            box-shadow: 0 0 0 2px rgba(88, 166, 255, 0.2) !important;
+        }
+        #swagger-ui-container .swagger-ui .btn {
+            background: var(--bg3) !important;
+            color: var(--text) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            font-size: 12px !important;
+            padding: 6px 14px !important;
+            box-shadow: none !important;
+            transition: all 0.15s ease !important;
+        }
+        #swagger-ui-container .swagger-ui .btn:hover {
+            background: var(--border) !important;
+            color: var(--text) !important;
+        }
+        #swagger-ui-container .swagger-ui .btn.execute {
+            background: var(--accent) !important;
+            color: #0d1117 !important;
+            border-color: var(--accent) !important;
+            font-weight: 700 !important;
+        }
+        #swagger-ui-container .swagger-ui .btn.execute:hover {
+            opacity: 0.9 !important;
+        }
+        #swagger-ui-container .swagger-ui .btn.authorize {
+            color: var(--green) !important;
+            border-color: var(--green) !important;
+            background: rgba(63, 185, 80, 0.15) !important;
+        }
+        #swagger-ui-container .swagger-ui .btn.authorize:hover {
+            background: rgba(63, 185, 80, 0.25) !important;
+        }
+        #swagger-ui-container .swagger-ui svg {
+            fill: var(--text) !important;
+        }
+        #swagger-ui-container .swagger-ui .arrow {
+            fill: var(--text) !important;
+        }
+        #swagger-ui-container .swagger-ui .tab li {
+            color: var(--text) !important;
+            font-size: 12px !important;
+        }
+        #swagger-ui-container .swagger-ui .dialog-ux .modal-ux {
+            background: var(--bg2) !important;
+            border: 1px solid var(--border) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5) !important;
+        }
+        #swagger-ui-container .swagger-ui .dialog-ux .modal-ux-header h3,
+        #swagger-ui-container .swagger-ui .dialog-ux .modal-ux-content {
+            color: var(--text) !important;
+        }
+        #swagger-ui-container .swagger-ui .dialog-ux .modal-ux-header .close-modal {
+            fill: var(--text) !important;
+        }
+
+        /* Fix Swagger UI floating tooltip & accept message overlap glitch */
+        #swagger-ui-container .swagger-ui .response-control-media-type__accept-message,
+        #swagger-ui-container .swagger-ui .response-control-media-type__accept-message small,
+        #swagger-ui-container .swagger-ui .response-control-media-type__accept-message span,
+        #swagger-ui-container .swagger-ui .response-control-media-type__accept-message label {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            color: var(--muted) !important;
+            font-size: 11px !important;
+            font-weight: 500 !important;
+            display: inline !important;
+            position: static !important;
+        }
+        #swagger-ui-container .swagger-ui .response-control-media-type__accept-message {
+            display: block !important;
+            margin-top: 6px !important;
+            margin-bottom: 8px !important;
+            clear: both !important;
+        }
+        #swagger-ui-container .swagger-ui .tooltip,
+        #swagger-ui-container .swagger-ui .tooltip-inner,
+        #swagger-ui-container .swagger-ui [data-hint]:after,
+        #swagger-ui-container .swagger-ui [data-hint]:before {
+            display: none !important;
+        }
+        #swagger-ui-container .swagger-ui .model-example,
+        #swagger-ui-container .swagger-ui .example {
+            margin-top: 8px !important;
+            padding: 0 !important;
+            background: transparent !important;
+            border: none !important;
+            clear: both !important;
+        }
+
+        /* PDF Export Button & Print Styles */
+        .btn-pdf {
+            background: linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%) !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            border: none !important;
+            padding: 6px 14px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            font-size: 12px !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3) !important;
+        }
+        .btn-pdf:hover {
+            transform: translateY(-1px) !important;
+            box-shadow: 0 4px 12px rgba(88, 166, 255, 0.4) !important;
+        }
+
+        @media print {
+            body {
+                background: #ffffff !important;
+                color: #000000 !important;
+            }
+            .header, .sidebar, .btn-pdf, .zoom-toolbar, .sub-tabs, .sub-tab-btn {
+                display: none !important;
+            }
+            .swagger-view-pane {
+                display: block !important;
+                page-break-inside: avoid !important;
+            }
+            .app-layout {
+                display: block !important;
+            }
+            .main-content {
+                padding: 0 !important;
+                margin: 0 !important;
+                width: 100% !important;
+            }
+            .section {
+                display: block !important;
+                page-break-after: always !important;
+                break-after: page !important;
+                margin-bottom: 30px !important;
+            }
+            .card, .module-card, .endpoint-item, .prereq-card, .info-card {
+                break-inside: avoid !important;
+                page-break-inside: avoid !important;
+                border: 1px solid #ccc !important;
+                background: #ffffff !important;
+                color: #000000 !important;
+                box-shadow: none !important;
+            }
+            * {
+                color: #000000 !important;
+                background: transparent !important;
+                box-shadow: none !important;
+                text-shadow: none !important;
+            }
+        }
+
+        /* API Endpoint Prompt Modal Styles */
+        .clickable-ep {
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: space-between !important;
+            gap: 12px !important;
+        }
+        .clickable-ep:hover {
+            border-color: var(--accent) !important;
+            background: rgba(88, 166, 255, 0.06) !important;
+            transform: translateY(-1px) !important;
+        }
+        .btn-prompt-copy {
+            background: var(--bg3) !important;
+            border: 1px solid var(--border) !important;
+            color: var(--muted) !important;
+            font-size: 11px !important;
+            font-weight: 600 !important;
+            padding: 4px 10px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            transition: all 0.15s ease !important;
+            white-space: nowrap !important;
+            margin-left: auto !important;
+        }
+        .btn-prompt-copy:hover {
+            background: var(--accent) !important;
+            color: #0d1117 !important;
+            border-color: var(--accent) !important;
+        }
+        .custom-modal-backdrop {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            z-index: 99999;
+            align-items: center;
+            justify-content: center;
+        }
+        .custom-modal-backdrop.active {
+            display: flex;
+        }
+        .custom-modal-content {
+            background: var(--bg2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            width: 90%;
+            max-width: 680px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6);
+            overflow: hidden;
+            animation: modalFadeIn 0.2s ease-out;
+        }
+        @keyframes modalFadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .custom-modal-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg3);
+        }
+        .custom-modal-close {
+            background: transparent;
+            border: none;
+            color: var(--muted);
+            font-size: 24px;
+            cursor: pointer;
+            line-height: 1;
+            transition: color 0.15s ease;
+        }
+        .custom-modal-close:hover {
+            color: var(--text);
+        }
+        .custom-modal-body {
+            padding: 20px;
+        }
+        .btn-copy-prompt {
+            background: linear-gradient(135deg, var(--accent) 0%, #3b82f6 100%) !important;
+            color: #0d1117 !important;
+            font-weight: 700 !important;
+            font-size: 12px !important;
+            border: none !important;
+            padding: 6px 14px !important;
+            border-radius: 6px !important;
+            cursor: pointer !important;
+            transition: all 0.2s ease !important;
+            display: inline-flex !important;
+            align-items: center !important;
+            gap: 6px !important;
+            box-shadow: 0 2px 8px rgba(88, 166, 255, 0.3) !important;
+        }
+        .btn-copy-prompt:hover {
+            opacity: 0.9 !important;
+            transform: translateY(-1px) !important;
+        }
+    </style>
+</head>
+<body>
+
+<header class="header">
+    <div class="header-top">
+        <div class="brand">
+            <span class="brand-icon">&#127959;</span>
+            <div>
+                <h1 class="brand-title">Second Brain</h1>
+                <div class="brand-sub">Architecture Map & Documentation</div>
+            </div>
+        </div>
+        <div class="sidebar-badges" style="margin-top:0; display: flex; align-items: center; gap: 8px;">
+            <button class="btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
+            <span class="badge">v1.0.0</span>
+            <span class="badge">TypeScript (Deno 2 on the server, React 19 on the client)</span>
+            <span class="badge badge-green">Generated 2026-08-17</span>
+        </div>
+    </div>
+</header>
+
+<div class="app-layout">
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <div style="font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px;">Navigation</div>
+        </div>
+
+        <nav class="sidebar-nav">
+            <button class="nav-btn active" onclick="showTab('overview', this)">
+                <div class="nav-btn-left"><span>&#128204;</span> <span>Overview</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('prereq', this)">
+                <div class="nav-btn-left"><span>📋</span> <span>Prerequisites</span></div>
+                <span class="nav-count">3</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('modules', this)">
+                <div class="nav-btn-left"><span>&#128230;</span> <span>API Modules</span></div>
+                <span class="nav-count">8</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('sysarch', this)">
+                <div class="nav-btn-left"><span>&#127963;</span> <span>System Architecture</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('docker', this)">
+                <div class="nav-btn-left"><span>&#128051;</span> <span>Docker Topology</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('swagger', this)">
+                <div class="nav-btn-left"><span>&#9889;</span> <span>Swagger & OpenAPI</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('perms', this)">
+                <div class="nav-btn-left"><span>&#128273;</span> <span>Permissions</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('sql', this)">
+                <div class="nav-btn-left"><span>&#128452;</span> <span>SQL Queries</span></div>
+                <span class="nav-count">8</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('infra', this)">
+                <div class="nav-btn-left"><span>&#128187;</span> <span>Infrastructure</span></div>
+                <span class="nav-count">7</span>
+            </button>
+            <button class="nav-btn" onclick="showTab('core', this)">
+                <div class="nav-btn-left"><span>&#128737;</span> <span>Core Layer</span></div>
+            </button>
+            <button class="nav-btn" onclick="showTab('flow', this)">
+                <div class="nav-btn-left"><span>&#128257;</span> <span>Request Pipeline</span></div>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer">
+           © AHMED EMAD - Second Brain
+        </div>
+    </aside>
+
+    <main class="main-content">
+
+    <!-- 1. OVERVIEW -->
+    <div class="section active" id="sec-overview">
+        <div class="stats">
+            <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">API Modules</div></div>
+            <div class="stat"><div class="stat-num">10</div><div class="stat-lbl">Total Endpoints</div></div>
+            <div class="stat"><div class="stat-num">7</div><div class="stat-lbl">Docker Services</div></div>
+            <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Permissions</div></div>
+            <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">SQL Queries</div></div>
+            <div class="stat"><div class="stat-num">3</div><div class="stat-lbl">Workspaces</div></div>
+        </div>
+
+        <div class="sec-title">📦 Workspaces</div>
+        <div class="grid3">
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:22px">💻</span>
+                    <div>
+                        <div class="card-title">web</div>
+                        <div class="card-sub">FRONTEND : 5173</div>
+                    </div>
+                </div>
+                <div class="card-desc">React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled).</div>
+                <span class="tag tq">web/src/main.tsx</span>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:22px">⚡</span>
+                    <div>
+                        <div class="card-title">supabase/functions</div>
+                        <div class="card-sub">BACKEND : 54421</div>
+                    </div>
+                </div>
+                <div class="card-desc">Eight Deno Edge Functions: notes, transcribe, enrich, search, digest, export, delete-account, sweep. Own every vendor API call and multi-step orchestration; nothing else touches ElevenLabs/Anthropic/Cohere.</div>
+                <span class="tag tq">supabase/functions/notes/index.ts</span>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:22px">📦</span>
+                    <div>
+                        <div class="card-title">supabase/migrations</div>
+                        <div class="card-sub">PACKAGE : 54422</div>
+                    </div>
+                </div>
+                <div class="card-desc">20 additive SQL migrations: schema, enums, RLS policies, RPCs, indexes, pg_cron schedules (sweep, digest, ai_jobs retention), operational views.</div>
+                <span class="tag tq">supabase/migrations/20260801000100_extensions_and_text.sql</span>
+            </div>
+
+        </div>
+
+        <div class="sec-title">🌐 System Endpoints</div>
+        <div class="grid1">
+
+        </div>
+    </div>
+
+    <!-- 1.5 PREREQUISITES -->
+    <div class="section" id="sec-prereq">
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="chead">
+                <span style="font-size:28px">📋</span>
+                <div>
+                    <div class="card-title">System Prerequisites &amp; Setup Requirements</div>
+                    <div class="card-sub">Developer tools, container runtimes, and step-by-step initialization sequence</div>
+                </div>
+            </div>
+            <p class="card-desc">Local dev runs the full Supabase stack via the Supabase CLI (Docker-backed) plus a Vite dev server for the client. No separate Deno install is needed — the CLI bundles the Edge Runtime.</p>
+        </div>
+
+        <div class="sec-title">🛠️ Required Tools &amp; Runtimes</div>
+        <div class="grid3" style="margin-bottom: 24px;">
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:24px">⚡</span>
+                    <div>
+                        <div class="card-title">Docker Desktop <span class="tag tr">Required</span></div>
+                        <div class="card-sub" style="font-family:var(--font-code);">Version any recent</div>
+                    </div>
+                </div>
+                <div class="card-desc">Backs the local Supabase stack (Postgres, PostgREST, Auth, Storage, Realtime, Edge Runtime, Studio, Mailpit).</div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:24px">⚡</span>
+                    <div>
+                        <div class="card-title">Supabase CLI <span class="tag tr">Required</span></div>
+                        <div class="card-sub" style="font-family:var(--font-code);">Version latest</div>
+                    </div>
+                </div>
+                <div class="card-desc">Runs/manages the local stack (`supabase start`), applies migrations, serves Edge Functions.</div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <span style="font-size:24px">⚡</span>
+                    <div>
+                        <div class="card-title">Node.js <span class="tag tr">Required</span></div>
+                        <div class="card-sub" style="font-family:var(--font-code);">Version &gt;= 20</div>
+                    </div>
+                </div>
+                <div class="card-desc">Builds and runs the web/ Vite PWA client.</div>
+            </div>
+
+        </div>
+
+        <div class="sec-title">🚀 Setup &amp; Execution Pipeline</div>
+        <div class="pipeline">
+
+            <div class="pipe-step" style="cursor:default;">
+                <div class="pipe-num">1</div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text);">Configure environment</div>
+                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">supabase/functions/.env is gitignored and holds real vendor keys (Anthropic, ElevenLabs, Cohere) — copy from a checkout that has them if one exists; a fresh git worktree never carries it.</div>
+                    <code style="display:block; margin-top:8px; font-size:12px; color:var(--accent); background:var(--bg); padding:8px 12px; border-radius:6px; font-family:var(--font-code); overflow-x:auto;">cp .env.example .env &amp;&amp; cp supabase/functions/.env.example supabase/functions/.env</code>
+                </div>
+            </div>
+
+            <div class="pipe-step" style="cursor:default;">
+                <div class="pipe-num">2</div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text);">Start the local Supabase stack</div>
+                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">Boots Postgres, PostgREST, Auth, Storage, Realtime, the Edge Runtime, Studio, and Mailpit on the ports remapped in supabase/config.toml (54421-54429).</div>
+                    <code style="display:block; margin-top:8px; font-size:12px; color:var(--accent); background:var(--bg); padding:8px 12px; border-radius:6px; font-family:var(--font-code); overflow-x:auto;">supabase start</code>
+                </div>
+            </div>
+
+            <div class="pipe-step" style="cursor:default;">
+                <div class="pipe-num">3</div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text);">Verify the schema</div>
+                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">Runs 12 live assertions (RLS, normalization, idempotency, search). Expect &#x27;ALL SCHEMA CHECKS PASSED&#x27;.</div>
+                    <code style="display:block; margin-top:8px; font-size:12px; color:var(--accent); background:var(--bg); padding:8px 12px; border-radius:6px; font-family:var(--font-code); overflow-x:auto;">docker exec -i supabase_db_Second_Brain psql -U postgres -d postgres -v ON_ERROR_STOP=1 &lt; supabase/tests/verify.sql</code>
+                </div>
+            </div>
+
+            <div class="pipe-step" style="cursor:default;">
+                <div class="pipe-num">4</div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text);">Install and verify the web client</div>
+                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">verify = typecheck + RTL guard (check-rtl.mjs) + vitest (21 tests) + production build.</div>
+                    <code style="display:block; margin-top:8px; font-size:12px; color:var(--accent); background:var(--bg); padding:8px 12px; border-radius:6px; font-family:var(--font-code); overflow-x:auto;">cd web &amp;&amp; npm install &amp;&amp; npm run verify</code>
+                </div>
+            </div>
+
+            <div class="pipe-step" style="cursor:default;">
+                <div class="pipe-num">5</div>
+                <div style="flex:1;">
+                    <div style="font-size:14px; font-weight:600; color:var(--text);">Run the dev server</div>
+                    <div style="font-size:12px; color:var(--muted); margin-top:4px;">Vite dev server for the PWA client.</div>
+                    <code style="display:block; margin-top:8px; font-size:12px; color:var(--accent); background:var(--bg); padding:8px 12px; border-radius:6px; font-family:var(--font-code); overflow-x:auto;">npm run dev</code>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 2. API MODULES -->
+    <div class="section" id="sec-modules">
+        <input class="search" id="modSearch" placeholder="Search endpoints, paths, permissions, descriptions..." oninput="filterModules()">
+        <div class="grid2" id="modulesGrid">
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #6366f1"></div>
+                <div class="chead">
+                    <span style="font-size:22px">📝</span>
+                    <div>
+                        <div class="card-title">notes</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/notes</div>
+                    </div>
+                </div>
+                <div class="card-desc">Capture and timeline. Idempotent on client_id so an offline retry never creates a duplicate note.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/notes" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Capture a note (text or voice). Idempotent on client_id.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+                <div class="endpoint clickable-ep" data-method="GET" data-path="/functions/v1/notes" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method GET">GET</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Keyset-paginated timeline (cursor = client_created_at, not OFFSET). Omits raw_text.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/notes/audio-url" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/audio-url<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Signed Storage upload URL for a voice note, scoped to &lt;user_id&gt;/.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #0ea5e9"></div>
+                <div class="chead">
+                    <span style="font-size:22px">🎤</span>
+                    <div>
+                        <div class="card-title">transcribe</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/transcribe</div>
+                    </div>
+                </div>
+                <div class="card-desc">Stage 1 of the AI pipeline: audio -&gt; raw_text + confidence via ElevenLabs Scribe. Idempotent on existing raw_text.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/transcribe" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Transcribe a voice note&#x27;s audio. Returns cached raw_text on retry, no repeat ASR call.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #8b5cf6"></div>
+                <div class="chead">
+                    <span style="font-size:22px">✨</span>
+                    <div>
+                        <div class="card-title">enrich</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/enrich</div>
+                    </div>
+                </div>
+                <div class="card-desc">Stages 3-5: Anthropic Opus 5 enrichment (summary/category/tags/priority), Cohere embedding, SQL nearest-neighbour relations. Idempotent on (note, language, prompt_version); force:true overrides.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/enrich" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Run enrichment + embedding + relation-detection for a note.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #f59e0b"></div>
+                <div class="chead">
+                    <span style="font-size:22px">🔍</span>
+                    <div>
+                        <div class="card-title">search</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/search</div>
+                    </div>
+                </div>
+                <div class="card-desc">Hybrid / semantic / lexical retrieval. lexical mode skips the embedding call entirely.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/search" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Search notes: mode = hybrid | semantic | lexical, optional category filter.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #10b981"></div>
+                <div class="chead">
+                    <span style="font-size:22px">📅</span>
+                    <div>
+                        <div class="card-title">digest</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/digest</div>
+                    </div>
+                </div>
+                <div class="card-desc">Weekly AI review. Two-phase: enqueue (submit Anthropic Batch job) / collect (poll and store result). Cron-triggered via pg_cron + pg_net, Vault-stored secrets.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/digest" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">{action: &quot;enqueue&quot; | &quot;collect&quot;} — normally invoked by the digest-enqueue/digest-collect pg_cron schedules, not directly by the client.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #64748b"></div>
+                <div class="chead">
+                    <span style="font-size:22px">📦</span>
+                    <div>
+                        <div class="card-title">export</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/export</div>
+                    </div>
+                </div>
+                <div class="card-desc">Full data export. Runs entirely under the caller&#x27;s own client (RLS) — no user_id filter anywhere in the function; RLS is the reason no other user&#x27;s data is reachable.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="GET" data-path="/functions/v1/export" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method GET">GET</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Every note, enrichment, and tag the caller owns. Includes raw_text and archived notes; not paginated.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #ef4444"></div>
+                <div class="chead">
+                    <span style="font-size:22px">⚠️</span>
+                    <div>
+                        <div class="card-title">delete-account</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/delete-account</div>
+                    </div>
+                </div>
+                <div class="card-desc">Irreversible account deletion. Requires the caller to type back their own email as confirmation. Deletes Storage audio objects first, then auth.admin.deleteUser() cascades through every FK-referencing table.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/delete-account" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">{confirm_email} — 400 confirmation_mismatch if it doesn&#x27;t match the authenticated session&#x27;s own email.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #a855f7"></div>
+                <div class="chead">
+                    <span style="font-size:22px">🧹</span>
+                    <div>
+                        <div class="card-title">sweep</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/sweep</div>
+                    </div>
+                </div>
+                <div class="card-desc">Not client-facing. Invoked by the sweep-worker pg_cron job (*/5 * * * *) via pg_net, using Vault-stored URL/service-role secrets. Unsticks notes stranded in transcribing/enriching, retries stale queued notes (capped at 5 attempts via ai_jobs before marking failed), backfills missing embeddings, and deletes expired audio from Storage.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/sweep" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 3. SYSTEM ARCHITECTURE & COMPONENTS DIAGRAM -->
+    <div class="section" id="sec-sysarch">
+        <div class="card">
+            <div class="chead">
+                <span style="font-size:24px">🏛️</span>
+                <div>
+                    <div class="card-title">System Design & Component Architecture Diagram</div>
+                    <div class="card-sub">High-level software architecture, layered boundaries, and component relationships</div>
+                </div>
+            </div>
+            <p class="card-desc">Client capture is local-first; every vendor call is server-side only. Matches docs/01-architecture.md.</p>
+            <div class="diagram-box">
+                <div id="sysarchMermaid" style="width: 100%; min-height: 500px; display: flex; justify-content: center; align-items: center;"></div>
+                <script type="text/plain" id="sysarchMermaidSrc">
+flowchart TB
+    classDef proxy fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff;
+    classDef app fill:#1e3a8a,stroke:#58a6ff,stroke-width:2px,color:#fff;
+    classDef database fill:#064e3b,stroke:#3fb950,stroke-width:2px,color:#fff;
+    classDef cache fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef queue fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef monitoring fill:#7c2d12,stroke:#f97316,stroke-width:2px,color:#fff;
+    classDef logging fill:#831843,stroke:#ec4899,stroke-width:2px,color:#fff;
+
+    subgraph sg_client_layer["React PWA installable: iOS  Android  desktop"]
+        capture_ui["Capture - IndexedDB durable offline"]
+        outbox["Outbox replay websrcdataoutbox.ts"]
+    end
+
+    subgraph sg_api_layer["Supabase"]
+        postgrest["PostgREST CRUD under RLS"]
+        storage_node["Storage private audio bucket signed URLs"]
+        edge_functions["Edge Functions: notes  transcribe  enrich  search  digest  export  delete-account  sweep"]
+        pg_cron["pg_cron sweep every 5 min weekly digest retention"]
+    end
+
+    subgraph sg_data_layer["Postgres"]
+        db["Postgres pgvector unaccent pg_trgm"]
+    end
+
+    subgraph sg_vendor_layer["Vendors server-side only never reach the client"]
+        elevenlabs["ElevenLabs Scribe ASR"]
+        anthropic["Anthropic Claude Opus 5 enrichment  weekly digest via Batch API"]
+        cohere["Cohere embed-multi-v3 1024-dim vectors"]
+    end
+
+    capture_ui -->|"durable local write"| outbox
+    outbox -->|"HTTPS JWT replay on reconnect"| postgrest
+    outbox -->|"HTTPS JWT"| edge_functions
+    capture_ui -->|"PUT audio signed URL direct upload"| storage_node
+    edge_functions -->|"supabase-js service role  RLS"| db
+    edge_functions -->|"HTTPS transcribe"| elevenlabs
+    edge_functions -->|"HTTPS enrich digest"| anthropic
+    edge_functions -->|"HTTPS embed"| cohere
+    pg_cron -->|"pg_net HTTPS sweep digest-enqueue"| edge_functions
+    postgrest -->|"SQL under RLS"| db
+
+    class capture_ui,outbox,postgrest,storage_node,edge_functions,elevenlabs,anthropic,cohere app;
+    class pg_cron queue;
+    class db database;
+
+                </script>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. DOCKER DIAGRAM -->
+    <div class="section" id="sec-docker">
+        <div class="card">
+            <div class="chead">
+                <span style="font-size:24px">🐳</span>
+                <div>
+                    <div class="card-title">Docker Infrastructure Topology &amp; Dependency Diagram</div>
+                    <div class="card-sub">Rendered live using Mermaid.js from container specifications</div>
+                </div>
+            </div>
+            <p class="card-desc">Local Supabase CLI-managed container topology (supabase/config.toml, ports remapped to 54421-54429 to avoid a clash with another local Supabase project). Not a hand-authored docker-compose.yml — the Supabase CLI generates and manages it.</p>
+
+            <div class="diagram-box">
+                <div id="dockerMermaid" style="width: 100%; min-height: 400px; display: flex; justify-content: center; align-items: center;"></div>
+                <script type="text/plain" id="dockerMermaidSrc">
+flowchart TD
+    classDef proxy fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff;
+    classDef app fill:#1e3a8a,stroke:#58a6ff,stroke-width:2px,color:#fff;
+    classDef database fill:#064e3b,stroke:#3fb950,stroke-width:2px,color:#fff;
+    classDef cache fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fff;
+    classDef queue fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef monitoring fill:#7c2d12,stroke:#f97316,stroke-width:2px,color:#fff;
+    classDef logging fill:#831843,stroke:#ec4899,stroke-width:2px,color:#fff;
+    classDef uptime fill:#7f1d1d,stroke:#ef4444,stroke-width:2px,color:#fff;
+
+    kong["API Gateway Kong Port 54421"]
+    postgres["Postgres 17 Port 54422"]
+    edge-runtime["Edge Runtime Deno 2 Port 54421"]
+    storage-api["Storage API Port 54421"]
+    auth["GoTrue Auth Port 54421"]
+    studio["Studio Port 54423"]
+    mailpit["Mailpit Port 54424"]
+    analytics["Analytics Logflare Port 54427"]
+
+    kong -->|"HTTP"| auth
+    kong -->|"HTTP"| storage-api
+    kong -->|"HTTP functionsv1"| edge-runtime
+    auth -->|"TCP 5432 auth schema"| postgres
+    storage-api -->|"TCP 5432 storage metadata"| postgres
+    edge-runtime -->|"TCP 5432 service role"| postgres
+    studio -->|"TCP 5432 superuser"| postgres
+    postgres -->|"pg_cron - pg_net - HTTPS sweep digest schedules"| edge-runtime
+
+    class kong proxy;
+    class postgres database;
+    class edge-runtime,storage-api,auth app;
+    class studio monitoring;
+    class mailpit,analytics logging;
+
+                </script>
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. SWAGGER & OPENAPI -->
+    <div class="section" id="sec-swagger">
+        <div class="card" style="margin-bottom: 20px;">
+            <div class="chead">
+                <span style="font-size:28px">&#9889;</span>
+                <div>
+                    <div class="card-title">Swagger & OpenAPI 3.0 API Specification & Explorer</div>
+                    <div class="card-sub">Interactive REST API documentation generated from architecture manifest (10 Endpoints)</div>
+                </div>
+                <span class="badge badge-green" style="margin-left:auto; font-size: 12px; padding: 6px 12px;">STATUS: VERIFIED PARITY (9/9 DOCUMENTED ENDPOINTS, DOCS/03-API.MD)</span>
+            </div>
+
+            <div class="grid4" style="margin-top: 15px;">
+                <div style="font-size: 12px; color: var(--muted);">
+                    <div style="color: var(--text); font-weight: 600; margin-bottom: 2px;">OpenAPI Version</div>
+                    <code>n/a — hand-documented, not OpenAPI-generated</code>
+                </div>
+                <div style="font-size: 12px; color: var(--muted);">
+                    <div style="color: var(--text); font-weight: 600; margin-bottom: 2px;">Base URL</div>
+                    <code>http://127.0.0.1:54421</code>
+                </div>
+                <div style="font-size: 12px; color: var(--muted);">
+                    <div style="color: var(--text); font-weight: 600; margin-bottom: 2px;">Security Scheme</div>
+                    <span class="tag ty">Supabase JWT (Authorization: Bearer &lt;access_token&gt;); sweep is service-role-only, invoked by pg_cron/pg_net, not client-facing</span>
+                </div>
+                <div style="font-size: 12px; color: var(--muted);">
+                    <div style="color: var(--text); font-weight: 600; margin-bottom: 2px;">Live Swagger Route</div>
+                    <code>/functions/v1</code>
+                </div>
+            </div>
+        </div>
+
+        <!-- View Mode Selector -->
+        <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+            <button class="sub-tab-btn active" onclick="switchSwaggerView('ui', this)">&#9889; Interactive Swagger UI</button>
+            <button class="sub-tab-btn" onclick="switchSwaggerView('catalog', this)">&#128216; API Endpoint Catalog & cURL (10)</button>
+            <button class="sub-tab-btn" onclick="switchSwaggerView('json', this)">&#128220; OpenAPI 3.0 JSON Spec</button>
+        </div>
+
+        <!-- Pane 1: Interactive Swagger UI -->
+        <div id="swagger-view-ui" class="swagger-view-pane active">
+            <div class="card" style="padding: 10px;">
+                <div id="swagger-ui-container">
+                    <div style="padding: 40px; text-align: center; color: var(--muted);">
+                        Loading Interactive Swagger UI...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pane 2: API Endpoint Catalog & cURL -->
+        <div id="swagger-view-catalog" class="swagger-view-pane">
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">📝</span>
+                    <div>
+                        <div class="card-title">notes API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/notes</code> | 3 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/notes</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Capture a note (text or voice). Idempotent on client_id.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/notes&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tg" style="font-weight: 700; font-size: 11px;">GET</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/notes</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Keyset-paginated timeline (cursor = client_created_at, not OFFSET). Omits raw_text.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X GET &quot;http://127.0.0.1:54421/functions/v1/notes&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot;</code>
+                        </div>
+                    </div>
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/notes/audio-url</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Signed Storage upload URL for a voice note, scoped to &lt;user_id&gt;/.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/notes/audio-url&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">🎤</span>
+                    <div>
+                        <div class="card-title">transcribe API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/transcribe</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/transcribe</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Transcribe a voice note&#x27;s audio. Returns cached raw_text on retry, no repeat ASR call.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/transcribe&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">✨</span>
+                    <div>
+                        <div class="card-title">enrich API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/enrich</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/enrich</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Run enrichment + embedding + relation-detection for a note.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/enrich&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">🔍</span>
+                    <div>
+                        <div class="card-title">search API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/search</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/search</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Search notes: mode = hybrid | semantic | lexical, optional category filter.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/search&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">📅</span>
+                    <div>
+                        <div class="card-title">digest API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/digest</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/digest</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">{action: &quot;enqueue&quot; | &quot;collect&quot;} — normally invoked by the digest-enqueue/digest-collect pg_cron schedules, not directly by the client.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/digest&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">📦</span>
+                    <div>
+                        <div class="card-title">export API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/export</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tg" style="font-weight: 700; font-size: 11px;">GET</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/export</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Every note, enrichment, and tag the caller owns. Includes raw_text and archived notes; not paginated.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X GET &quot;http://127.0.0.1:54421/functions/v1/export&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">⚠️</span>
+                    <div>
+                        <div class="card-title">delete-account API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/delete-account</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/delete-account</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">{confirm_email} — 400 confirmation_mismatch if it doesn&#x27;t match the authenticated session&#x27;s own email.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/delete-account&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">🧹</span>
+                    <div>
+                        <div class="card-title">sweep API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/sweep</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/sweep</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/sweep&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Pane 3: Raw OpenAPI 3.0 JSON Spec -->
+        <div id="swagger-view-json" class="swagger-view-pane">
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                    <div style="font-weight: 600; font-size: 14px;">OpenAPI 3.0.0 JSON Specification Source</div>
+                    <button class="sub-tab-btn" onclick="navigator.clipboard.writeText(document.getElementById('swaggerOpenApiJsonSrc').textContent); alert('Copied OpenAPI JSON Spec to clipboard!');">&#128203; Copy OpenAPI Spec</button>
+                </div>
+                <pre style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 16px; font-family: var(--font-code); font-size: 12px; color: var(--text); max-height: 600px; overflow-y: auto;"><code id="swaggerOpenApiJsonSrc">{
+  &quot;openapi&quot;: &quot;3.0.0&quot;,
+  &quot;info&quot;: {
+    &quot;title&quot;: &quot;Second Brain&quot;,
+    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;description&quot;: &quot;Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).&quot;
+  },
+  &quot;servers&quot;: [
+    {
+      &quot;url&quot;: &quot;http://127.0.0.1:54421&quot;,
+      &quot;description&quot;: &quot;Local Supabase CLI stack (module paths below already include /functions/v1)&quot;
+    },
+    {
+      &quot;url&quot;: &quot;(not yet deployed)&quot;,
+      &quot;description&quot;: &quot;Production hosted Supabase project \u2014 blocked on SB-016, see docs/13-tasks.md&quot;
+    }
+  ],
+  &quot;tags&quot;: [
+    {
+      &quot;name&quot;: &quot;notes&quot;,
+      &quot;description&quot;: &quot;Capture and timeline. Idempotent on client_id so an offline retry never creates a duplicate note.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;transcribe&quot;,
+      &quot;description&quot;: &quot;Stage 1 of the AI pipeline: audio -&gt; raw_text + confidence via ElevenLabs Scribe. Idempotent on existing raw_text.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;enrich&quot;,
+      &quot;description&quot;: &quot;Stages 3-5: Anthropic Opus 5 enrichment (summary/category/tags/priority), Cohere embedding, SQL nearest-neighbour relations. Idempotent on (note, language, prompt_version); force:true overrides.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;search&quot;,
+      &quot;description&quot;: &quot;Hybrid / semantic / lexical retrieval. lexical mode skips the embedding call entirely.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;digest&quot;,
+      &quot;description&quot;: &quot;Weekly AI review. Two-phase: enqueue (submit Anthropic Batch job) / collect (poll and store result). Cron-triggered via pg_cron + pg_net, Vault-stored secrets.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;export&quot;,
+      &quot;description&quot;: &quot;Full data export. Runs entirely under the caller&#x27;s own client (RLS) \u2014 no user_id filter anywhere in the function; RLS is the reason no other user&#x27;s data is reachable.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;delete-account&quot;,
+      &quot;description&quot;: &quot;Irreversible account deletion. Requires the caller to type back their own email as confirmation. Deletes Storage audio objects first, then auth.admin.deleteUser() cascades through every FK-referencing table.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;sweep&quot;,
+      &quot;description&quot;: &quot;Not client-facing. Invoked by the sweep-worker pg_cron job (*/5 * * * *) via pg_net, using Vault-stored URL/service-role secrets. Unsticks notes stranded in transcribing/enriching, retries stale queued notes (capped at 5 attempts via ai_jobs before marking failed), backfills missing embeddings, and deletes expired audio from Storage.&quot;
+    }
+  ],
+  &quot;paths&quot;: {
+    &quot;/functions/v1/notes&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;notes&quot;
+        ],
+        &quot;summary&quot;: &quot;Capture a note (text or voice). Idempotent on client_id.&quot;,
+        &quot;description&quot;: &quot;Capture a note (text or voice). Idempotent on client_id. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      },
+      &quot;get&quot;: {
+        &quot;tags&quot;: [
+          &quot;notes&quot;
+        ],
+        &quot;summary&quot;: &quot;Keyset-paginated timeline (cursor = client_created_at, not OFFSET). Omits raw_text.&quot;,
+        &quot;description&quot;: &quot;Keyset-paginated timeline (cursor = client_created_at, not OFFSET). Omits raw_text. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ]
+      }
+    },
+    &quot;/functions/v1/notes/audio-url&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;notes&quot;
+        ],
+        &quot;summary&quot;: &quot;Signed Storage upload URL for a voice note, scoped to &lt;user_id&gt;/.&quot;,
+        &quot;description&quot;: &quot;Signed Storage upload URL for a voice note, scoped to &lt;user_id&gt;/. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/transcribe&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;transcribe&quot;
+        ],
+        &quot;summary&quot;: &quot;Transcribe a voice note&#x27;s audio. Returns cached raw_text on retry, no repeat ASR call.&quot;,
+        &quot;description&quot;: &quot;Transcribe a voice note&#x27;s audio. Returns cached raw_text on retry, no repeat ASR call. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/enrich&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;enrich&quot;
+        ],
+        &quot;summary&quot;: &quot;Run enrichment + embedding + relation-detection for a note.&quot;,
+        &quot;description&quot;: &quot;Run enrichment + embedding + relation-detection for a note. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/search&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;search&quot;
+        ],
+        &quot;summary&quot;: &quot;Search notes: mode = hybrid | semantic | lexical, optional category filter.&quot;,
+        &quot;description&quot;: &quot;Search notes: mode = hybrid | semantic | lexical, optional category filter. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/digest&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;digest&quot;
+        ],
+        &quot;summary&quot;: &quot;{action: \&quot;enqueue\&quot; | \&quot;collect\&quot;} \u2014 normally invoked by the digest-enqueue/digest-collect pg_cron schedules, not directly by the client.&quot;,
+        &quot;description&quot;: &quot;{action: \&quot;enqueue\&quot; | \&quot;collect\&quot;} \u2014 normally invoked by the digest-enqueue/digest-collect pg_cron schedules, not directly by the client. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/export&quot;: {
+      &quot;get&quot;: {
+        &quot;tags&quot;: [
+          &quot;export&quot;
+        ],
+        &quot;summary&quot;: &quot;Every note, enrichment, and tag the caller owns. Includes raw_text and archived notes; not paginated.&quot;,
+        &quot;description&quot;: &quot;Every note, enrichment, and tag the caller owns. Includes raw_text and archived notes; not paginated. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ]
+      }
+    },
+    &quot;/functions/v1/delete-account&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;delete-account&quot;
+        ],
+        &quot;summary&quot;: &quot;{confirm_email} \u2014 400 confirmation_mismatch if it doesn&#x27;t match the authenticated session&#x27;s own email.&quot;,
+        &quot;description&quot;: &quot;{confirm_email} \u2014 400 confirmation_mismatch if it doesn&#x27;t match the authenticated session&#x27;s own email. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    &quot;/functions/v1/sweep&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;sweep&quot;
+        ],
+        &quot;summary&quot;: &quot;Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts.&quot;,
+        &quot;description&quot;: &quot;Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  &quot;components&quot;: {
+    &quot;securitySchemes&quot;: {
+      &quot;bearerAuth&quot;: {
+        &quot;type&quot;: &quot;http&quot;,
+        &quot;scheme&quot;: &quot;bearer&quot;,
+        &quot;bearerFormat&quot;: &quot;JWT&quot;,
+        &quot;description&quot;: &quot;Provide your JWT Access Token (Header: Authorization: Bearer &lt;token&gt;)&quot;
+      }
+    },
+    &quot;schemas&quot;: {
+      &quot;Note&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;description&quot;: &quot;Canonical note row: source (text|voice), status, input_language, detected_language, raw_text, client_created_at vs created_at (two timestamps, deliberately).&quot;
+      },
+      &quot;NoteEnrichment&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;description&quot;: &quot;One row per (note, language, prompt_version): title, summary, category, priority, suggested_action, action_due_at, context (people/places/artifacts/open_questions), model.&quot;
+      },
+      &quot;Tag&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;description&quot;: &quot;Language-neutral slug identity plus tag_labels per language \u2014 never a display string as the key.&quot;
+      },
+      &quot;ApiError&quot;: {
+        &quot;type&quot;: &quot;object&quot;,
+        &quot;description&quot;: &quot;{ error: { code }, language } \u2014 machine code only, never a human sentence; client owns all user-facing text via i18n.&quot;
+      }
+    }
+  }
+}</code></pre>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. PERMISSIONS & SECURITY SCOPES -->
+    <div class="section" id="sec-perms">
+        <div class="sec-title">&#128273; Scope & Isolation / Permissions</div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+            No RBAC permission-slug system. Access control is entirely Postgres Row-Level Security scoped to auth.uid() — every table&#x27;s policy IS the authorization layer (see coreLayer.security and docs/08-security.md). There is no admin role or permission catalog to enumerate.
+        </p>
+
+        <div class="stats" style="margin-bottom: 20px;">
+            <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Security Scopes / Slugs</div></div>
+            <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Authenticated Endpoints</div></div>
+            <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Public Endpoints</div></div>
+            <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Mapped Scope Groups</div></div>
+        </div>
+
+        <div class="card" style="text-align: center; padding: 48px 24px; color: var(--muted); border: 1px dashed var(--border); border-radius: 12px; margin-top: 16px;">
+            <div style="font-size: 36px; margin-bottom: 12px;">🔒</div>
+            <div style="font-size: 16px; font-weight: 600; color: var(--text);">No Role-Based Access Control (RBAC) Permissions Defined</div>
+            <div style="font-size: 13px; margin-top: 6px;">All endpoints in this project currently run with standard authentication or open public access. No specific role permissions were declared on the routes.</div>
+        </div>
+
+    </div>
+
+    <!-- 6. SQL QUERIES CATALOG -->
+    <div class="section" id="sec-sql">
+        <div class="sec-title">&#128452; SQL Query Catalog & Repository Mapping</div>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">
+            Raw SQL statements mapped to repository/service functions, affected tables, and API endpoints.
+        </p>
+
+        <div class="grid1">
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Idempotent note capture RPC</div>
+                    <span class="tag tp" style="margin-left:auto">notes • public.capture_note(p_client_id, p_source, p_language, p_raw_text, p_client_created)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> Insert on (user_id, client_id); on conflict does UPDATE (not DO NOTHING) purely so RETURNING still yields the id on a replay, letting the client resolve its local record to the same row instead of creating a duplicate.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260801000500_rpc.sql</code> | <strong>Tables:</strong> <span class="tag tg">notes</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/notes</code> &nbsp; 
+                </div>
+                <div class="code-block">insert into public.notes (client_id, source, input_language, raw_text, client_created_at, status)
+values ($1, $2, coalesce($3,&#x27;ar&#x27;), nullif(btrim($4),&#x27;&#x27;), coalesce($5, now()),
+        case when $2 = &#x27;text&#x27; then &#x27;queued&#x27;::note_status else &#x27;draft&#x27;::note_status end)
+on conflict (user_id, client_id) do update set updated_at = now()
+returning id;</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Hybrid lexical + semantic search (Reciprocal Rank Fusion, k=60)</div>
+                    <span class="tag tp" style="margin-left:auto">search • public.search_notes(p_query, p_language, p_embedding, p_mode, p_categories, p_limit)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> SECURITY INVOKER so the caller&#x27;s own RLS filters results (a SECURITY DEFINER version would have to hand-reimplement ownership filtering). Fetches top-200 candidates per arm (lexical ts_rank_cd, semantic cosine distance), fuses by RRF since BM25 ranks and cosine distances aren&#x27;t on comparable scales. LEFT JOINs note_enrichments so an unenriched note is still findable.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260801000500_rpc.sql</code> | <strong>Tables:</strong> <span class="tag tg">notes</span> <span class="tag tg">note_embeddings</span> <span class="tag tg">note_enrichments</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/search</code> &nbsp; 
+                </div>
+                <div class="code-block">with lexical as (
+  select id, row_number() over (order by ts_rank_cd(search_vector, tsq) desc) as rnk
+  from notes where mode in (&#x27;hybrid&#x27;,&#x27;lexical&#x27;) and search_vector @@ tsq
+    and status=&#x27;ready&#x27; and archived_at is null limit 200
+), semantic as (
+  select note_id as id, row_number() over (order by embedding &lt;=&gt; p_embedding) as rnk
+  from note_embeddings where mode in (&#x27;hybrid&#x27;,&#x27;semantic&#x27;) and language = p_language limit 200
+), fused as (
+  select coalesce(l.id,s.id) as id,
+         coalesce(1.0/(60+l.rnk),0) + coalesce(1.0/(60+s.rnk),0) as score
+  from lexical l full outer join semantic s on s.id = l.id
+)
+select n.*, e.title, e.summary from fused f
+join notes n on n.id = f.id
+left join note_enrichments e on e.note_id = n.id and e.language = p_language
+order by f.score desc limit p_limit;</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Tag identity collapse (slug + per-language label)</div>
+                    <span class="tag tp" style="margin-left:auto">enrich • public.attach_tags(p_user_id, p_note_id, p_language, p_labels)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> Pipeline-internal (not granted to authenticated). Slugifies each model-returned Arabic label so two spellings of one concept converge on one tags row, then stores the display label per language in tag_labels.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260801000500_rpc.sql</code> | <strong>Tables:</strong> <span class="tag tg">tags</span> <span class="tag tg">tag_labels</span> <span class="tag tg">note_tags</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/enrich</code> &nbsp; 
+                </div>
+                <div class="code-block">insert into tags (user_id, slug) values ($1, slugify($2)) on conflict (user_id, slug) do update set slug = excluded.slug returning id;
+insert into tag_labels (tag_id, language, label) values ($tag_id, $language, btrim($label)) on conflict (tag_id, language) do nothing;
+insert into note_tags (note_id, tag_id, user_id) values ($note_id, $tag_id, $user_id) on conflict (note_id, tag_id) do nothing;</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Nearest-neighbour note relation detection</div>
+                    <span class="tag tp" style="margin-left:auto">enrich • public.relate_note(p_user_id, p_note_id, p_language, p_threshold=0.78, p_limit=5)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> No model call — pure SQL cosine similarity against the note&#x27;s own embedding, same model, same user, same language. Inserts up to 5 relations above a 0.78 similarity threshold.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260801000500_rpc.sql</code> | <strong>Tables:</strong> <span class="tag tg">note_embeddings</span> <span class="tag tg">note_relations</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/enrich</code> &nbsp; 
+                </div>
+                <div class="code-block">with src as (select embedding, model from note_embeddings where note_id=$note_id and language=$language limit 1),
+nearest as (select distinct on (e.note_id) e.note_id, 1-(e.embedding &lt;=&gt; (select embedding from src)) as similarity
+  from note_embeddings e join notes n on n.id=e.note_id
+  where e.user_id=$user_id and e.note_id&lt;&gt;$note_id and e.language=$language
+    and e.model=(select model from src) and n.archived_at is null
+  order by e.note_id, e.embedding &lt;=&gt; (select embedding from src)),
+picked as (select * from nearest where similarity &gt;= $threshold order by similarity desc limit $limit)
+insert into note_relations (from_note_id, to_note_id, user_id, kind, score)
+select $note_id, note_id, $user_id, &#x27;similar&#x27;, similarity from picked
+on conflict (from_note_id, to_note_id, kind) do update set score = excluded.score;</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Embedding backfill candidates for sweep</div>
+                    <span class="tag tp" style="margin-left:auto">sweep • public.notes_missing_embeddings(p_limit=25)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> Anti-join expressed in SQL because PostgREST cannot express &#x27;enrichment row with no matching embedding row&#x27; without pulling every ready note over the wire. Pipeline-internal, not granted to authenticated.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260801000700_sweep.sql</code> | <strong>Tables:</strong> <span class="tag tg">notes</span> <span class="tag tg">note_enrichments</span> <span class="tag tg">note_embeddings</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/sweep</code> &nbsp; 
+                </div>
+                <div class="code-block">select n.id, e.user_id, e.language, e.title, e.summary, n.raw_text
+from note_enrichments e join notes n on n.id = e.note_id
+where n.status = &#x27;ready&#x27; and n.archived_at is null
+  and not exists (select 1 from note_embeddings em where em.note_id = e.note_id and em.language = e.language)
+order by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),100);</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Per-user/stage rate limit check</div>
+                    <span class="tag tp" style="margin-left:auto">enrich / transcribe • public.rate_limit_hit(p_user_id, p_stage, p_limit, p_window_minutes)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> True once a user has p_limit+ ai_jobs rows for a stage within the trailing p_window_minutes (60 calls / 15 min in practice). Not granted to authenticated — a client must not be able to probe or reset its own limit.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260806000100_rate_limit.sql</code> | <strong>Tables:</strong> <span class="tag tg">ai_jobs</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/enrich</code> &nbsp; <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/transcribe</code> &nbsp; 
+                </div>
+                <div class="code-block">select count(*) &gt;= p_limit from ai_jobs
+where user_id = p_user_id and stage = p_stage
+  and created_at &gt;= now() - make_interval(mins =&gt; p_window_minutes);</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; ai_jobs 90-day retention purge</div>
+                    <span class="tag tp" style="margin-left:auto">sweep / pg_cron • public.purge_old_ai_jobs(p_days=90)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> Scheduled daily at 03:00 UTC via pg_cron (job &#x27;ai-jobs-retention&#x27;), no Vault secrets needed since it never leaves Postgres. Telemetry only (shape/cost/latency), never note content.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260807000100_ai_jobs_retention.sql</code> | <strong>Tables:</strong> <span class="tag tg">ai_jobs</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> 
+                </div>
+                <div class="code-block">with deleted as (
+  delete from ai_jobs where created_at &lt; now() - make_interval(days =&gt; p_days)
+  returning 1
+)
+select count(*)::integer from deleted;</div>
+            </div>
+
+            <div class="card">
+                <div class="chead" style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+                    <div class="card-title" style="color: var(--yellow);">&#9889; Audio retention finder</div>
+                    <span class="tag tp" style="margin-left:auto">sweep • public.notes_audio_expired(p_limit=25)</span>
+                </div>
+                <p style="font-size: 13px; color: var(--muted); margin: 6px 0;">
+                    <strong>Purpose:</strong> Per-user retention (profiles.audio_retention_days, default 30) so it can&#x27;t be a single global cutoff. Returns candidates for sweep, which deletes the Storage object via the Storage API (a raw SQL delete on storage.objects would only remove metadata and orphan the bytes) and clears audio_path.<br>
+                    <strong>File:</strong> <code>supabase/migrations/20260807000200_audio_retention.sql</code> | <strong>Tables:</strong> <span class="tag tg">notes</span> <span class="tag tg">profiles</span>
+                </p>
+                <div style="margin: 8px 0; font-size: 12px;">
+                    <strong>Consuming Endpoints:</strong> <span class="method POST">POST</span> <code style="font-size:12px">/functions/v1/sweep</code> &nbsp; 
+                </div>
+                <div class="code-block">select n.id, n.user_id, n.audio_path
+from notes n join profiles p on p.id = n.user_id
+where n.audio_path is not null
+  and n.client_created_at &lt; now() - make_interval(days =&gt; p.audio_retention_days)
+order by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),100);</div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- 7. INFRASTRUCTURE -->
+    <div class="section" id="sec-infra">
+        <div class="sec-title">&#128187; Infrastructure Services</div>
+        <div class="grid3">
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Postgres 17 (Supabase local) <span class="tag tb">database</span></div>
+                        <div class="card-sub">supabase/postgres : 54422</div>
+                    </div>
+                </div>
+                <div class="card-desc">Canonical store. pgvector for embeddings, pg_trgm for fuzzy tag matching, unaccent + custom normalize_ar() for Arabic text search. Every public table has RLS enabled (verify.sql check 12).</div>
+                <div><span class="tag tq">RLS multi-tenancy</span><span class="tag tq">pgvector HNSW index</span><span class="tag tq">pg_cron scheduled jobs</span><span class="tag tq">generated tsvector search_vector column</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">PostgREST / API Gateway <span class="tag tq">proxy</span></div>
+                        <div class="card-sub">supabase/kong : 54421</div>
+                    </div>
+                </div>
+                <div class="card-desc">Routes REST CRUD (simple reads/writes under RLS) and proxies /functions/v1/* to the Edge Runtime.</div>
+                <div><span class="tag tq">Auto-generated REST over Postgres</span><span class="tag tq">RLS-enforced, no app code needed for simple CRUD</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Supabase Edge Runtime (Deno 2) <span class="tag tq">app</span></div>
+                        <div class="card-sub">supabase/edge-runtime : 54421</div>
+                    </div>
+                </div>
+                <div class="card-desc">Serves the 8 Edge Functions. Only place vendor keys (Anthropic, ElevenLabs, Cohere) are readable. Known local gotcha: serves stale compiled code after a file edit until a full `supabase stop &amp;&amp; supabase start`.</div>
+                <div><span class="tag tq">Deno 2</span><span class="tag tq">per_worker hot-reload policy</span><span class="tag tq">inspector on :8083</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Supabase Storage <span class="tag tq">app</span></div>
+                        <div class="card-sub">supabase/storage-api : 54421</div>
+                    </div>
+                </div>
+                <div class="card-desc">Private `audio` bucket. Client uploads voice notes directly via a signed URL scoped to &lt;user_id&gt;/ — audio bytes never pass through an Edge Function.</div>
+                <div><span class="tag tq">Signed upload URLs</span><span class="tag tq">50MiB file size limit</span><span class="tag tq">S3-compatible protocol</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Supabase Studio <span class="tag tp">monitoring</span></div>
+                        <div class="card-sub">supabase/studio : 54423</div>
+                    </div>
+                </div>
+                <div class="card-desc">Local admin UI. Connects as Postgres superuser, so it&#x27;s the only reader of not-granted-to-authenticated views (failed_ai_jobs, capture_latency_stats, stuck_notes, cost_summary).</div>
+                <div><span class="tag tq">Table editor</span><span class="tag tq">SQL editor</span><span class="tag tq">Operational views</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Mailpit (local SMTP catcher) <span class="tag tq">app</span></div>
+                        <div class="card-sub">supabase/mailpit : 54424</div>
+                    </div>
+                </div>
+                <div class="card-desc">Catches outgoing auth emails locally so the 6-digit OTP sign-in code never leaves the machine in dev.</div>
+                <div><span class="tag tq">Local email inbox UI</span></div>
+            </div>
+
+            <div class="card">
+                <div class="chead">
+                    <div>
+                        <div class="card-title">Supabase Analytics <span class="tag tr">logging</span></div>
+                        <div class="card-sub">supabase/logflare : 54427</div>
+                    </div>
+                </div>
+                <div class="card-desc">Postgres-backed log aggregation for the local stack.</div>
+                
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 8. CORE LAYER -->
+    <div class="section" id="sec-core">
+        <div class="sec-title">&#128737; Security Middleware</div>
+        <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:20px;">
+
+            <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; min-width:160px;">
+                <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--accent);">Row-Level Security policies</div>
+                <div style="font-size:12px; color:var(--muted);">Every public table scoped to auth.uid(); the authorization layer, not defense-in-depth — the client ships the anon key precisely because RLS makes that safe.</div>
+            </div>
+
+            <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; min-width:160px;">
+                <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--accent);">Rate limiting</div>
+                <div style="font-size:12px; color:var(--muted);">ai_jobs-backed gate (rate_limit_hit(), migration 20260806000100_rate_limit.sql): 60 calls / 15 min per user/stage, checked before /enrich and /transcribe reach the pipeline.</div>
+            </div>
+
+            <div style="background:var(--bg2); border:1px solid var(--border); border-radius:8px; padding:10px 14px; min-width:160px;">
+                <div style="font-weight:600; font-size:13px; margin-bottom:4px; color:var(--accent);">ALLOWED_ORIGIN / CORS</div>
+                <div style="font-size:12px; color:var(--muted);">Rejects a foreign or missing preflight Origin at 403 when ALLOWED_ORIGIN is configured; defaults to * locally.</div>
+            </div>
+
+        </div>
+
+        <div class="sec-title">&#9881; Core Middleware</div>
+        <div class="grid1">
+
+            <div class="mwcard">
+                <div style="font-weight:600; font-size:14px; margin-bottom:4px;">language resolution</div>
+                <div style="font-size:11px; font-family:var(--font-code); color:var(--muted); margin-bottom:6px;">supabase/functions/_shared/language.ts</div>
+                <div style="font-size:13px; color:var(--muted);">resolveLanguage() — the single place per request that decides language (explicit -&gt; profile -&gt; Accept-Language -&gt; &#x27;ar&#x27;), then carried explicitly into every downstream stage.</div>
+                <div style="margin-top:8px"><span class="tag ty">Request Pipeline</span></div>
+            </div>
+
+            <div class="mwcard">
+                <div style="font-weight:600; font-size:14px; margin-bottom:4px;">HTTP response helpers</div>
+                <div style="font-size:11px; font-family:var(--font-code); color:var(--muted); margin-bottom:6px;">supabase/functions/_shared/http.ts</div>
+                <div style="font-size:13px; color:var(--muted);">Shared JSON response / error envelope helpers ({error:{code}}, language, direction, Content-Language header) used by every function.</div>
+                <div style="margin-top:8px"><span class="tag ty">Request Pipeline</span></div>
+            </div>
+
+        </div>
+
+        <div class="sec-title">&#128736; Core Services</div>
+        <div class="grid2">
+
+            <div class="card">
+                <div class="card-title">supabase client factory</div>
+                <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/supabase.ts</div>
+                <div class="card-desc">Constructs the service-role / user-scoped supabase-js client per request.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">createClient helpers</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">vendor providers</div>
+                <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/providers.ts</div>
+                <div class="card-desc">Thin clients for ElevenLabs (ASR), Anthropic (enrichment + digest), Cohere (embeddings) — the only place their API keys are read.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">ElevenLabs client</span><span class="tag tb" style="font-family:var(--font-code); font-size:11px">Anthropic client</span><span class="tag tb" style="font-family:var(--font-code); font-size:11px">Cohere client</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">enrichment logic</div>
+                <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/enrichment.ts</div>
+                <div class="card-desc">Prompt construction and response parsing for the Anthropic enrichment call.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">enrichNote</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">shared pipeline</div>
+                <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/pipeline.ts</div>
+                <div class="card-desc">One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">pipeline stage runners</span></div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 9. REQUEST FLOW -->
+    <div class="section" id="sec-flow">
+        <div class="sec-title">&#128257; Request Pipeline</div>
+        <p style="font-size:13px; color:var(--muted); margin-bottom:18px; line-height:1.7;">
+            Step-by-step lifecycle of an inbound HTTP request through the application stack.
+            Click any step to see implementation detail.
+        </p>
+        <div class="pipeline">
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-0');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">1</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">HTTPS request reaches the API gateway (Kong) on :54421</div>
+                
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-0" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">Supabase CLI-managed gateway routes /functions/v1/* to the Edge Runtime.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-1');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">2</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">CORS / ALLOWED_ORIGIN check</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">🔐 Security Middleware</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-1" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">A foreign or missing preflight Origin is rejected at 403 when configured.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-2');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">3</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Edge Function invoked (Deno 2, per_worker hot reload)</div>
+                
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-2" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">Supabase JWT verified; caller&#x27;s user extracted from the Authorization: Bearer token.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-3');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">4</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Rate limit checked</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">🔐 Security Middleware</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-3" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">rate_limit_hit() against ai_jobs — 60 calls / 15 min per user/stage — before the pipeline is reached, for /enrich and /transcribe.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-4');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">5</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Language resolved once</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">⚙️ Core Middleware</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-4" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">resolveLanguage(): explicit param -&gt; profile -&gt; Accept-Language -&gt; &#x27;ar&#x27;. Carried explicitly into every downstream stage; no stage infers language on its own.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-5');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">6</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Handler executes business logic</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">🔧 Core Services</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-5" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">Idempotency checked first (client_id for notes, existing raw_text for transcribe, (note,language,prompt_version) for enrich) before any vendor call is made.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-6');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">7</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Vendor call (ElevenLabs / Anthropic / Cohere) when required</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">🔧 Core Services</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-6" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">Only Edge Functions ever hold these keys; the client never does.</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-7');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">8</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">Postgres query via supabase-js</div>
+                <a href="#" onclick="showTab('core',null);return false;" style="font-size:11px; color:var(--accent); text-decoration:none; margin-left:auto; white-space:nowrap; opacity:0.8;">🔧 Core Services</a>
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-7" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">RLS enforces per-user isolation; no manual user_id filter needed (e.g. GET /export relies purely on RLS).</div>
+
+            <div class="pipe-step" onclick="var d=document.getElementById('pdet-8');d.style.display=d.style.display==='none'?'':'none';" style="cursor:pointer;">
+                <div class="pipe-num">9</div>
+                <div style="font-size:13px; color:var(--text); flex:1;">JSON response returned</div>
+                
+                <span style="font-size:10px; color:var(--muted); margin-left:8px;">▼</span>
+            </div>
+            <div class="pipe-detail" id="pdet-8" style="display:none; margin-top:8px; font-size:12px; color:var(--muted); line-height:1.6; padding-left:34px;">Echoes the language served, direction (rtl/ltr), and a Content-Language header.</div>
+
+        </div>
+
+        <div style="margin-top:24px;">
+            <div style="display:flex; align-items:center; gap:10px; cursor:pointer; margin-bottom:10px;"
+                 onclick="var ep=document.getElementById('errorPipelineBody');ep.style.display=ep.style.display==='none'?'':'none';">
+                <div style="font-size:14px; font-weight:600; color:var(--red);">⚠ Exception / Error Flow</div>
+                <span style="font-size:11px; color:var(--muted);">click to expand</span>
+            </div>
+            <div id="errorPipelineBody" style="display:none; background:var(--bg2); border:1px solid var(--border); border-left:3px solid var(--red); border-radius:8px; padding:14px;">
+                <p style="font-size:12px; color:var(--muted); margin-bottom:10px; line-height:1.6;">
+                    When an exception is thrown at any layer, the following error handling chain is invoked instead of the normal response path.
+                </p>
+                
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--bg); border-radius:6px; margin:3px 0;">
+                    <div style="background:var(--red); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">1</div>
+                    <div style="font-size:13px; color:var(--text);">Exception raised in handler or a vendor call fails</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--bg); border-radius:6px; margin:3px 0;">
+                    <div style="background:var(--red); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">2</div>
+                    <div style="font-size:13px; color:var(--text);">Mapped to a machine error code (never a human sentence) — see docs/03-api.md&#x27;s code table</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--bg); border-radius:6px; margin:3px 0;">
+                    <div style="background:var(--red); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">3</div>
+                    <div style="font-size:13px; color:var(--text);">Internal errors logged server-side, returned to the client as internal_error only</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:10px; padding:10px 14px; background:var(--bg); border-radius:6px; margin:3px 0;">
+                    <div style="background:var(--red); color:#fff; width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:11px; font-weight:700; flex-shrink:0;">4</div>
+                    <div style="font-size:13px; color:var(--text);">HTTP status returned: 401 unauthenticated, 404 note_not_found, 409 note_has_no_text/audio, 422 enrichment_refused, 429 rate_limited, 502 transcription_failed/embedding_failed, 400 confirmation_mismatch, 500 internal_error</div>
+                </div>
+            </div>
+        </div>
+
+        <div style="margin-top:24px; background:var(--bg2); border:1px solid var(--border); border-radius:12px; padding:20px;">
+            <div class="sec-title" style="margin-top:0">&#128274; Scope & Isolation</div>
+            <p style="font-size:13px; color:var(--muted); line-height:1.7;">
+                Enforced entirely by Postgres RLS scoped to auth.uid() on every public table (verify.sql check 12: every table has RLS enabled). Edge Functions generally don&#x27;t add their own user_id filters on top — GET /export is the clearest example: RLS alone is why no other user&#x27;s data is reachable.
+            </p>
+        </div>
+    </div>
+
+
+    </main>
+</div>
+
+<script>
+    var dockerMermaidRendered = false;
+    var sysarchMermaidRendered = false;
+    var swaggerUiRendered = false;
+    var sysarchPanZoom = null;
+    var dockerPanZoom = null;
+
+    function initPanZoom(containerId, isSysarch) {
+        var container = document.getElementById(containerId);
+        if (!container) return;
+        var svg = container.querySelector('svg');
+        if (!svg) return;
+
+        svg.removeAttribute('style');
+        svg.removeAttribute('width');
+        svg.removeAttribute('height');
+        svg.style.width = '100%';
+        svg.style.height = '100%';
+        svg.style.display = 'block';
+        svg.style.overflow = 'visible';
+
+        var parentBox = container.closest('.diagram-box');
+        if (parentBox && !parentBox.querySelector('.diagram-toolbar')) {
+            var toolbar = document.createElement('div');
+            toolbar.className = 'diagram-toolbar';
+            toolbar.innerHTML = `
+                <button onclick="zoomDiagram('${containerId}', 'in')" title="Zoom In">🔍 +</button>
+                <button onclick="zoomDiagram('${containerId}', 'out')" title="Zoom Out">🔍 -</button>
+                <button onclick="zoomDiagram('${containerId}', 'reset')" title="Reset View">↺ Reset</button>
+                <button onclick="zoomDiagram('${containerId}', 'fit')" title="Fit to Screen">⛶ Fit</button>
+            `;
+            parentBox.insertBefore(toolbar, container);
+        }
+
+        if (typeof svgPanZoom !== 'undefined') {
+            try {
+                if (isSysarch && sysarchPanZoom) { sysarchPanZoom.destroy(); sysarchPanZoom = null; }
+                if (!isSysarch && dockerPanZoom) { dockerPanZoom.destroy(); dockerPanZoom = null; }
+
+                var pz = svgPanZoom(svg, {
+                    zoomEnabled: true,
+                    controlIconsEnabled: false,
+                    mouseWheelZoomEnabled: true,
+                    fit: true,
+                    center: true,
+                    minZoom: 0.1,
+                    maxZoom: 10,
+                    zoomScaleSensitivity: 0.25
+                });
+
+                if (isSysarch) sysarchPanZoom = pz;
+                else dockerPanZoom = pz;
+
+                setTimeout(function() {
+                    pz.resize();
+                    pz.fit();
+                    pz.center();
+                }, 100);
+            } catch(e) {
+                console.warn("svgPanZoom init error:", e);
+            }
+        }
+    }
+
+    function zoomDiagram(containerId, action) {
+        var pz = (containerId === 'sysarchMermaid') ? sysarchPanZoom : dockerPanZoom;
+        if (!pz) return;
+        if (action === 'in') pz.zoomIn();
+        else if (action === 'out') pz.zoomOut();
+        else if (action === 'reset') { pz.resetZoom(); pz.resetPan(); pz.fit(); pz.center(); }
+        else if (action === 'fit') { pz.resize(); pz.fit(); pz.center(); }
+    }
+
+    function renderSysarchDiagram() {
+        if (sysarchMermaidRendered) {
+            if (sysarchPanZoom) {
+                sysarchPanZoom.resize();
+                sysarchPanZoom.fit();
+                sysarchPanZoom.center();
+            }
+            return;
+        }
+        sysarchMermaidRendered = true;
+        var tpl = document.getElementById('sysarchMermaidSrc');
+        var target = document.getElementById('sysarchMermaid');
+        if (tpl && target && typeof mermaid !== 'undefined') {
+            var src = tpl.textContent.trim();
+            var uniqueId = 'svg_sysarch_' + Math.floor(Math.random() * 1000000);
+            mermaid.render(uniqueId, src).then(function(res) {
+                target.innerHTML = res.svg;
+                setTimeout(function() { initPanZoom('sysarchMermaid', true); }, 50);
+            }).catch(function(err) {
+                console.error("Mermaid render error:", err);
+                target.innerHTML = '<div style="color:var(--red); padding:20px;">Failed to render Mermaid diagram: ' + err.message + '</div>';
+            });
+        }
+    }
+
+    function renderDockerDiagram() {
+        if (dockerMermaidRendered) {
+            if (dockerPanZoom) {
+                dockerPanZoom.resize();
+                dockerPanZoom.fit();
+                dockerPanZoom.center();
+            }
+            return;
+        }
+        dockerMermaidRendered = true;
+        var tpl = document.getElementById('dockerMermaidSrc');
+        var target = document.getElementById('dockerMermaid');
+        if (tpl && target && typeof mermaid !== 'undefined') {
+            var src = tpl.textContent.trim();
+            var uniqueId = 'svg_docker_' + Math.floor(Math.random() * 1000000);
+            mermaid.render(uniqueId, src).then(function(res) {
+                target.innerHTML = res.svg;
+                setTimeout(function() { initPanZoom('dockerMermaid', false); }, 50);
+            }).catch(function(err) {
+                console.error("Mermaid render error:", err);
+                target.innerHTML = '<div style="color:var(--red); padding:20px;">Failed to render Mermaid diagram: ' + err.message + '</div>';
+            });
+        }
+    }
+
+    function renderSwaggerUI() {
+        if (swaggerUiRendered) return;
+        swaggerUiRendered = true;
+        var srcElem = document.getElementById('swaggerOpenApiJsonSrc');
+        var targetContainer = document.getElementById('swagger-ui-container');
+        if (srcElem && targetContainer && typeof SwaggerUIBundle !== 'undefined') {
+            try {
+                var spec = JSON.parse(srcElem.textContent);
+                SwaggerUIBundle({
+                    spec: spec,
+                    dom_id: '#swagger-ui-container',
+                    deepLinking: true,
+                    presets: [
+                        SwaggerUIBundle.presets.apis,
+                        SwaggerUIBundle.SwaggerUIStandalonePreset
+                    ],
+                    layout: "BaseLayout"
+                });
+            } catch(e) {
+                console.error("Swagger UI init error:", e);
+                targetContainer.innerHTML = '<div style="color:var(--red); padding:20px;">Swagger UI render error: ' + e.message + '</div>';
+            }
+        }
+    }
+
+    function switchSwaggerView(view, btn) {
+        document.querySelectorAll('.sub-tab-btn').forEach(function(el) { el.classList.remove('active'); });
+        document.querySelectorAll('.swagger-view-pane').forEach(function(el) { el.classList.remove('active'); });
+        if (btn) btn.classList.add('active');
+        var pane = document.getElementById('swagger-view-' + view);
+        if (pane) pane.classList.add('active');
+        if (view === 'ui') {
+            setTimeout(renderSwaggerUI, 50);
+        }
+    }
+
+    function showTab(id, btn) {
+        document.querySelectorAll('.section').forEach(function(s) { s.classList.remove('active'); });
+        document.querySelectorAll('.nav-btn').forEach(function(b) { b.classList.remove('active'); });
+        document.getElementById('sec-' + id).classList.add('active');
+        if (btn) btn.classList.add('active');
+
+        if (id === 'sysarch') {
+            setTimeout(renderSysarchDiagram, 50);
+        } else if (id === 'docker') {
+            setTimeout(renderDockerDiagram, 50);
+        } else if (id === 'swagger') {
+            setTimeout(renderSwaggerUI, 50);
+        }
+    }
+
+    function exportPDF() {
+        var sections = document.querySelectorAll('.section');
+        sections.forEach(function(s) { s.style.display = 'block'; });
+
+        var swaggerPanes = document.querySelectorAll('.swagger-view-pane');
+        swaggerPanes.forEach(function(p) { p.style.display = 'block'; });
+
+        // Pre-render diagrams and Swagger UI if not initialized yet
+        if (typeof renderSysarchDiagram === 'function') renderSysarchDiagram();
+        if (typeof renderDockerDiagram === 'function') renderDockerDiagram();
+        if (typeof renderSwaggerUI === 'function') renderSwaggerUI();
+
+        setTimeout(function() {
+            window.print();
+            sections.forEach(function(s) { s.style.display = ''; });
+            swaggerPanes.forEach(function(p) { p.style.display = ''; });
+            var activeBtn = document.querySelector('.nav-btn.active');
+            if (activeBtn) {
+                var onClickAttr = activeBtn.getAttribute('onclick');
+                if (onClickAttr) {
+                    var match = onClickAttr.match(/showTab\('([^']+)'/);
+                    if (match) showTab(match[1], activeBtn);
+                }
+            }
+        }, 600);
+    }
+
+    function filterModules() {
+        var q = document.getElementById('modSearch').value.toLowerCase();
+        document.querySelectorAll('#modulesGrid .card').forEach(function(card) {
+            var text = card.innerText.toLowerCase();
+            card.style.display = text.indexOf(q) !== -1 ? '' : 'none';
+        });
+    }
+
+    mermaid.initialize({ startOnLoad: false, theme: 'dark' });
+</script>
+
+<!-- API Endpoint Prompt Modal -->
+<div id="apiPromptModal" class="custom-modal-backdrop" onclick="closeApiPromptModal(event)">
+    <div class="custom-modal-content" onclick="event.stopPropagation()">
+        <div class="custom-modal-header">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size:22px;">🤖</span>
+                <div>
+                    <h3 style="margin:0; font-size:16px; font-weight:700; color:var(--text);">AI Senior Developer Prompt</h3>
+                    <div style="font-size:12px; color:var(--accent); font-family:var(--font-code); font-weight:600; margin-top:2px;" id="apiPromptModalSub">Endpoint Architecture Analysis Prompt</div>
+                </div>
+            </div>
+            <button class="custom-modal-close" onclick="closeApiPromptModal()">&times;</button>
+        </div>
+        <div class="custom-modal-body">
+            <div style="margin-bottom:12px; display:flex; align-items:center; justify-content:space-between;">
+                <span style="font-size:12px; font-weight:600; color:var(--muted);">COPY &amp; PASTE THIS PROMPT TO YOUR AI ASSISTANT:</span>
+                <button id="modalCopyBtn" class="btn-copy-prompt" onclick="copyModalPromptText()">📋 Copy Prompt</button>
+            </div>
+            <textarea id="apiPromptTextarea" readonly rows="16" style="width:100%; background:var(--bg); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:14px; font-family:var(--font-code); font-size:12px; line-height:1.6; resize:vertical; outline:none;"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    function getApiPromptText(method, path) {
+        var cleanFileName = (method.toLowerCase() + '_' + path)
+            .replace(/[^a-zA-Z0-9_]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '') + '_analysis.md';
+
+        return "Use @arch-wiki skill. You are joining this project as a senior developer.\n\n" +
+            "Analyze this API endpoint:\n\n" +
+            method + " " + path + "\n\n" +
+            "Use:\n" +
+            "1. architecture.json\n" +
+            "2. arch-wiki documentation\n" +
+            "3. the project source code\n\n" +
+            "Discover the actual implementation flow.\n\n" +
+            "Generate:\n\n" +
+            "1. Mermaid sequence diagram (both Mermaid code format and rendered visual diagram image)\n" +
+            "2. Mermaid flowchart (both Mermaid code format and rendered visual diagram image)\n\n" +
+            "Include only components and interactions that actually exist in the code.\n\n" +
+            "Do not infer missing components.\n" +
+            "Do not modify anything.\n\n" +
+            "Save the analysis output in " + cleanFileName;
+    }
+
+    function openApiPromptFromEl(el) {
+        var method = el.getAttribute('data-method') || 'GET';
+        var path = el.getAttribute('data-path') || '/';
+        openApiPromptModal(method, path);
+    }
+
+    function copyApiPromptDirectFromEl(el) {
+        var method = el.getAttribute('data-method') || 'GET';
+        var path = el.getAttribute('data-path') || '/';
+        var btn = el.querySelector('.btn-prompt-copy');
+        copyApiPromptDirect(method, path, btn);
+    }
+
+    function openApiPromptModal(method, path) {
+        var modal = document.getElementById('apiPromptModal');
+        var sub = document.getElementById('apiPromptModalSub');
+        var ta = document.getElementById('apiPromptTextarea');
+        var btn = document.getElementById('modalCopyBtn');
+
+        if (!modal || !ta) return;
+
+        var promptText = getApiPromptText(method, path);
+        ta.value = promptText;
+        if (sub) sub.innerText = method + ' ' + path;
+        if (btn) {
+            btn.innerHTML = '📋 Copy Prompt';
+            btn.style.background = '';
+        }
+
+        modal.classList.add('active');
+    }
+
+    function closeApiPromptModal(e) {
+        if (e && e.target !== e.currentTarget && !e.target.classList.contains('custom-modal-close')) return;
+        var modal = document.getElementById('apiPromptModal');
+        if (modal) modal.classList.remove('active');
+    }
+
+    function copyModalPromptText() {
+        var ta = document.getElementById('apiPromptTextarea');
+        var btn = document.getElementById('modalCopyBtn');
+        if (!ta) return;
+
+        navigator.clipboard.writeText(ta.value).then(function() {
+            if (btn) {
+                btn.innerHTML = '✅ Copied!';
+                setTimeout(function() {
+                    btn.innerHTML = '📋 Copy Prompt';
+                }, 2000);
+            }
+        }).catch(function() {
+            ta.select();
+            document.execCommand('copy');
+            if (btn) {
+                btn.innerHTML = '✅ Copied!';
+                setTimeout(function() {
+                    btn.innerHTML = '📋 Copy Prompt';
+                }, 2000);
+            }
+        });
+    }
+
+    function copyApiPromptDirect(method, path, btnElement) {
+        var promptText = getApiPromptText(method, path);
+        navigator.clipboard.writeText(promptText).then(function() {
+            if (btnElement) {
+                var orig = btnElement.innerHTML;
+                btnElement.innerHTML = '✅ Copied!';
+                setTimeout(function() {
+                    btnElement.innerHTML = orig;
+                }, 2000);
+            }
+        }).catch(function() {
+            if (btnElement) {
+                var orig = btnElement.innerHTML;
+                btnElement.innerHTML = '✅ Copied!';
+                setTimeout(function() {
+                    btnElement.innerHTML = orig;
+                }, 2000);
+            }
+        });
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeApiPromptModal();
+        }
+    });
+</script>
+</body>
+</html>
