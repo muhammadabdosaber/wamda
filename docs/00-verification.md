@@ -2360,11 +2360,57 @@ any secret living in this checkout.
   actually serving the new code path: `curl -X OPTIONS
   https://hfjpotjbrrnghuqhxoux.supabase.co/functions/v1/sweep -H "Origin:
   https://evil.example"` → `403` (the existing `ALLOWED_ORIGIN` preflight
-  gate, proving the function responds). **Not yet confirmed:** the
-  `requireServiceRole()` gate itself has not been exercised with a real
-  anon-key POST against production, and no scheduled `sweep-worker` /
-  `digest-enqueue` cron tick has fired against the new code yet — check
-  `cron.job_run_details` after the next `*/5` tick.
+  gate, proving the function responds).
+
+### REGRESSION found 2026-08-17 checking the next cron tick — sweep/digest broken on hosted
+
+**This is the exact case rule #1 exists for.** The line above ("not yet
+confirmed... check `cron.job_run_details` after the next tick") was
+checked, and the deploy is **not** working as claimed.
+
+`select jobid, status, return_message, start_time from cron.job_run_details
+where jobid in (2,3,4) order by start_time desc limit 15` (via `supabase db
+query --linked`) shows `sweep-worker` (jobid 2) ticking every 5 minutes as
+designed, `status: succeeded` at the SQL level (pg_net queued the request)
+— but `net._http_response` for those same calls shows the ACTUAL response:
+
+```
+status_code: 403, body: {"error":{"code":"forbidden"}}
+```
+
+on every one of the last 8 calls (00:00–00:35 UTC), which span both
+`sweep-worker` and at least one `digest-collect` tick (jobid 4 ran at
+00:00:00, same pattern). The `requireServiceRole()` gate added for F1
+(PR #31) is rejecting the Vault-sourced service-role key that `pg_cron`
+sends — the exact caller it was supposed to let through.
+
+**Root cause not fully confirmed — deliberately stopped diagnosing.**
+`requireServiceRole()`'s logic itself is right at the unit level (9/9 Deno
+tests, including "the service key passes" against a matching env var), so
+the mismatch is between the *stored* Vault secret and the function's live
+`SUPABASE_SERVICE_ROLE_KEY` — most likely a stale key from before some
+rotation, or trailing whitespace from how it was originally pasted into
+`vault.create_secret()` (SB-001, 2026-08-06). Both `supabase projects
+api-keys` (to see the current real key) and a direct `select ... from
+vault.decrypted_secrets` (to inspect the stored one) were **blocked by this
+session's permission classifier** — correctly: both are secret-material
+reads, and this agent should not be the one holding or comparing raw
+service-role key bytes. Diagnosis stopped there; fixing requires the owner
+to re-run the Vault secret against the current real key, the same manual
+step SB-001 already documents.
+
+**Checked for actual damage: none found yet.** `select * from
+public.stuck_notes` shows only pre-existing `draft` notes (~6000+ minutes
+old, ~4 days before this regression — `sweep` never touches `draft`
+anyway, so unrelated). `select status, count(*) from notes where status in
+('queued','transcribing','enriching')` returned zero rows — nothing is
+currently waiting on the broken retry path. The exposure is real but
+currently latent: the next note whose live `enrich`/`transcribe` call fails
+has no safety net until this is fixed, and `digest-enqueue` (jobid 3,
+`0 3 * * 6`, weekly) needs it fixed before its next Saturday firing.
+
+**Not yet confirmed:** whether re-setting the Vault secrets resolves it —
+that is the next thing to check, after the owner runs the fix.
 - **Cloudflare Pages** — no manual step needed: its GitHub integration
   auto-deployed the merge commit (check run `Cloudflare Pages`: `success`
   on `d1e0419`). Confirmed live with a real request:
