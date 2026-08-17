@@ -5,6 +5,12 @@
 > categories requested by the owner, framed for the planned move to a custom
 > domain, dedicated infrastructure, and paid subscriptions.
 >
+> **2026-08-17 update:** checking the next cron tick (per the owner's own
+> request, and exactly the check F1's fix said was still outstanding)
+> surfaced that the F1 fix itself broke `sweep`/`digest`'s legitimate
+> caller — see F1 below and `docs/00-verification.md`. **Not yet a Fixed
+> item; owner action needed.**
+>
 > **Status legend:** `Not Started` · `In Progress` · `Fixed` · `Accepted Risk` · `Deferred (owner)`
 
 ---
@@ -35,7 +41,7 @@ The gaps that remain are real but bounded. The most consequential:
 
 | # | Finding | Severity |
 |---|---|---|
-| F1 | `sweep` and `digest` (service-only endpoints) are invokable by anyone holding the public anon key — vendor-cost abuse / batch-spam | **High** |
+| F1 | `sweep` and `digest` (service-only endpoints) are invokable by anyone holding the public anon key — vendor-cost abuse / batch-spam. **The fix shipped but broke the legitimate cron caller too (found 2026-08-17); currently `In Progress`, not resolved.** | **High** |
 | F7 | `/search` calls the paid Cohere API with no rate limit | **Medium** |
 | F11 | The hosted deploy (Cloudflare Pages) sets no security headers — `frame-ancestors` protection is missing entirely | **Medium** |
 | F3 | Session tokens in `localStorage` (accepted, CSP-mitigated, documented) | Medium (accepted) |
@@ -49,7 +55,7 @@ no credential leak, and no unauthenticated data access.
 
 ### Category 1 — Multi-tenant data isolation
 
-**F1 · Service-only endpoints (`sweep`, `digest`) callable with the public anon key — HIGH — `Fixed` (owner-approved; live on hosted)**
+**F1 · Service-only endpoints (`sweep`, `digest`) callable with the public anon key — HIGH — `In Progress` (regression: the fix broke the legitimate caller too — see below)**
 - **Location:** [supabase/functions/sweep/index.ts:54](supabase/functions/sweep/index.ts:54), [supabase/functions/digest/index.ts:73](supabase/functions/digest/index.ts:73)
 - **Risk:** Both functions are designed to be called only by `pg_cron` (which
   sends the service-role key from Vault), but neither checks *who called
@@ -70,20 +76,31 @@ no credential leak, and no unauthenticated data access.
   otherwise. The pg_cron jobs already send the service-role key, so no
   scheduling change is needed. *Touches the authorization flow → implemented
   after owner confirmation (2026-08-16).*
-- **Status:** `Fixed` (2026-08-16) — `requireServiceRole()` added to
-  `_shared/http.ts` and called at the top of both handlers. Proven at unit
-  level: 4 new Deno tests (service key passes; anon-style bearer, missing
-  header, and empty bearer all 403) pass alongside the existing 5.
-  **Deployed to hosted** (`supabase functions deploy sweep digest search
-  notes --project-ref hfjpotjbrrnghuqhxoux`, 2026-08-16) — confirmed live: a
-  preflight against the deployed `sweep` URL returns `403` as expected. The
-  anon-key-rejection path itself was not re-exercised over live HTTP (would
-  require sending a real anon-key POST, which was not done against
-  production). **Still to confirm:** the next scheduled `sweep-worker` /
-  `digest-enqueue` cron tick succeeds against the new code
-  (`cron.job_run_details`) — the Vault-sourced service-role key should pass
-  the new gate unchanged, but that has not been observed on an actual cron
-  firing yet.
+- **Status:** `In Progress` — the anon-key rejection is confirmed working
+  (that was always the easy direction to get right), but checking the next
+  cron tick (2026-08-17, as requested) surfaced a **regression**:
+  `net._http_response` shows every `sweep-worker` call since the deploy
+  (every 5 minutes, 00:00–00:35 UTC and presumably continuing) getting
+  `403 {"error":{"code":"forbidden"}}` — the *legitimate* pg_cron caller is
+  now also being rejected. `requireServiceRole()`'s comparison logic is
+  correct at the unit level (9/9 Deno tests pass, including a matching-key
+  case), so the mismatch is between the Vault-stored
+  `sweep_service_role_key`/`digest_service_role_key` and the function's
+  live `SUPABASE_SERVICE_ROLE_KEY` — most likely a stale key from before a
+  rotation, or whitespace from how the secret was originally pasted in
+  (SB-001). **Diagnosis deliberately stopped here**: both `supabase
+  projects api-keys` and a direct read of `vault.decrypted_secrets` were
+  blocked by this session's permission classifier, correctly — this agent
+  should not be handling raw service-role key material. **Checked for
+  actual damage: none found** — `stuck_notes` shows only pre-existing
+  `draft` notes unrelated to sweep, and zero notes are currently sitting in
+  `queued`/`transcribing`/`enriching`, so the broken safety net has not yet
+  cost a real note. It does need fixing before the next `digest-enqueue`
+  firing (Saturdays 03:00). **Owner action needed:** re-run the Vault
+  secret update with the current real service-role key (same manual step
+  SB-001 already documents, via Supabase Studio's SQL editor or `psql`) —
+  see `docs/00-verification.md` "REGRESSION found 2026-08-17" for the full
+  evidence and the exact next check to run afterward.
 
 **F2 · `notes/audio-url` service-role write not filtered by `user_id` — LOW — `Fixed`**
 - **Location:** [supabase/functions/notes/index.ts:145](supabase/functions/notes/index.ts:145)
@@ -417,7 +434,7 @@ everything else proceeds directly.
 
 | Pri | # | Action | Touches | Status |
 |---|---|---|---|---|
-| **High** | F1 | ⚠ Gate `sweep` + `digest` behind the service-role key / cron secret | auth flow | `Fixed` (approved; live after function redeploy) |
+| **High** | F1 | ⚠ Gate `sweep` + `digest` behind the service-role key / cron secret | auth flow | `In Progress` — deployed, but broke the legitimate cron caller too; owner needs to re-set the Vault secrets |
 | **Medium** | F7 | Rate-limit the `/search` embedding call (existing `rate_limit_hit`) | function code only | `Fixed` (built, type-checked; 429 path not run live) |
 | **Medium** | F11 | Add `web/public/_headers` (frame-ancestors, nosniff, referrer, permissions) | static file | `Fixed` (live after next deploy) |
 | **Medium** | F3 | Session-in-localStorage — keep CSP + no-third-party-script rule | — | `Accepted Risk` |
@@ -431,18 +448,56 @@ everything else proceeds directly.
 | Info | F13 | Free-tier pause / infra assumptions (recorded above) | ops | `Not Started` |
 | Info | F9 | Local dev keys ≠ hosted keys | — | no action needed |
 
-**State as of 2026-08-16:** every Critical/High/Medium item is `Fixed` or
-`Accepted Risk`. The ⚠ items were confirmed with the owner: F1 and F4
-approved and implemented, F6 explicitly deferred to the billing schema work.
-Still open: F16 (needs a product decision on sign-out behavior) and the
+**State as of 2026-08-17:** every item except F1 is `Fixed` (and confirmed
+live — see below), `Accepted Risk`, or `Deferred (owner)`. **F1 is `In
+Progress`, not resolved**: deployed 2026-08-16, then checking the next cron
+tick on 2026-08-17 (the exact follow-up the fix's own notes flagged as
+outstanding) showed `sweep-worker` getting `403 forbidden` from the gate
+meant to let it through — see the F1 entry above and
+`docs/00-verification.md` "REGRESSION found 2026-08-17" for full evidence.
+No damage found yet (nothing is currently sitting in a state that needed
+sweep), but it needs the owner's action before it matters. Still open
+beyond that: F16 (needs a product decision on sign-out behavior) and the
 migration-day checklists (F12, F10, F13).
 
-**Owner's deploy checklist to make the repo fixes live on hosted:**
-1. `supabase functions deploy sweep digest search notes` — picks up F1, F7,
-   F2. Then confirm the cron jobs still return 200 (`cron.job_run_details` /
-   `net._http_response`), and that a POST to `/functions/v1/sweep` with the
-   anon key now gets `403 forbidden`.
-2. Redeploy the PWA (next Pages build ships `_headers`) — picks up F11.
-   Verify: `curl -sI https://wamda-a8k.pages.dev | grep -i -E "frame|nosniff"`.
-3. `SUPABASE_AUTH_SITE_URL=https://wamda-a8k.pages.dev supabase config push`
-   — picks up F4 (OTP expiry 600 s).
+**Deploy steps already run against hosted, 2026-08-16/17 (all confirmed
+live with real requests, not inferred from the deploy command succeeding):**
+1. `supabase functions deploy sweep digest search notes` — done. Confirmed:
+   a CORS preflight against the deployed `sweep` URL returns `403` (proves
+   the new code is serving). **Not yet confirmed:** an anon-key POST
+   getting `403 forbidden` from `requireServiceRole()` specifically — and
+   as the regression above shows, the more important direction (the real
+   cron caller) is currently *failing* the same check.
+2. Cloudflare Pages — no manual step needed; its GitHub integration
+   auto-deployed the `main` merge. Confirmed live:
+   `curl -sI https://wamda-a8k.pages.dev/` returns all five new headers
+   (`frame-ancestors 'none'`, `X-Frame-Options: DENY`, `nosniff`,
+   `Referrer-Policy`, `Permissions-Policy`).
+3. `SUPABASE_AUTH_SITE_URL=https://wamda-a8k.pages.dev supabase config
+   push` — done; a follow-up run confirmed `Remote Auth config is up to
+   date` (`otp_expiry = 600` live). Surfaced an unrelated, pre-existing
+   issue in the same push: `config.toml`'s `[storage.vector]
+   enabled = true` fails against the hosted project's free tier
+   (`402 Please upgrade the project to a paid tier`) — left as-is, out of
+   scope for this review, flagged for the owner to decide.
+
+**Owner action needed now, to close F1:** re-set the `sweep_service_role_key`
+and `digest_service_role_key` Vault secrets with the project's current real
+service-role key (Project Settings → API), the same manual step SB-001
+originally documented:
+
+```sql
+select vault.update_secret(
+  (select id from vault.secrets where name = 'sweep_service_role_key'),
+  '<current service role key>');
+select vault.update_secret(
+  (select id from vault.secrets where name = 'digest_service_role_key'),
+  '<same key>');
+```
+
+This was deliberately not run by the agent — inspecting or setting the raw
+service-role key is exactly the kind of secret-material handling this
+session's own permission boundary correctly blocked (`supabase projects
+api-keys` and a direct `vault.decrypted_secrets` read were both denied).
+After running it, the next `sweep-worker` tick (every 5 minutes) should
+show `status_code: 200` in `net._http_response` instead of `403`.
