@@ -10,6 +10,75 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Docs brought current, and a live hosted regression found in the process (SB-052)
+
+A full pass over every doc in `docs/` against the actual current state of the
+project — most of it had drifted since the last time each file was touched.
+Fixed: `docs/09-status-handoff.md` and `docs/12-roadmap.md` still described
+Cohere/ElevenLabs as blocking (both keys landed 2026-08-13 and 2026-08-09
+respectively — SB-005, SB-007); `docs/15-runbook.md` still said "never
+deployed" and "nothing scheduled" (SB-016 shipped 2026-08-09, four `pg_cron`
+jobs have been `active: true` since); `docs/06-integration-plan.md`'s phase
+table and `docs/11-features.md`'s digest/sweep rows both understated work that
+had actually run (SB-018's digest, SB-045's embedding backfill); test and
+schema-assertion counts (`21 tests`, `12 checks`) were stale across eight
+files — actual current numbers, re-run for this pass: **38 tests**, **26
+schema assertions** (`supabase/tests/verify.sql`, re-run against a clean
+`db reset`, all pass). `docs/13-tasks.md`'s own Next-up table disagreed with
+one of its own task sections (SB-005 marked `blocked` in the table, `done` in
+its write-up).
+
+**Found while checking, not assumed: SB-052.** A 2026-08-17 entry in
+`docs/00-verification.md` recorded hosted `sweep`/`digest` cron calls getting
+rejected with `403` and stopped there, unresolved. Re-checked live against the
+hosted project (read-only `net._http_response` query, no secret material
+read) — **still failing**, every tick from 17:45–18:15 UTC on 2026-08-20,
+three days after it was first found. No notes are currently stranded, but the
+weekly digest's next tick (Sat 2026-08-22, 03:00 UTC) will fail the same way
+unless the owner re-sets the Vault service-role secret first — filed as
+SB-052, ahead of everything else in the backlog, since it's the one live
+production issue right now.
+
+Also corrected in passing: `frame-ancestors` is closed on hosted (confirmed
+live via `curl` against `wamda-a8k.pages.dev`) though `docs/08-security.md`
+still called it an open gap; several docs still named Claude Opus 5 as the
+enrichment model after SB-034 moved it to Sonnet 5; SB-027 ("a destination for
+accepted suggestions") was still marked blocked on the redesign, which landed
+and shipped the task half of it (SB-036/037/038/033/050) — only the
+`event`/calendar half remains.
+
+### Tasks: a due date that reaches you before you open the Tasks tab (SB-050)
+
+The Tasks tab now carries a count of **open tasks that are overdue or due
+today**, and an overdue row is marked `متأخرة` instead of being visually
+identical to one due tonight. Nothing new is stored — `action_due_at` and its
+index already existed; what was missing was reach, since the app opens on
+Capture and the reminder lived only on the screen you had to remember to visit.
+
+This **ran**: against six real task rows through a real signed-in session on
+the local stack, the badge showed `2` from the Capture tab, correctly excluding
+a completed-but-overdue task, one due in three days, and two with no date. The
+Arabic dual (`مهمتان`) is `Intl.PluralRules`, not a hand-written plural.
+`inset-inline-end` was confirmed to resolve to `left` in the live RTL document
+— the RTL guard proves the physical form is absent, this proves the logical one
+mirrors. 38 tests (up from 21), typecheck, guard, and build all green.
+
+Two things worth recording because they were found by running it, not reading
+it. Ticking a task off left the badge stale at `2` while the heading beneath it
+read `مهمة واحدة` — the screen and the badge are separate readers of the same
+rows, and only one knew; `setNoteCompleted` now fires `NOTE_CHANGED_EVENT`, and
+the badge was re-proved moving `1 → 2` live. And the foreground clock refresh
+(`useNow`) was proven at minute granularity rather than assumed: a task set to
+fall due in 45 seconds gained its `متأخرة` chip from a `focus` event alone, no
+reload. That check failed on the first attempt because the browser pane reports
+`visibilityState: hidden` — the guard was right and the harness was wrong.
+
+**Not done, deliberately:** no notification leaves the app. No Notification API,
+no service-worker push, no VAPID, no subscription table. The owner scoped this
+to in-app; the closed-app half is filed as SB-051, which is *not* blocked on
+deployment (SB-016 is done and live).
+
+
 ### Security — full-codebase review, first fixes (SECURITY_REVIEW.md)
 
 A structured security review of the whole codebase (multi-tenant isolation,

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { priorityLabel, type Translator } from "../i18n";
 import { directionOfContent } from "../core/language";
+import { bucketOf, isOverdue, type Bucket } from "../core/due";
+import { useNow } from "../core/clock";
 import {
   isConfigured,
   setNoteCompleted,
@@ -22,27 +24,17 @@ import { NoteDetail } from "./NoteDetail";
  * resolves ("الخميس" -> the right Thursday) and the timeline already returns --
  * so this screen needs no new column and no new endpoint (SB-036).
  */
-type Bucket = "today" | "week" | "later";
-
 const BUCKET_HEADING: Record<Bucket, "tasksToday" | "tasksThisWeek" | "tasksLater"> = {
   today: "tasksToday",
   week: "tasksThisWeek",
   later: "tasksLater",
 };
 
-/** Overdue folds into "today": a task past its date needs doing now, not hiding. */
-function bucketOf(due: string | null, endOfToday: number, endOfWeek: number): Bucket {
-  if (!due) return "later";
-  const at = new Date(due).getTime();
-  if (at <= endOfToday) return "today";
-  if (at <= endOfWeek) return "week";
-  return "later";
-}
-
 export function Tasks({ t, language }: { t: Translator; language: string }) {
   const [notes, setNotes] = useState<TimelineNote[] | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const [open, setOpen] = useState<TimelineNote | null>(null);
+  const now = useNow();
 
   const load = useCallback(async () => {
     if (!isConfigured) {
@@ -89,14 +81,10 @@ export function Tasks({ t, language }: { t: Translator; language: string }) {
   }, []);
 
   const groups = useMemo(() => {
-    const now = new Date();
-    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
-    const endOfWeek = endOfToday + 7 * 24 * 60 * 60 * 1000;
-
     const tasks = (notes ?? []).filter((n) => n.note_enrichments[0]?.category === "task");
     const by: Record<Bucket, TimelineNote[]> = { today: [], week: [], later: [] };
     for (const note of tasks) {
-      by[bucketOf(note.note_enrichments[0]!.action_due_at, endOfToday, endOfWeek)].push(note);
+      by[bucketOf(note.note_enrichments[0]!.action_due_at, now)].push(note);
     }
     // Within a group: open tasks first, then completed; each by due date, with
     // no-date tasks last.
@@ -105,7 +93,7 @@ export function Tasks({ t, language }: { t: Translator; language: string }) {
       (n.note_enrichments[0]!.action_due_at ? new Date(n.note_enrichments[0]!.action_due_at!).getTime() : 8.64e15);
     for (const b of Object.keys(by) as Bucket[]) by[b].sort((a, c) => rank(a) - rank(c));
     return by;
-  }, [notes]);
+  }, [notes, now]);
 
   if (!notes) return <Loading label={t.t("loading")} skeleton="tasks" />;
 
@@ -135,6 +123,7 @@ export function Tasks({ t, language }: { t: Translator; language: string }) {
                 key={note.id}
                 note={note}
                 t={t}
+                now={now}
                 onToggle={() => void toggle(note)}
                 onOpen={() => setOpen(note)}
               />
@@ -167,16 +156,21 @@ const RAIL: Record<string, string> = {
 function TaskRow({
   note,
   t,
+  now,
   onToggle,
   onOpen,
 }: {
   note: TimelineNote;
   t: Translator;
+  now: Date;
   onToggle: () => void;
   onOpen: () => void;
 }) {
   const e = note.note_enrichments[0]!;
   const done = Boolean(note.completed_at);
+  // A completed task is never "late" -- it is finished. Marking one overdue
+  // would nag about work already done, which is the opposite of the point.
+  const late = !done && isOverdue(e.action_due_at, now);
   const railClass = (e.priority ? RAIL[e.priority] : null) ?? "rail";
   const priority = priorityLabel(t, e.priority);
 
@@ -204,7 +198,15 @@ function TaskRow({
               {priority}
             </span>
           )}
-          <span className="chip">{e.action_due_at ? t.date(e.action_due_at) : t.t("tasksNoDate")}</span>
+          {/* Overdue and due-today sit in the SAME group by design, so this
+              chip is the only thing separating a task three days late from
+              one due tonight. The word is carried alongside the date, not
+              instead of it -- colour alone would not survive a screen reader
+              or a red-green deficiency. */}
+          <span className={late ? "chip overdue" : "chip"}>
+            {late && <span className="chip-flag">{t.t("tasksOverdue")}</span>}
+            {e.action_due_at ? t.date(e.action_due_at) : t.t("tasksNoDate")}
+          </span>
         </span>
       </button>
     </div>

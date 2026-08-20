@@ -15,7 +15,9 @@
 "خلصنا تقريبًا". المرحلة متتقفلش غير لما الشرط ده يتحقّق فعلًا وينتكتب في
 `docs/00-verification.md`.
 
-الحاجز الحالي: **مفتاحين API** (Cohere و ElevenLabs). قبلهم، M2 و M3 مقفولين.
+كل المفاتيح موجودة ومشتغلة فعليًا (M2/M3 خلصوا). الحاجز الحالي الوحيد:
+**cron الاستضافة واقف من ١٧ أغسطس** برفض `403` (SB-052) — مش مفتاح ناقص، مفتاح
+اتغيّر في Vault ومحتاج تحديث يدوي من المالك قبل السبت الجاي.
 
 ---
 
@@ -24,17 +26,17 @@
 ```
 M0 ████████████ done      schema · functions · client · verification harness
 M1 ████████████ done      auth + capture against a real server
-M2 ██████░░░░░░ partial   enrichment live · embeddings BLOCKED (no Cohere key)
-M3 ░░░░░░░░░░░░ blocked   voice — no ElevenLabs key, no real device test
-M4 ░░░░░░░░░░░░ later     search tuning — needs a real corpus
-M5 ░░░░░░░░░░░░ later     scheduling: sweep + digest on cron
-M6 ░░░░░░░░░░░░ later     hardening: rate limits · CSP · export/delete
-M7 ░░░░░░░░░░░░ later     English
+M2 ███████████░ done*     enrichment + embeddings live · *SB-006 cross-lingual test still unrun
+M3 ████████████ done      voice live end to end on hosted (SB-007); Android untested
+M4 ░░░░░░░░░░░░ later     search tuning — needs a real corpus (~100 notes)
+M5 ███████████░ live*     sweep + digest scheduled and proven · *hosted cron 403 since 2026-08-17, SB-052
+M6 ████████████ done      hardening: rate limits · CSP · export/delete · hosted deploy (SB-016)
+M7 ░░░░░░░░░░░░ later     English — gated on SB-006, not on a key
 ```
 
 ## M0 — Foundations ✅
 
-Schema, RLS, RPCs, five Edge Functions, React PWA, verification harness.
+Schema, RLS, RPCs, eight Edge Functions, React PWA, verification harness.
 
 **Exit (met):** `verify.sql` prints `ALL SCHEMA CHECKS PASSED`; `npm run verify`
 green; offline capture demonstrated in a browser with no server running.
@@ -46,37 +48,44 @@ Email OTP auth, capture round trip, outbox replay, pre-auth attach.
 **Exit (met):** a note captured while signed out lands in Postgres under the
 right user after sign-in, exactly once.
 
-## M2 — Enrichment and semantic search 🟡
+## M2 — Enrichment and semantic search ✅ (one measurement still open)
 
-Enrichment is **done and run for real**. Embeddings are the whole remaining gap.
+Enrichment and embeddings are both **done and run for real** (SB-005, 2026-08-13).
 
-- [x] Enrichment against Claude Opus 5, real Arabic output
+- [x] Enrichment against Claude Sonnet 5 (revised from Opus 5, SB-034), real
+      Arabic output
 - [x] Prompt caching measured
 - [x] Stage isolation so an embedding failure doesn't lose enrichment
-- [ ] **`COHERE_API_KEY`** → embeddings, semantic arm, `relate_note()`
-- [ ] Hybrid search returning fused results from both arms
-- [ ] Backfill embeddings for existing `ready` notes via `sweep`
+- [x] **`COHERE_API_KEY`** → embeddings, semantic arm — 14/14 `ready` notes
+      embedded for real (SB-045)
+- [x] Hybrid search returning fused results from both arms — confirmed live
+      through a real signed-in session
+- [x] Backfill embeddings for existing `ready` notes via `sweep` (SB-008)
 
-**Exit:** an Arabic query with **no keyword overlap** with the target note
-returns that note from the semantic arm, and `note_embeddings` is non-empty for
-every `ready` note.
+**Exit met, except one clause:** `note_embeddings` is non-empty for every
+`ready` note ✅. The **cross-lingual** half of the exit criterion — an Arabic
+query with no keyword overlap returning an English note — has not been run as
+its own deliberate test (SB-006, still `blocked` on being executed, not on
+anything structural). `relate_note()` was called for all 14 notes but nothing
+yet reads `note_relations` to confirm a pair cleared the threshold.
 
-**Blocked on:** one API key. Everything else in M2 is written.
+## M3 — Voice on a real device ✅ (Android untested)
 
-## M3 — Voice on a real device ⬜
+- [x] **`ELEVENLABS_API_KEY`** → first real transcription (SB-007)
+- [x] Corrected `ScribeASR.transcribe` against the real observed response
+      shape — it differed from documentation, as expected
+- [x] Record → upload → transcribe → enrich, full pipeline, hosted, on a real
+      iPhone (Safari): confidence 0.925, `category: task`, reached `ready`
+- [x] ASR quality checked against a real spoken sentence in the user's own
+      dialect — not yet a formal WER measurement across many samples
+- [x] `MediaRecorder` confirmed working on iOS Safari for real, after fixing
+      the codec-qualified MIME type it actually sends
+- [ ] Android — either direction, still untested
 
-- [ ] **`ELEVENLABS_API_KEY`** → first real transcription
-- [ ] Correct `ScribeASR.transcribe` against the observed response shape
-      (currently written from documentation)
-- [ ] Record → upload → transcribe → enrich on an actual iPhone and Android
-- [ ] Measure ASR quality on the user's own dialect
-- [ ] Confirm `MediaRecorder` on iOS Safari, or ship the honest-degradation path
-
-**Exit:** a voice note spoken in the user's dialect on their own phone reaches
-`ready` with a transcript the user judges usable, and the WER is written down.
-
-**Do not skip the measurement.** ASR quality is product risk #1; a working
-pipeline with a bad transcript is a failed feature that looks like a shipped one.
+**Exit met on iOS.** A voice note spoken by the owner reached `ready` with a
+transcript, on their own phone, not a desktop browser. Getting there took six
+real bugs across two days (docs/00-verification.md bugs #8–12) — the
+measurement mattered exactly as much as this milestone said it would.
 
 ## M4 — Search that is actually good ⬜
 
@@ -88,39 +97,46 @@ Needs ~100 real notes. Tuning against three test notes is theatre.
 
 **Exit:** >80% of a written set of 20 real recall attempts hit in the top 5.
 
-## M5 — It runs without you 🟡
+## M5 — It runs without you 🟡 (live, but currently broken — SB-052)
 
-The pipeline currently only advances when a client is open.
+- [x] `pg_cron` + `pg_net` schedule for `sweep` (SB-001) — proven live locally,
+      then live on hosted at deploy (SB-016): all four cron jobs `active: true`
+- [x] `pg_cron` schedule for the weekly `digest` (SB-017) — same, live on hosted
+- [x] Service role key in Vault, not in a migration — true by construction;
+      a stray `format(...)` draft that would have baked the digest key into
+      `cron.job`'s stored text was caught before it was ever applied
+- [x] First digest actually executed (SB-018) — a real Anthropic Batch
+      submission produced a real `weekly_digests` row, rendered correctly in
+      the client. Found and fixed a real bug along the way: the model wraps
+      its JSON in a code fence, breaking the naive parse
 
-- [x] `pg_cron` + `pg_net` schedule for `sweep` (SB-001) — proven live, a
-      stranded note recovered with no client open; left unscheduled locally
-      afterward (nothing safe to leave running against a keyless stack)
-- [x] `pg_cron` schedule for the weekly `digest` (SB-017) — mechanism proven
-      live the same way; blocked on `ANTHROPIC_API_KEY` for the part that
-      actually matters (a real `digest_batches` row)
-- [x] Service role key in Vault, not in a migration — true by construction in
-      both schedules above; a stray `format(...)` draft that would have
-      baked the digest key into `cron.job`'s stored text was caught before
-      it was ever applied (`docs/00-verification.md`)
-- [ ] First digest actually executed — Batch API + structured outputs is
-      unverified and the fallback path matters (SB-018, blocked on the same key)
+**Exit met, twice — and currently regressed.** A note deliberately stranded in
+`enriching` was recovered with no client open, both locally (2026-08-06) and
+on hosted. But **hosted cron has been rejected with `403` since 2026-08-17**
+(re-confirmed 2026-08-20) — `requireServiceRole()` no longer accepts the
+Vault-stored key pg_cron sends. No stuck notes yet, but the weekly digest's
+next tick (Sat 2026-08-22) will fail the same way unless the owner re-sets the
+secret first. See SB-052.
 
-**Exit:** a note deliberately stranded in `enriching` is recovered without any
-client open — **done, 2026-08-06.** One real weekly digest existing in the
-database is still open (SB-018).
+## M6 — Safe to leave running ✅ (one header still missing)
 
-## M6 — Safe to leave running ⬜
-
-- [x] Per-user rate limit on `/enrich` and `/transcribe` (SB-002) — proven local-only; a hosted deploy still needs the runbook check below
-- [x] Strict CSP (SB-003) — load-bearing, not hardening; done and proven local-only, a hosted deploy still needs `frame-ancestors`/`report-to` at the host's header layer (SB-016)
-- [x] `ALLOWED_ORIGIN` pinned (SB-010) — preflight rejects a foreign Origin when configured; a hosted deploy (SB-016) still needs to actually set the env var
-- [x] Export everything (SB-014) and delete everything (SB-015) — both proven with real data and a full deletion cycle
-- [x] Audio retention enforcement (SB-009) — proven on a real upload and a real delete
+- [x] Per-user rate limit on `/enrich` and `/transcribe` (SB-002) — proven local
+- [x] Strict CSP (SB-003) — load-bearing, not hardening; `frame-ancestors`
+      confirmed live on hosted via `web/public/_headers` and a real `curl`.
+      `report-to` is a genuinely open gap — no collector exists
+      (`docs/08-security.md`)
+- [x] `ALLOWED_ORIGIN` pinned (SB-010) — set on hosted, foreign preflight
+      Origin rejected for real
+- [x] Export everything (SB-014) and delete everything (SB-015) — both proven
+      with real data and a full deletion cycle
+- [x] Audio retention enforcement (SB-009) — proven on a real upload and delete
 - [x] `ai_jobs` retention (SB-004) — 90-day purge, daily `pg_cron`, proven live
-- [ ] Deployed to a real Supabase project (SB-016)
+- [x] Deployed to a real Supabase project (SB-016, 2026-08-09) — live at
+      `wamda-a8k.pages.dev`, three real deploy bugs found and fixed
 
-**Exit:** the app can be left running for a month unattended without an
-unbounded bill, an unbounded table, or an XSS being a full account compromise.
+**Exit substantially met.** The one open piece is `report-to` — CSP violations
+today are visible only in a browser's own DevTools, not centralized. Not
+tracked under a task id yet.
 
 ## M7 — English ⬜
 
@@ -135,57 +151,65 @@ The point of the language seams. Three flags, no migration.
 
 **Exit:** an Arabic query returns an English note that shares no keyword with it.
 
-**This milestone is gated on a fact nobody has checked.** Test cross-lingual
-retrieval the day the Cohere key arrives, in M2 — long before M7 starts.
+**This milestone is gated on a fact nobody has checked.** The Cohere key has
+arrived and embeddings are live (M2) — the deliberate two-note cross-lingual
+test (SB-006) still has not been run. Do that before M7 starts.
 
-## Incoming: a UI redesign, then a destination
+## The redesign, and the destination it unblocked
 
-A new design is being produced in Google Stitch (SB-031). It is not specified
-yet, so nothing is planned against it — but it lands on the screens M2–M4 touch,
-so **do not invest in visual polish before it arrives**. Structural work
-(SB-024, SB-025) is safe: it changes what the screens must show, which the
-design has to accommodate regardless.
+The Google Stitch redesign (SB-031) landed 2026-08-03, theme-only — see
+`docs/design/README.md`. It is done; nothing about it is still incoming.
 
-### M8 — Somewhere for a note to go ⬜
+### M8 — Somewhere for a note to go 🟡
 
-**Agreed with the owner, and deliberately sequenced after the redesign.**
+**Agreed with the owner, sequenced after the redesign — the redesign is now
+done, and most of this milestone is too.**
 
 The AI already decides a note is a task, gives it a priority, and resolves
-"الخميس" into a real timestamp. Then the user clicks "أضفها كمهمة" and nothing
-is created anywhere — the promise the product is built on stops one step short
-of being kept. This milestone builds the destination: tasks and calendar
-entries that live inside the product (SB-027), with the visible result an
-answered suggestion currently lacks (SB-033).
+"الخميس" into a real timestamp. Accepting a suggestion now has a real
+destination.
 
-- [ ] The redesign lands first (SB-031) — what a task *looks* like decides
-      what it *is*
-- [ ] Accepting and dismissing become distinct recorded states, not one
-      nullable timestamp
-- [ ] `create_task` and `create_event` produce something the user can open
-- [ ] `action_due_at` drives a calendar view, using dates the pipeline already
-      resolves correctly
+- [x] The redesign landed first (SB-031)
+- [x] Accepting and dismissing are distinct recorded states
+      (`action_dismissed_at`), not one nullable timestamp — SB-033 gives an
+      answered suggestion a visible result
+- [x] Tasks screen: a real filter over notes, not a container (SB-036),
+      opens the source note (SB-037), can be ticked done (SB-038)
+- [x] `action_due_at` drives grouping (today / this week / later) and, since
+      SB-050, a due-soon badge visible from the Capture tab and an overdue
+      marker distinct from "due today"
+- [ ] `create_event` / a calendar view — tasks have a destination; events
+      still do not
 
-**Exit:** the owner captures "لازم أراجع العرض مع أحمد قبل اجتماع الخميس",
-accepts the suggestion, and finds it waiting for him on Thursday without
-having typed a date, a title, or a list name.
+**Exit substantially met for tasks.** The owner captures
+"لازم أراجع العرض مع أحمد قبل اجتماع الخميس", accepts the suggestion, and
+finds it in the Tasks screen grouped and dated correctly, with a badge that
+reaches him before he opens that screen — without typing a date or a title.
+What is not built: a calendar destination for `event`-category notes.
 
-**The constraint that must survive it:** ADR-0004. A task is a *view over a
-note*, never a container a note moves into. If the design implies folders,
-supersede the ADR on purpose rather than drifting into hierarchy by accident.
+**The constraint that survived it:** ADR-0004 held. A task is a *view over a
+note*, never a container a note moves into — the Tasks screen and its badge
+are both filters over the same `notes` table, not a second store.
 
 ## Cross-cutting, no milestone
 
 Do these whenever they become cheap; none of them blocks a milestone.
 
-- CI on a real runner (`.github/workflows/ci.yml` has never executed)
-- Bundle the Arabic font (SB-011)
-- Structured logging and alerting (SB-019)
-- Analytics for the success metrics in `10-product-spec.md` (SB-020)
-- Safari/Firefox testing
+- [x] CI on a real runner — ran for the first time 2026-08-02, caught a real
+      bug on its first attempt
+- [x] Bundle the Arabic font (SB-011) — Public Sans + self-hosted Noto Sans
+      Arabic, no CDN
+- [x] Queryable pipeline failures over `ai_jobs` (SB-019)
+- [x] Success metrics instrumented (SB-020) — real numbers in
+      `docs/10-product-spec.md`, including one that changed the enrichment
+      cost target
+- [ ] Safari/Firefox testing — only Chromium tooling was available so far
+- [ ] `report-to` CSP violation collector — no task id yet
 
-## The thing that could reorder all of this
+## Resolved: the design change that could have reordered this
 
-The user has flagged **an unspecified significant design change**. Milestones
-M4–M7 assume the product shape recorded in `09-status-handoff.md` (flat notes,
-one enrichment pass, PWA, local-first outbox). Ask what the change is before
-planning past M3.
+**No longer open.** The design arrived 2026-08-03 (SB-031, Google Stitch),
+theme-only, and every load-bearing decision it touched — flat notes
+(ADR-0004), local-first capture, one enrichment pass, PWA — held. See
+`docs/09-status-handoff.md` "The design, and what survived it" for the full
+account.

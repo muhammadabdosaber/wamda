@@ -155,9 +155,15 @@ configured: a real cross-origin auth call succeeded under `connect-src`; a
 deliberate `fetch()` to a disallowed origin was blocked and caught by a
 `securitypolicyviolation` listener (`main.tsx`) with `disposition: "enforce"`.
 `frame-ancestors` and `report-to` cannot live in a `<meta>` tag (spec
-limitation) — the served header carries `frame-ancestors 'self'`, but
-whatever host SB-016 deploys to must set both at the server layer; that gap is
-real, not silently worked around. Evidence: `docs/00-verification.md`.
+limitation) — the served header carries `frame-ancestors 'self'`. **`frame-
+ancestors` is closed on hosted**: `web/public/_headers` ships
+`frame-ancestors 'none'` (stricter than the app's own `'self'`, on purpose —
+Cloudflare Pages serves it at the edge regardless of the meta tag), confirmed
+by a real `curl -sI https://wamda-a8k.pages.dev/`, not inferred from the file
+existing in `dist/`. **`report-to` is still a real, open gap** — violation
+reporting today is `console.error` client-side only, visible in DevTools and
+nowhere else; a collector endpoint is real future work, not attempted, and
+has no task id yet. Evidence: `docs/00-verification.md`.
 
 ## User rights
 

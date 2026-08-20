@@ -50,6 +50,7 @@ export const en: Messages = {
   tasksLater: "Later",
   tasksDone: "Done",
   tasksNoDate: "No date",
+  tasksOverdue: "Overdue",
 
   detailTitle: "Note",
   detailRawLabel: "As you wrote it",
@@ -141,6 +142,14 @@ export const enPlurals: Record<PluralKey, Record<Intl.LDMLPluralRule, string>> =
     few: "{n} tasks",
     many: "{n} tasks",
     other: "{n} tasks",
+  },
+  tasksDueSoonCount: {
+    zero: "No tasks due",
+    one: "1 task overdue or due today",
+    two: "{n} tasks overdue or due today",
+    few: "{n} tasks overdue or due today",
+    many: "{n} tasks overdue or due today",
+    other: "{n} tasks overdue or due today",
   },
   searchResultCount: {
     zero: "No results",

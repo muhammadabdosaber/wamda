@@ -50,7 +50,7 @@ See ADR-0007 — it was written from two real bugs.
 cd web && npm run verify
 ```
 
-typecheck + RTL guard + 21 tests + build. If the schema moved:
+typecheck + RTL guard + 38 tests + build. If the schema moved:
 
 ```bash
 docker exec -i supabase_db_Second_Brain \

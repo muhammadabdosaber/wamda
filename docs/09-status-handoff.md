@@ -3,24 +3,26 @@
 > **Written to be the first file a fresh session reads.** It records where the
 > project actually stands, what is blocking it, and what must not be
 > re-litigated. Detail lives in the other docs; this is the map.
+>
+> Last brought current: 2026-08-20.
 
 ---
 
 ## ملخّص بالعربي
 
-**اللي خلص:** قاعدة البيانات كاملة ومتحقَّق منها (‏12 فحص)، خمس Edge Functions،
-تطبيق React PWA عربي RTL بالكامل مع التقاط يشتغل أوفلاين، تسجيل دخول برمز
-مكوّن من ٦ أرقام، وخط معالجة ذكاء اصطناعي **اشتغل فعليًا** على ملاحظتين عربيتين
-ووصلوا لحالة `ready`.
+**اللي خلص:** كل حاجة تقريبًا. قاعدة البيانات، ٨ Edge Functions، تطبيق React
+PWA عربي RTL بالكامل، تسجيل دخول برمز، معالجة الذكاء الاصطناعي (Claude
+Sonnet 5)، البحث الدلالي (Cohere)، التسجيل الصوتي (ElevenLabs) على آيفون
+حقيقي، المراجعة الأسبوعية، والنشر الفعلي على استضافة حقيقية
+(`wamda-a8k.pages.dev`) — كل ده اشتغل فعليًا، مش مجرد كود موجود.
 
-**واقفين على إيه:** مفتاحين من التلاتة لسه placeholders —
-**Cohere** (يعني مفيش بحث دلالي ولا ربط بين الملاحظات ولا اختبار للاسترجاع
-عبر اللغات، وده أساس المرحلة التانية) و **ElevenLabs** (يعني التسجيل الصوتي
-متجربش خالص). كل الكود موجود ومتحقَّق من أنواعه، بس المسارات دي محصلتش ولا مرة.
+**الحاجز الحالي مش مفتاح ناقص.** مهام الـcron على الاستضافة (`sweep` و
+`digest`) بترفض بـ403 من ١٧ أغسطس ٢٠٢٦ — مفتاح Vault مش متطابق مع مفتاح
+الخدمة الحقيقي. مفيش ضرر لسه، بس ميعاد المراجعة الأسبوعية الجاي (السبت ٢٢
+أغسطس) هيفشل بنفس الطريقة لو محدش صلّحها. التفاصيل في SB-052.
 
-**التصميم وصل** (٣ أغسطس ٢٠٢٦) وبقى في `docs/design/`. القاعدة: **الثيم بس** —
-أي حاجة في التصميم بتتعارض مع سلوك اتبنى واتجرّب، السلوك المبني هو اللي يكسب.
-اقرا `docs/design/README.md` قبل أي شغل واجهة. مفيش قرار أساسي اتحرك.
+**التصميم وصل** (٣ أغسطس ٢٠٢٦) وخلص. القاعدة كانت: **الثيم بس** — وده اتنفذ
+من غير ما أي قرار أساسي يتحرك. اقرا `docs/design/README.md` لو هتلمس الواجهة.
 
 ---
 
@@ -28,50 +30,65 @@
 
 | Layer | State |
 |---|---|
-| Schema, RLS, RPCs | **Done, verified** — 12 checks against live Postgres |
-| Edge Functions (5) | **Done, type-checked**; `notes` + `enrich` run for real |
-| React PWA client | **Done, verified in a browser** — 21 tests, RTL guard, build |
-| Auth (email OTP) | **Done, verified end to end** via local mail catcher |
-| AI enrichment | **Done, run against Claude Opus 5** — real Arabic output; Haiku 4.5 measured and rejected (SB-034) |
-| Prompt caching | **Measured**, not estimated — 2169 cached tokens/call |
-| Embeddings / semantic search | **Blocked** — no Cohere key |
-| Voice / transcription | **Blocked** — no ElevenLabs key |
+| Schema, RLS, RPCs | **Done, verified** — 14+ checks against live Postgres |
+| Edge Functions (8) | **Done, type-checked, deployed to hosted** |
+| React PWA client | **Done, verified in a browser** — 38 tests, RTL guard, build |
+| Auth (email OTP) | **Done, verified end to end**, hosted via custom SMTP |
+| AI enrichment | **Done, run for real** — Claude Sonnet 5 (revised from Opus 5, SB-034) |
+| Prompt caching | **Measured**, not estimated — $0.0094/call hit vs $0.0220/call miss |
+| Embeddings / semantic search | **Done, run for real** (SB-005/045) — 14/14 notes embedded, hybrid search live |
+| Voice / transcription | **Done on iOS** (SB-007) — real hosted pipeline, confidence 0.925; Android untested |
 | Weekly digest | **Done, run for real** — real Anthropic Batch call, real digest, rendered live in the client |
-| English (phase 2) | Wired, deliberately disabled |
+| Hosted deploy | **Done** (SB-016, 2026-08-09) — `wamda-a8k.pages.dev` |
+| Scheduled jobs (sweep/digest/retention) | Built, proven, **currently rejected on hosted since 2026-08-17** — SB-052 |
+| Cross-lingual retrieval test | **Not run** (SB-006) — the one M2 exit clause still open, blocking M7 |
+| English (phase 2) | Wired, deliberately disabled, gated on SB-006 |
 
 Full evidence ledger: `docs/00-verification.md`.
 
 ## The blocking point
 
-Two vendor keys — `COHERE_API_KEY` and `ELEVENLABS_API_KEY` — are still
-3-character placeholders in `supabase/functions/.env`. This is the single
-thing standing between the current state and a complete product.
+**Not a vendor key -- a live operational regression on hosted (SB-052).**
+Found 2026-08-17, re-confirmed 2026-08-20: every `sweep-worker` and
+`digest-collect` cron tick on the hosted project gets `403
+{"error":{"code":"forbidden"}}` from `requireServiceRole()`, the exact gate
+that's supposed to let `pg_cron`'s own calls through. `cron.job_run_details`
+still shows `succeeded` for every tick -- the failure is only visible by
+reading `net._http_response` directly, which is presumably why it sat
+unnoticed for three days.
 
-`ANTHROPIC_API_KEY` is real and working (used for enrichment since
-2026-08-01, and for the weekly digest since 2026-08-07) — but it lives only
-in the *main* checkout's `supabase/functions/.env`, which is gitignored, so
-every fresh `git worktree` starts without it. If a session reports this key
-as "missing", check whether it's actually just absent from that worktree's
-checkout before assuming it needs to be re-obtained — see "A new `git
-worktree` has no vendor keys" below.
+- **No damage yet.** Zero notes currently stranded in a non-terminal state.
+- **The deadline that matters:** `digest-enqueue` last actually fired
+  2026-08-15, before the regression started. Its next tick is **Saturday
+  2026-08-22, 03:00 UTC** and will get the same `403` unless fixed first.
+- **Cause, narrowed but not confirmed:** the Vault-stored service-role key has
+  almost certainly drifted from the project's real one. Confirming that means
+  reading raw service-role key material, which is deliberately out of scope
+  for an agent -- same reasoning as the original SB-001 design. **This needs
+  the owner**: re-run `vault.create_secret`/`update` with the current real key
+  from Project Settings -> API, no trailing whitespace, then watch the next
+  tick's `net._http_response`.
+- Full trace: SB-052 in `docs/13-tasks.md`; live re-check in
+  `docs/00-verification.md`.
 
-**`COHERE_API_KEY`** — without it:
-- `note_embeddings` is empty; no note is semantically searchable
-- `relate_note()` has never produced a row, so note relations are unproven
-- **cross-lingual retrieval is untested**, and that is the load-bearing
-  assumption behind the whole phase-2 English plan. If Cohere's shared
-  Arabic/English vector space does not behave as expected, the "adding English
-  costs no migration" claim weakens considerably. This is the highest-value
-  unknown in the project.
+All three vendor keys (`ANTHROPIC_API_KEY`, `COHERE_API_KEY`,
+`ELEVENLABS_API_KEY`) are real and working, both locally and on hosted. If a
+fresh `git worktree` reports one as missing, that is almost certainly the
+worktree's own `supabase/functions/.env` being absent (gitignored by design --
+see "A new `git worktree` has no vendor keys" below), not the key having been
+lost.
 
-**`ELEVENLABS_API_KEY`** — without it:
-- voice capture has never been exercised end to end
-- `ScribeASR.transcribe` parses a response shape taken from documentation and
-  never observed; expect it to need adjustment on first real call
-- ASR quality on the user's own dialect — flagged from the start as the
-  largest product risk — remains completely unmeasured
+**What genuinely remains, smaller than SB-052:**
 
-Everything else below is smaller than these two.
+- **SB-006 -- cross-lingual retrieval, never run as its own test.** Embeddings
+  exist now; nobody has stored one Arabic and one English note about the same
+  subject with no shared tokens and queried each in the other language. This
+  is the load-bearing assumption behind the whole phase-2 English plan, and
+  it is one afternoon of work now that nothing structural blocks it.
+- **Android voice capture** -- iOS is proven; Android is not, either direction.
+- **`report-to` CSP collector** -- violations are visible only in a browser's
+  own DevTools today; no centralized collector exists (`docs/08-security.md`).
+- **Safari/Firefox testing** -- only Chromium tooling has been used so far.
 
 ## What has been proven, so don't re-derive it
 
@@ -90,9 +107,10 @@ Everything else below is smaller than these two.
 - **The enum/label split holds end to end** — database stores `task`, UI shows
   مهمة, from real model output.
 
-## Open engineering items
+## What was built and proven
 
-Ordered by consequence, not effort.
+Everything below is now `[x]` — kept as a dated record, not because any of it
+is still open. Ordered by consequence, not effort.
 
 - [x] **Sweep worker.** `supabase/functions/sweep` unsticks notes stranded in
       `transcribing`/`enriching` (process died before its own catch ran),
@@ -150,11 +168,12 @@ Ordered by consequence, not effort.
       secrets set, `sweep-worker` (`*/5`) fired on its own timer and returned a
       note stranded in `enriching` to `queued` with no client open:
       `cron.job_run_details` runid 3 `succeeded` at 18:35:00 UTC,
-      `net._http_response` `200 {"unstuck":1,...}`. The follow-on retry still
-      fails enrich/embed for want of vendor keys, so only the unstick arm is
-      proven live; a hosted run is SB-016. Unscheduled and secrets removed
-      after — local `cron.job`/`vault.secrets` empty again. Evidence:
-      `docs/00-verification.md`.
+      `net._http_response` `200 {"unstuck":1,...}`. Unscheduled and secrets
+      removed after that local test — local `cron.job`/`vault.secrets` empty
+      again. Then proven live a second time on **hosted** at the SB-016
+      deploy: all four cron jobs `active: true`. **Currently regressed**,
+      though — see "The blocking point" above and SB-052: hosted cron has
+      been rejected with `403` since 2026-08-17.
 - [x] **Per-user rate limit on `/enrich` and `/transcribe`** (SB-002,
       2026-08-06). `ai_jobs`-backed gate (`public.rate_limit_hit()`, 60 calls /
       15 min per user/stage), checked before the pipeline is reached. Proven
@@ -168,8 +187,10 @@ Ordered by consequence, not effort.
       succeeded under `connect-src`; a deliberate disallowed `fetch()` was
       blocked and caught by a `securitypolicyviolation` listener with
       `disposition: "enforce"`. `frame-ancestors`/`report-to` can't live in
-      `<meta>` — whatever host SB-016 deploys to must set those at the server
-      layer. See `docs/00-verification.md` and `docs/08-security.md`.
+      `<meta>` — **`frame-ancestors` is closed on hosted**
+      (`web/public/_headers`, confirmed by a real `curl` against
+      `wamda-a8k.pages.dev`); **`report-to` is still a real, open gap**, no
+      collector exists. See `docs/00-verification.md` and `docs/08-security.md`.
 - [x] **`ai_jobs` retention** (SB-004, 2026-08-07). 90-day purge, daily
       `pg_cron`, no Vault secrets needed (never leaves Postgres). Proven live
       against real inserted rows in `verify.sql`; the schedule is left
@@ -248,7 +269,7 @@ supabase start
 docker exec -i supabase_db_Second_Brain psql -U postgres -d postgres \
   -v ON_ERROR_STOP=1 < supabase/tests/verify.sql     # expect ALL SCHEMA CHECKS PASSED
 
-cd web && npm install && npm run verify              # typecheck + RTL + 21 tests + build
+cd web && npm install && npm run verify              # typecheck + RTL + 38 tests + build
 npm run dev
 ```
 
@@ -291,37 +312,42 @@ will fix — they need a decision, not a lookup:
   replacement that is as convincing. See SB-037.
 
 **Done.** SB-031a (theme), SB-036 (Tasks screen), SB-037 (open the note from a
-task), SB-038 (`completed_at`), SB-033 (answered-suggestion feedback), and
-SB-011 (fonts) are all closed — see `docs/13-tasks.md` "Done". The two
-redesign-adjacent items still open are **SB-032** (done — a note that fails
-enrichment stays visible) and **SB-027** (a real destination for accepted
-suggestions — agreed with the owner, deliberately deferred, see below).
+task), SB-038 (`completed_at`), SB-033 (answered-suggestion feedback), SB-011
+(fonts), and SB-050 (due-soon badge) are all closed — see `docs/13-tasks.md`
+"Done". **SB-032** is done (a note that fails enrichment stays visible).
+**SB-027** is now only partially open: the task half is built through the
+items above; the `event`/calendar half is not — see SB-027 in
+`docs/13-tasks.md` for the split.
 
-## What's actually left (as of 2026-08-07)
+## What's actually left (as of 2026-08-20)
 
-Everything reachable without a vendor key or the owner's own account/design
-input is done. What remains, grouped by why it's not done:
+The project is in a materially different place than the last time this
+section was written. Almost nothing is blocked on a vendor key anymore — the
+live issue is operational, not a missing capability.
 
-**Blocked on API keys the owner has to supply** (no code work possible until
-then):
-- SB-005/006/008 — Cohere key → embeddings, semantic search, cross-lingual
-  retrieval test (the single highest-value unknown in the project)
-- SB-007/012/013 — ElevenLabs key → real transcription, phone testing, WER
+**Needs the owner, right now, time-sensitive:**
+- **SB-052** — hosted `sweep`/`digest` cron rejected with `403` since
+  2026-08-17. Re-set the Vault service-role secret before Saturday
+  2026-08-22, 03:00 UTC, or the weekly digest fails the same way.
 
-**Blocked on the owner's own account/infra:**
-- SB-016 — deploy to a real hosted Supabase project
+**Open, no blocker, just not yet run** (fair game for the next session):
+- **SB-006** — the cross-lingual retrieval test. Embeddings exist; the
+  specific two-note AR/EN test that decides whether phase 2 English is
+  cheap has never been executed. One afternoon.
+- **SB-022** — Safari/Firefox testing (S, needs real Safari/Firefox — only
+  Chromium tooling has been available so far).
+- Android voice capture — iOS is proven end to end; Android has not been
+  tried in either direction.
 
 **Deliberately deferred, agreed with the owner:**
-- SB-027 — destination for accepted suggestions (task/calendar). Owner
-  decided: build the real thing, sequenced after design feedback, not the
-  cheap relabel. He said he may adjust design/colours and add features next —
-  start there before touching this.
-
-**Open, no blocker, just not yet started** (fair game for the next session):
-- SB-022 — Safari/Firefox testing (S, needs real Safari/Firefox — only
-  Chromium tooling was available this session)
-- SB-035 — one end-to-end test (M, deliberately the one place a
+- **SB-027's event half** — a `create_event` destination and calendar view.
+  The task half already shipped through SB-036/037/038/033/050; nothing about
+  events has been asked for or designed yet.
+- **SB-035** — one end-to-end test (M, deliberately the one place a
   browser-automation dependency is worth adding). **The owner is doing this
   one himself** — an earlier session attempt was stopped mid-task on
   request and its partial changes (Playwright dep, `web/e2e/`) discarded so
   he could start clean.
+
+**Open, no urgency:**
+- `report-to` CSP violation collector (no task id yet) — see `docs/08-security.md`.

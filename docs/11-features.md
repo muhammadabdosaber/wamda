@@ -43,7 +43,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | # | Feature | State | Owner |
 |---|---|---|---|
 | 2.1 | Language resolved once at the edge, carried downstream | ✅ | `_shared/language.ts` |
-| 2.2 | Enrichment: title, summary, category, priority, action, due date | ✅ run on Opus 5 | `_shared/pipeline.ts` |
+| 2.2 | Enrichment: title, summary, category, priority, action, due date | ✅ run on Sonnet 5 (revised from Opus 5, SB-034) | `_shared/pipeline.ts` |
 | 2.3 | Relative Arabic date resolution ("الخميس" → timestamp, user TZ) | ✅ | verified |
 | 2.4 | Tags, slugified so spelling variants converge | ✅ | `slugify()` migration `…000100` |
 | 2.5 | Prompt caching (~2.2K cached tokens/call) | ✅ measured | `_shared/providers.ts` |
@@ -103,6 +103,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.26 | One note per row, summary clamped | ✅ single column at every width (375 / 730 / 1400 measured, one track each); `line-clamp: 3` measured live | `Notes.tsx` · `global.css` (SB-041) |
 | 4.27 | Avatar menu instead of an always-visible sign-out | ✅ Escape closes and returns focus; anchors correctly in both RTL and LTR | `components/AccountMenu.tsx` (SB-042) |
 | 4.28 | Colored priority rail on Tasks (`urgent` red, `high`/`low` distinct, `normal`/no signal → no rail) | ✅ CSS specificity bug meant it never painted for any priority — fixed and confirmed both via `getComputedStyle` and live on hosted with real classified notes | `global.css` · `Tasks.tsx` (SB-044) |
+| 4.29 | Due-soon badge on the Tasks tab (overdue + due today, open only) | ✅ built + driven in a browser on 6 real rows; showed `2` from the Capture tab; completed/later/undated excluded; Arabic dual form correct | `App.tsx` · `core/due.ts` · `core/dueSoon.ts` (SB-050) |
+| 4.30 | `متأخرة` chip separating overdue from due-today | ✅ confirmed live; absent on a completed overdue task; `margin-inline-end` proven to mirror in RTL | `Tasks.tsx` · `global.css` (SB-050) |
+| 4.31 | Badge re-reads the clock on foreground (`useNow`) | ✅ proven at minute granularity — a `focus` event alone surfaced a task that fell due while the page sat open. Caveat: the browser pane reports `visibilityState: hidden`, so the check required emulating a foregrounded document | `core/clock.ts` (SB-050) |
+| 4.32 | Notification with the app closed (web push) | ⬜ not built — no service-worker push, no VAPID, no subscription table | SB-051 |
 
 ## 5. Auth, data, security
 
@@ -111,7 +115,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.1 | Email OTP sign-in (6-digit) | ✅ end to end; re-confirmed on hosted 2026-08-15 after SB-046 — real click → `POST /auth/v1/otp → 200`, owner entered the code and signed in | `features/Auth.tsx` |
 | 5.2 | Arabic RTL email template | ✅ | `supabase/templates/magic_link.html` |
 | 5.3 | Profile auto-provisioned on signup | ✅ | migration `…000200` trigger |
-| 5.4 | RLS on every public table | ✅ 12 checks | migration `…000400` |
+| 5.4 | RLS on every public table | ✅ one dynamic check covering all 11 real tables — no table can be silently forgotten | migration `…000400` |
 | 5.5 | Cross-user isolation on notes/tags/embeddings | ✅ verified independently | `verify.sql` |
 | 5.6 | Explicit table grants for `authenticated` | ✅ (was a real bug) | migration `…000400` |
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
@@ -129,13 +133,13 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | # | Feature | State | Owner |
 |---|---|---|---|
-| 6.1 | Schema verification harness (12 assertions) | ✅ | `supabase/tests/verify.sql` |
-| 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
-| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 unstick proven on a live cron timer (SB-001); retry/backfill still fail for want of vendor keys | `functions/sweep` · SB-001 |
-| 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
+| 6.1 | Schema verification harness (26 assertions) | ✅ | `supabase/tests/verify.sql` |
+| 6.2 | `npm run verify` — typecheck + RTL + 38 tests + build | ✅ | `web/package.json` |
+| 6.3 | Sweep worker: unstick, retry, backfill embeddings | ✅ unstick proven on a live cron timer (SB-001); embedding backfill ran for real, 14/14 notes (SB-045). Currently unreachable on hosted — SB-052, cron rejected with 403 | `functions/sweep` · SB-001 |
+| 6.4 | Weekly digest, Batch API + structured outputs | ✅ ran for real (SB-018) — real Anthropic Batch submission, real digest, correctly rendered in the client | `functions/digest` |
 | 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06 (local). Now also live and `active: true` on the hosted project (SB-016) | SB-001 |
-| 6.5b | `pg_cron` schedule for digest | 🟡 mechanism proven live (both jobs fire on their own timer, reach the real function); the actual `digest_batches` row is blocked on `ANTHROPIC_API_KEY` | SB-017 |
-| 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
+| 6.5b | `pg_cron` schedule for digest | 🟡 proven live twice — locally, then on hosted (SB-016), producing a real `digest_batches` row (SB-018). Currently rejected with 403 on hosted since 2026-08-17 — SB-052, fix needed before Sat 2026-08-22's tick | SB-017 |
+| 6.6 | CI pipeline | ✅ all three jobs green on a real runner (2026-08-02); the schema assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |

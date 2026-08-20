@@ -31,7 +31,7 @@ after that moment and can take as long as it needs.
    ┌────────────┼──────────────┬───────────────┐
    ▼            ▼              ▼               ▼
 ElevenLabs   Anthropic      Cohere        (phase 2)
-  Scribe     Opus 5     embed-multi-v3    translation
+  Scribe     Sonnet 5    embed-multi-v3    translation
    ASR      enrichment      vectors
 ```
 
@@ -97,7 +97,7 @@ ownership without any code to review.
 3. Client   POST /notes/audio-url  → signed URL
 4. Client   PUT audio → Storage directly       bytes never touch a function
 5. Server   POST /transcribe       Scribe → raw_text + confidence
-6. Server   POST /enrich           Opus 5 → summary/category/tags/priority
+6. Server   POST /enrich           Sonnet 5 → summary/category/tags/priority
                                    Cohere → 1024-dim vector
                                    SQL    → nearest-neighbour relations
 7. Client   sees status: ready

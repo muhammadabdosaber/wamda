@@ -257,6 +257,12 @@ export async function setNoteCompleted(noteId: string, done: boolean): Promise<v
     .update({ completed_at: done ? new Date().toISOString() : null })
     .eq("id", noteId);
   if (error) throw new ApiError("complete_failed");
+  // SB-050. The Tasks screen updates its own list optimistically, but the tab
+  // badge is a SEPARATE reader of the same rows -- without this it kept the
+  // count from before the tick, so the badge said "2" while the group heading
+  // under it said "مهمة واحدة". Found by ticking a real task in the browser,
+  // not by reading the code.
+  window.dispatchEvent(new Event(NOTE_CHANGED_EVENT));
 }
 
 /**
@@ -288,6 +294,14 @@ export async function restoreNoteAction(noteId: string): Promise<void> {
 
 /** Fired on `window` after a sync that actually moved at least one note. */
 export const SYNCED_EVENT = "sb:synced";
+
+/**
+ * Fired on `window` when the client itself changes a column another view
+ * counts -- today only `completed_at`. Distinct from {@link SYNCED_EVENT},
+ * which means "the outbox moved"; this means "a row you are showing is now
+ * different because the user just acted on it".
+ */
+export const NOTE_CHANGED_EVENT = "sb:note-changed";
 
 /**
  * Replays the outbox oldest-first, sequentially.

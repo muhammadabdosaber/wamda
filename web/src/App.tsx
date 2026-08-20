@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { applyDirection, enabledTags, resolveLanguage, SUPPORTED } from "./core/language";
 import { useSession } from "./core/session";
+import { useDueSoon } from "./core/dueSoon";
 import { createTranslator } from "./i18n";
 import { isConfigured, supabase, sync } from "./data/api";
 import { AccountMenu } from "./components/AccountMenu";
@@ -109,6 +110,11 @@ export function App() {
 
   const { session, loading } = useSession();
   const t = useMemo(() => createTranslator(language), [language]);
+  // SB-050. Lives at the shell, not inside Tasks: the app opens on Capture,
+  // and a due-date reminder you only see after opening the Tasks tab is not a
+  // reminder. Zero renders no badge at all -- a marker that is always lit is
+  // one the eye stops reporting, and this user has ADHD.
+  const dueSoon = useDueSoon(language, Boolean(session));
 
   // One effect owns document direction for the whole app. Every logical CSS
   // property resolves against it, so this single line is what mirrors the
@@ -124,10 +130,10 @@ export function App() {
     if (session) void sync();
   }, [session]);
 
-  const tabs: Array<{ id: Tab; label: string }> = [
+  const tabs: Array<{ id: Tab; label: string; badge?: number }> = [
     { id: "capture", label: t.t("captureText") },
     { id: "notes", label: t.t("notesTitle") },
-    { id: "tasks", label: t.t("tasksTitle") },
+    { id: "tasks", label: t.t("tasksTitle"), badge: dueSoon },
     { id: "search", label: t.t("searchTitle") },
     { id: "digest", label: t.t("digestTitle") },
   ];
@@ -267,6 +273,11 @@ export function App() {
             role="tab"
             className="tab"
             aria-selected={tab === item.id}
+            // Without this the tab announces "المهام ٣" -- a bare digit next
+            // to an icon, which says nothing about what the three are.
+            {...(item.badge
+              ? { "aria-label": `${item.label} — ${t.plural("tasksDueSoonCount", item.badge)}` }
+              : {})}
             onClick={() => {
               setTab(item.id);
               // Leaving the sign-in screen by picking a tab should dismiss it;
@@ -274,7 +285,14 @@ export function App() {
               setAuthOpen(false);
             }}
           >
-            {TAB_ICONS[item.id]}
+            <span className="tab-icon">
+              {TAB_ICONS[item.id]}
+              {/* aria-hidden: the count is already in the tab's aria-label
+                  above, in words. Announcing it twice is worse than once. */}
+              {Boolean(item.badge) && (
+                <span className="tab-badge" aria-hidden="true">{t.n(item.badge!)}</span>
+              )}
+            </span>
             {item.label}
           </button>
         ))}

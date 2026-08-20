@@ -11,7 +11,7 @@ ran on this machine or it did not.
 (Postgres + pgvector), no warnings beyond an idempotent `pgcrypto already
 exists` notice.
 
-### 14 schema checks against a live database
+### 26 schema checks against a live database (re-run 2026-08-20, clean `db reset`)
 
 ```
 docker exec -i supabase_db_Second_Brain \
@@ -2297,6 +2297,132 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-052 · The 2026-08-17 hosted regression is still live (checked 2026-08-20)
+
+**Re-checked, not assumed.** The entry above ("REGRESSION found 2026-08-17")
+ended without a resolution. Read-only queries against the hosted project
+(`hfjpotjbrrnghuqhxoux`, via the machine's cached `supabase` CLI login, no
+secret material read) confirm it is **still broken three days later**:
+
+```
+select r.status_code, left(r.content,80), r.created
+from net._http_response r order by r.created desc limit 8;
+```
+
+Eight calls in the 20 minutes before this check (17:45–18:15 UTC,
+2026-08-20), every one `403 {"error":{"code":"forbidden"}}` —
+`sweep-worker` (jobid 2) and `digest-collect` (jobid 4) both still rejected
+by `requireServiceRole()`, same as the 08-17 finding. `cron.job_run_details`
+still shows `status: succeeded` at the pg_net layer for all of them, which is
+why nothing about this is visible without reading `net._http_response`
+specifically.
+
+**No damage yet, but the window that matters is close.** `select status,
+count(*) from notes where status in ('queued','transcribing','enriching')`
+returns zero rows — nothing is currently stranded. But
+`digest-enqueue` (jobid 3, `0 3 * * 6`) last actually ran 2026-08-15, the
+Saturday *before* the regression started; today is Thursday 2026-08-20, so
+its next tick is **Saturday 2026-08-22, 03:00 UTC — under two days out** —
+and it will get the same `403` unless the Vault secret is fixed first.
+
+**Not fixed here, on purpose.** The cause was already narrowed on 08-17 to a
+mismatch between the Vault-stored service-role key and the function's live
+`SUPABASE_SERVICE_ROLE_KEY`. Reading either the current real key
+(`supabase projects api-keys`) or the stored one
+(`vault.decrypted_secrets`) is secret-material access this agent should not
+hold or compare — the original diagnosis stopped there for the same reason,
+and this re-check does too. The fix is one manual step, unchanged from
+SB-001's own instructions: the owner re-runs `vault.create_secret` (or
+`update`) for `sweep_service_role_key` (and whatever digest's schedule uses)
+with the current real key, pasted without trailing whitespace. Filed as
+**SB-052**, `todo`, ahead of everything else in the backlog — see
+`docs/13-tasks.md`.
+
+## SB-050 · A due date that reaches you before you open the Tasks tab
+
+**2026-08-20, local stack, a real signed-in session, six real task rows.**
+
+The data was already there — `note_enrichments.action_due_at`, an index for it,
+and a Tasks screen grouping by it. The defect was reach: the app opens on
+**Capture**, so nothing about a due date was visible until you navigated to the
+one screen that was supposed to remind you.
+
+**What ran.** `web/src/core/due.ts` holds the rule as pure functions, so the
+number the user acts on is covered by tests rather than by inspection:
+`npm run verify` → typecheck + RTL guard + **38 tests** (21 → 38; 15 new in
+`test/due.test.ts`) + build, all green.
+
+The fixtures were built to make the count *exclude* things, not just include
+them — an assertion that only counts is one that cannot fail for the right
+reason:
+
+| Task | Due | State | Expected | Observed |
+|---|---|---|---|---|
+| مراجعة تقرير مبيعات | 20 Aug 00:00 (past) | open | counted, marked late | ✅ chip `متأخرة` |
+| مكالمة الدكتور | 20 Aug 23:00 (today) | open | counted, **not** late | ✅ no chip |
+| دفع فاتورة الكهرباء | 18 Aug (past) | **completed** | not counted, not late | ✅ excluded, no chip |
+| تجديد رخصة العربية | 23 Aug (+3d) | open | not counted | ✅ excluded |
+| ×2 no date | — | open | not counted | ✅ excluded |
+
+Badge showed **2**, from the Capture tab, as
+`المهام — مهمتان متأخرتان أو موعدهما اليوم`. The Arabic dual (`مهمتان`, not
+`٢ مهمة`) is `Intl.PluralRules` picking the `two` category — the reason that
+plural table exists.
+
+**RTL proven, not merely linted.** `inset-inline-end: -9px` resolved in the live
+document to `left: -9px`, and `margin-inline-end` on the flag to `margin-left`.
+The guard passing says the physical form is absent; this says the logical form
+actually mirrors.
+
+### One real bug, found by ticking a box
+
+Ticking a task off left the badge reading `2` while the group heading directly
+under it read `مهمة واحدة`. The Tasks screen updates its own list optimistically,
+but the badge is a **separate reader of the same rows**, and nothing told it.
+`setNoteCompleted` now fires `NOTE_CHANGED_EVENT`, distinct from `SYNCED_EVENT`
+("the outbox moved") because this means "a row you are showing just changed".
+Re-tested live: unticking moved the badge **1 → 2** with no reload, and badge
+and heading agreed afterwards. Found by clicking, not by reading.
+
+### The foreground refresh was proven, not assumed
+
+An installed PWA sits open for days, so a `new Date()` taken once at mount keeps
+yesterday's idea of "today". `useNow` re-reads the clock on `visibilitychange`
+and `focus`. Waiting for real midnight is not a test, but `isOverdue` is
+minute-granular, so the same mechanism was exercised in 45 seconds: a task was
+set to fall due at 17:55:18Z, the page was loaded before it (no chip at
+17:54:46Z), and after the moment passed a **`focus` event alone** — no reload,
+no refetch — made the `متأخرة` chip appear.
+
+Worth recording because the first attempt at this check *failed*: the chip did
+not appear, and the cause was the browser pane reporting
+`document.visibilityState === "hidden"` (it is not displayed), which is exactly
+the condition the guard is written to skip. The guard was right and the harness
+was wrong. Re-run with the pane emulating a foregrounded document — a
+`Document.prototype` override in the page, **no change to app code** — the chip
+flipped `false → true`. That caveat is the honest form of this result.
+
+### Not verified
+
+- **No notification leaves the app.** No Notification API, no service-worker
+  push, no VAPID, no subscription table. Deliberate scope (owner chose in-app),
+  not an oversight — see SB-051.
+- **The React wiring has no unit test.** `vitest` here runs `environment: "node"`
+  over `web/test/**`; there is no jsdom and no testing-library, and adding both
+  to cover a badge is a dependency decision, not a side effect of this task. The
+  pure rule is unit-tested; the wiring is browser-tested above.
+- **Hosted.** Everything here ran against the local stack. Not yet redeployed to
+  `wamda-a8k.pages.dev`.
+
+### An operational note
+
+`supabase start` in this worktree came up with Kong unable to resolve the edge
+runtime — every `functions/v1/notes` call returned `503 {"message":"name
+resolution failed"}` while the runtime's own log showed it serving normally.
+`supabase stop && supabase start` cleared it; the seeded rows survived (the stop
+backs the volume up). Worth knowing because the 503 looks like a broken function
+and is not one.
+
 ## Security review · first fixes (SECURITY_REVIEW.md)
 
 **2026-08-16.** A full-codebase security review (requested by the owner ahead
@@ -2589,7 +2715,7 @@ keys now exist on hosted.
   SB-045's "not verified" note. `relate_note()` was invoked for all 14 notes
   as part of the same backfill; whether it produced any `note_relations` row
   is unconfirmed, since nothing reads that table yet.
-- **Weekly digest.** Batch submission and collection never executed.
+- ~~**Weekly digest.** Batch submission and collection never executed.~~ **Superseded (SB-018).** A real Batch submission produced a real digest, rendered in the client. Found and fixed a real bug along the way (the model wraps JSON in a code fence).
 - **Cross-lingual retrieval.** The phase-2 claim that an Arabic query finds an
   English note is a property of the chosen model, untested here — SB-006,
   still open, needs a deliberate two-note test now that embeddings exist.
@@ -2614,19 +2740,18 @@ keys now exist on hosted.
   now been looked at in both colour schemes at 375×812 — which is how the
   dark-mode button bug above was noticed at all. Still unseen: notes, search,
   digest, auth, and every screen at any other width.
-- **Arabic font not bundled.** `global.css` names IBM Plex Sans Arabic /
-  Noto Sans Arabic first, but neither is shipped — rendering currently falls
-  back to a system face.
+- ~~**Arabic font not bundled.**~~ **Superseded (SB-011).** Public Sans +
+  self-hosted Noto Sans Arabic, split by `unicode-range`, no CDN.
 
 ## What to run first
 
 ```bash
-# backend — should reproduce the 12 passes above
+# backend — should reproduce the 26 passes above
 supabase start && supabase db reset
 docker exec -i supabase_db_Second_Brain psql -U postgres -d postgres \
   -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
 
-# client — should reproduce typecheck + 21 tests + guard + build
+# client — should reproduce typecheck + 38 tests + guard + build
 cd web && npm install && npm run verify
 ```
 
