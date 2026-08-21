@@ -52,7 +52,7 @@ export interface VapidKeys {
 
 /** Test seam. Production passes nothing: a fresh key pair and random salt per message is the requirement, not an option. */
 export interface EncryptOverrides {
-  salt?: Uint8Array;
+  salt?: Uint8Array<ArrayBuffer>;
   senderPrivateKey?: string;
   senderPublicKey?: string;
   recordSize?: number;
@@ -65,10 +65,15 @@ export interface EncryptOverrides {
 // ones the browser hands the client. `atob`/`btoa` speak standard base64, so
 // the translation happens here once rather than at each call site.
 
-export function b64urlToBytes(value: string): Uint8Array {
+// The `<ArrayBuffer>` on every byte-producing helper here is load-bearing,
+// not decoration. Since TypeScript 5.7 a bare `Uint8Array` may be backed by a
+// SharedArrayBuffer, and Deno's lib types reject that everywhere this file
+// needs to hand bytes to WebCrypto or `fetch`. Allocating the buffer
+// explicitly makes the type true instead of casting it away at each call.
+export function b64urlToBytes(value: string): Uint8Array<ArrayBuffer> {
   const padded = value.replace(/-/g, "+").replace(/_/g, "/");
   const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
-  const out = new Uint8Array(binary.length);
+  const out = new Uint8Array(new ArrayBuffer(binary.length));
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);
   return out;
 }
@@ -79,9 +84,9 @@ export function bytesToB64url(bytes: Uint8Array): string {
   return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 }
 
-function concat(...parts: Uint8Array[]): Uint8Array {
+function concat(...parts: Uint8Array<ArrayBuffer>[]): Uint8Array<ArrayBuffer> {
   const total = parts.reduce((n, p) => n + p.length, 0);
-  const out = new Uint8Array(total);
+  const out = new Uint8Array(new ArrayBuffer(total));
   let at = 0;
   for (const part of parts) {
     out.set(part, at);
@@ -130,11 +135,11 @@ async function importPrivateKey(
 }
 
 async function hkdf(
-  salt: Uint8Array,
-  ikm: Uint8Array,
-  info: Uint8Array,
+  salt: Uint8Array<ArrayBuffer>,
+  ikm: Uint8Array<ArrayBuffer>,
+  info: Uint8Array<ArrayBuffer>,
   lengthBytes: number,
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const key = await crypto.subtle.importKey("raw", ikm, "HKDF", false, ["deriveBits"]);
   const bits = await crypto.subtle.deriveBits(
     { name: "HKDF", hash: "SHA-256", salt, info },
@@ -145,8 +150,8 @@ async function hkdf(
 }
 
 /** `label || 0x00`, the info-string shape both RFCs use. */
-function infoString(label: string, ...extra: Uint8Array[]): Uint8Array {
-  return concat(new TextEncoder().encode(label), new Uint8Array([0]), ...extra);
+function infoString(label: string, ...extra: Uint8Array<ArrayBuffer>[]): Uint8Array<ArrayBuffer> {
+  return concat(new TextEncoder().encode(label), new Uint8Array(new ArrayBuffer(1)), ...extra);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,12 +167,12 @@ function infoString(label: string, ...extra: Uint8Array[]): Uint8Array {
  * bytes on the wire.
  */
 export async function encryptPayload(
-  plaintext: string | Uint8Array,
+  plaintext: string | Uint8Array<ArrayBuffer>,
   device: Pick<DeviceSubscription, "p256dh" | "auth">,
   overrides: EncryptOverrides = {},
-): Promise<Uint8Array> {
+): Promise<Uint8Array<ArrayBuffer>> {
   const recordSize = overrides.recordSize ?? DEFAULT_RECORD_SIZE;
-  const salt = overrides.salt ?? crypto.getRandomValues(new Uint8Array(16));
+  const salt: Uint8Array<ArrayBuffer> = overrides.salt ?? crypto.getRandomValues(new Uint8Array(new ArrayBuffer(16)));
 
   const uaPublicRaw = b64urlToBytes(device.p256dh);
   const authSecret = b64urlToBytes(device.auth);
@@ -175,7 +180,7 @@ export async function encryptPayload(
   // The sender ("application server") key pair: ephemeral in production,
   // fixed only so the RFC's own example can be reproduced in a test.
   let senderPrivate: CryptoKey;
-  let senderPublicRaw: Uint8Array;
+  let senderPublicRaw: Uint8Array<ArrayBuffer>;
   if (overrides.senderPrivateKey && overrides.senderPublicKey) {
     senderPrivate = await importPrivateKey(
       overrides.senderPrivateKey,
@@ -191,7 +196,7 @@ export async function encryptPayload(
       ["deriveBits"],
     ) as CryptoKeyPair;
     senderPrivate = pair.privateKey;
-    senderPublicRaw = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey));
+    senderPublicRaw = new Uint8Array(await crypto.subtle.exportKey("raw", pair.publicKey) as ArrayBuffer);
   }
 
   const uaPublic = await crypto.subtle.importKey(
@@ -204,7 +209,7 @@ export async function encryptPayload(
 
   const sharedSecret = new Uint8Array(
     await crypto.subtle.deriveBits({ name: "ECDH", public: uaPublic }, senderPrivate, 256),
-  );
+  ) as Uint8Array<ArrayBuffer>;
 
   // RFC 8291 section 3.4. The auth secret is the salt at this step, and the
   // info string binds the key material to BOTH public keys -- receiver
@@ -221,10 +226,12 @@ export async function encryptPayload(
   const contentKey = await hkdf(salt, ikm, infoString("Content-Encoding: aes128gcm"), 16);
   const nonce = await hkdf(salt, ikm, infoString("Content-Encoding: nonce"), 12);
 
-  const body = typeof plaintext === "string" ? new TextEncoder().encode(plaintext) : plaintext;
+  const body: Uint8Array<ArrayBuffer> = typeof plaintext === "string"
+    ? new TextEncoder().encode(plaintext)
+    : plaintext;
   // 0x02 is the last-record delimiter. A single-record message that uses
   // 0x01 is rejected by the receiver as a truncated stream.
-  const record = concat(body, new Uint8Array([2]));
+  const record = concat(body, new Uint8Array(new ArrayBuffer(1)).fill(2));
 
   const key = await crypto.subtle.importKey("raw", contentKey, "AES-GCM", false, ["encrypt"]);
   const ciphertext = new Uint8Array(
@@ -234,7 +241,7 @@ export async function encryptPayload(
   // RFC 8188 header: salt(16) || record size(4, big-endian) || key id length(1) || key id.
   // For web push the key id IS the sender's public key, which is how the
   // device knows which key to run its own ECDH against.
-  const header = new Uint8Array(21);
+  const header = new Uint8Array(new ArrayBuffer(21));
   header.set(salt, 0);
   new DataView(header.buffer).setUint32(16, recordSize, false);
   header[20] = senderPublicRaw.length;
