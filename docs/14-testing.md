@@ -33,7 +33,7 @@ Plus the layer no tool covers: **live verification**, recorded by hand in
 
 ### `verify.sql` — the one that matters most
 
-12 assertions against a real Postgres, not a mock. It exists because the two
+26 assertions against a real Postgres, not a mock (grew from 12 as the schema did — rate limiting, retention, cost tracking, the scoped grant). It exists because the two
 highest-consequence properties of this system are database properties:
 
 - **Cross-user isolation.** User B authenticates, queries user A's note id
@@ -82,13 +82,17 @@ exactly the class of thing this project already refuses to mock (see the
 "Vendor API calls" row below). Add a `*.test.ts` here only where the logic
 genuinely does not need either.
 
-### `vitest` — 21 tests
+### `vitest` — 38 tests
 
-Covers `i18n` (including all four Arabic plural categories) and language
-resolution. Deliberately narrow: it does not test React rendering, because the
-rendering properties that matter here (direction, logical property mirroring)
-are *computed-style* properties that jsdom does not model faithfully. Those are
-verified in a real browser instead.
+Covers `i18n` (including all four Arabic plural categories), language
+resolution, and due-date bucketing/counting (`core/due.ts`, SB-050 — the rule
+behind the Tasks screen's grouping and the tab badge, kept as pure functions
+specifically so it is unit-testable at all). Deliberately narrow otherwise: it
+does not test React rendering, because the rendering properties that matter
+here (direction, logical property mirroring) are *computed-style* properties
+that jsdom does not model faithfully. Those are verified in a real browser
+instead — see `docs/00-verification.md` "SB-050" for an example of that split
+in practice: the pure rule unit-tested here, the React wiring proven live.
 
 ### `check-rtl.mjs` — the guard pattern
 
@@ -151,4 +155,4 @@ Rules for editing it:
   highest-value test to add.
 - **No load or concurrency testing.** Sweep, outbox replay, and rate limiting
   (SB-002) all have concurrency assumptions nobody has stressed.
-- **CI has never run on a real runner** — the workflow is new in this change.
+- ~~**CI has never run on a real runner**~~ **Superseded** — it ran 2026-08-02 and caught a real bug on its first attempt (`docs/00-verification.md`).

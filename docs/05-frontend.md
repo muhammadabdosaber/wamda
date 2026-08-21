@@ -13,12 +13,13 @@ web/
   vite.config.ts      PWA manifest + service worker
   src/
     core/language.ts  resolver — mirrors the server
+    core/due.ts       due-date bucketing/count — pure, shared by Tasks + badge
     i18n/             ar.ts (TEMPLATE) · en.ts · index.ts (Intl.PluralRules)
     data/             outbox.ts (IndexedDB) · api.ts (+ sync)
-    features/         Capture · Notes · Search · Digest
+    features/         Capture · Notes · Tasks · Search · Digest
     styles/global.css logical properties only
   tool/check-rtl.mjs  CI guard
-  test/               21 tests
+  test/               38 tests
 ```
 
 ## Direction

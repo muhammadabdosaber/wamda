@@ -10,6 +10,133 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Docs — the root files brought current, and CLAUDE.md rewritten around production
+
+The 2026-08-20 pass covered `docs/`; this one covers everything above it,
+which had drifted further. `README.md` still said the client had **never
+talked to the server** and that nothing requiring a vendor key had ever run
+— both false since 2026-08-09/13. `SECURITY.md` opened its weakness table
+with "the project has never been deployed" and listed export, account
+deletion, audio retention and `ai_jobs` retention as unfixed; all four
+shipped. `CONTRIBUTING.md` still asked contributors to hold off on anything
+large pending an "unspecified significant design change" that landed on
+2026-08-03 and has since shipped. CI's database job was labelled `12 schema
+assertions` (26) and carried a header saying the workflow had never run on a
+real runner (it has, on every push and PR since 2026-08-02).
+
+**`CLAUDE.md` was rewritten around the one fact it never mentioned: this is
+live software.** It now opens with what production *is* — the Pages URL, the
+Supabase project ref, and the fact that merging to `main` auto-deploys the PWA
+to the owner's real notes while migrations and Edge Functions do **not** ride
+along. New rule 6 records that `sweep`/`digest` are service-only and that
+changing that gate has already broken its own cron caller once. New traps
+section: `cron.job_run_details` reports `succeeded` when `pg_net` merely
+*queued* the call, so a job can fail every five minutes and look healthy —
+the truth is in `net._http_response`. Also added: the vendor model ids in one
+place (`claude-sonnet-5` enrichment, `claude-opus-5` digest, `scribe_v1`,
+`embed-multilingual-v3.0`), the real function list (8, not 6), the real counts
+(38 tests, 26 assertions, 9 Deno tests), and two "do nots" that were only
+folklore before — never rewrite the ledgers, never read raw key material to
+diagnose.
+
+Corrected in `docs/11-features.md` against the live database rather than from
+memory: embeddings were still marked `⬜ blocked — no key` in §2 while §3
+described them running (hosted `ai_jobs`: 50 succeeded `embed` calls); the
+private audio bucket and per-user signed URLs were `⬜` (both hosted buckets
+are `public: false` with a MIME allowlist, queried live); and
+`action_dismissed_at` was described as existing only on the local database
+(it is on production). `docs/adr/0005-hybrid-search.md` got dated update notes
+rather than an edit — its "the semantic arm has never run" cost is now
+history, and the 0.6 distance floor belongs beside it.
+
+**SB-052 re-checked live, not assumed: still broken.** Every one of the last
+eight `net._http_response` rows is `403 {"error":{"code":"forbidden"}}`,
+through 2026-08-21 13:15 UTC — five days now. No damage yet (hosted:
+`ready: 17`, `draft: 7`, `failed: 1`, nothing stranded, pipeline succeeding as
+recently as 2026-08-20), but `digest-enqueue` fires 2026-08-22 03:00 UTC and
+will be rejected the same way. Owner action, unchanged: re-set the Vault
+service-role secret.
+
+**SB-051 (web push) written up as a real plan** rather than a paragraph:
+build order, the `push_subscriptions` schema with its RLS/grant/assertion
+obligation, VAPID key placement (the one `VITE_` variable that is supposed to
+be public), the `generateSW` → `injectManifest` switch that is the task's
+hidden cost, a service-only sender modelled on `sweep`, the Vault-secret cron
+job, and the iOS constraint that makes "installed to the Home Screen" a
+precondition rather than a detail. It opens with two gates: fix SB-052 first,
+and spike the Deno web-push sender for 30 minutes before designing anything
+around it.
+
+
+### Docs brought current, and a live hosted regression found in the process (SB-052)
+
+A full pass over every doc in `docs/` against the actual current state of the
+project — most of it had drifted since the last time each file was touched.
+Fixed: `docs/09-status-handoff.md` and `docs/12-roadmap.md` still described
+Cohere/ElevenLabs as blocking (both keys landed 2026-08-13 and 2026-08-09
+respectively — SB-005, SB-007); `docs/15-runbook.md` still said "never
+deployed" and "nothing scheduled" (SB-016 shipped 2026-08-09, four `pg_cron`
+jobs have been `active: true` since); `docs/06-integration-plan.md`'s phase
+table and `docs/11-features.md`'s digest/sweep rows both understated work that
+had actually run (SB-018's digest, SB-045's embedding backfill); test and
+schema-assertion counts (`21 tests`, `12 checks`) were stale across eight
+files — actual current numbers, re-run for this pass: **38 tests**, **26
+schema assertions** (`supabase/tests/verify.sql`, re-run against a clean
+`db reset`, all pass). `docs/13-tasks.md`'s own Next-up table disagreed with
+one of its own task sections (SB-005 marked `blocked` in the table, `done` in
+its write-up).
+
+**Found while checking, not assumed: SB-052.** A 2026-08-17 entry in
+`docs/00-verification.md` recorded hosted `sweep`/`digest` cron calls getting
+rejected with `403` and stopped there, unresolved. Re-checked live against the
+hosted project (read-only `net._http_response` query, no secret material
+read) — **still failing**, every tick from 17:45–18:15 UTC on 2026-08-20,
+three days after it was first found. No notes are currently stranded, but the
+weekly digest's next tick (Sat 2026-08-22, 03:00 UTC) will fail the same way
+unless the owner re-sets the Vault service-role secret first — filed as
+SB-052, ahead of everything else in the backlog, since it's the one live
+production issue right now.
+
+Also corrected in passing: `frame-ancestors` is closed on hosted (confirmed
+live via `curl` against `wamda-a8k.pages.dev`) though `docs/08-security.md`
+still called it an open gap; several docs still named Claude Opus 5 as the
+enrichment model after SB-034 moved it to Sonnet 5; SB-027 ("a destination for
+accepted suggestions") was still marked blocked on the redesign, which landed
+and shipped the task half of it (SB-036/037/038/033/050) — only the
+`event`/calendar half remains.
+
+### Tasks: a due date that reaches you before you open the Tasks tab (SB-050)
+
+The Tasks tab now carries a count of **open tasks that are overdue or due
+today**, and an overdue row is marked `متأخرة` instead of being visually
+identical to one due tonight. Nothing new is stored — `action_due_at` and its
+index already existed; what was missing was reach, since the app opens on
+Capture and the reminder lived only on the screen you had to remember to visit.
+
+This **ran**: against six real task rows through a real signed-in session on
+the local stack, the badge showed `2` from the Capture tab, correctly excluding
+a completed-but-overdue task, one due in three days, and two with no date. The
+Arabic dual (`مهمتان`) is `Intl.PluralRules`, not a hand-written plural.
+`inset-inline-end` was confirmed to resolve to `left` in the live RTL document
+— the RTL guard proves the physical form is absent, this proves the logical one
+mirrors. 38 tests (up from 21), typecheck, guard, and build all green.
+
+Two things worth recording because they were found by running it, not reading
+it. Ticking a task off left the badge stale at `2` while the heading beneath it
+read `مهمة واحدة` — the screen and the badge are separate readers of the same
+rows, and only one knew; `setNoteCompleted` now fires `NOTE_CHANGED_EVENT`, and
+the badge was re-proved moving `1 → 2` live. And the foreground clock refresh
+(`useNow`) was proven at minute granularity rather than assumed: a task set to
+fall due in 45 seconds gained its `متأخرة` chip from a `focus` event alone, no
+reload. That check failed on the first attempt because the browser pane reports
+`visibilityState: hidden` — the guard was right and the harness was wrong.
+
+**Not done, deliberately:** no notification leaves the app. No Notification API,
+no service-worker push, no VAPID, no subscription table. The owner scoped this
+to in-app; the closed-app half is filed as SB-051, which is *not* blocked on
+deployment (SB-016 is done and live).
+
+
 ### Security — full-codebase review, first fixes (SECURITY_REVIEW.md)
 
 A structured security review of the whole codebase (multi-tenant isolation,

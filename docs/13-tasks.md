@@ -30,6 +30,7 @@ blocked on.
 
 | # | Task | Milestone | Size | Status |
 |---|---|---|---|---|
+| SB-052 | Hosted cron rejected with 403 since 2026-08-17 — safety net down, digest at risk Sat | M5/M6 | S | `todo` |
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | **done** |
@@ -56,9 +57,11 @@ blocked on.
 | SB-041 | Notes: card grid + scrolling category filter bar | — | M | **done** |
 | SB-042 | Avatar button with a logout menu | — | S | **done** |
 | SB-007 | ElevenLabs key → first real transcription | M3 | M | **done** |
-| SB-005 | Cohere key → embeddings + semantic search | M2 | M | **blocked** |
-| SB-006 | Cross-lingual retrieval test | M2/M7 | S | **blocked** |
+| SB-005 | Cohere key → embeddings + semantic search | M2 | M | **done** |
+| SB-006 | Cross-lingual retrieval test | M2/M7 | S | `todo` |
 | SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
+| SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
+| SB-051 | Notifications that arrive with the app closed | M8 | M | `todo` |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -74,6 +77,48 @@ blocked on.
 > inert afterward (`cron.job`/`vault.secrets` empty) so a keyless local `*/5`
 > does not drive real notes to the failed-attempt cap. Turning it on for real is
 > still one secret-pair + migration re-run per environment (SB-016 for hosted).
+
+---
+
+### SB-052 · Hosted cron rejected with 403 since 2026-08-17 · `todo` · S
+
+**Currently live, not historical.** Found 2026-08-17 checking the next tick
+after SB-016's deploy, re-checked 2026-08-20, and re-checked again
+**2026-08-21 13:15 UTC** — `403 {"error":{"code":"forbidden"}}` on every one
+of the last eight `net._http_response` rows, i.e. **still failing on the
+fifth day**, with the digest deadline now less than 24 hours out (see
+`docs/00-verification.md` "SB-052"). `sweep-worker` and `digest-collect` both call their function through
+`pg_cron` → `pg_net`, and every one of the last 8 calls got `403
+{"error":{"code":"forbidden"}}` from `requireServiceRole()` (F1, PR #31) —
+the exact caller that gate is supposed to let through.
+
+- **No damage yet, re-confirmed 2026-08-21.** Hosted note statuses are
+  `ready: 17`, `draft: 7`, `failed: 1` — nothing in `queued`/`transcribing`/
+  `enriching`, and the single `failed` note dates from 2026-08-09, long before
+  this regression. The pipeline itself is healthy: `ai_jobs` shows the last
+  successful `enrich` and `embed` calls on 2026-08-20 with no failures since
+  the key fixes. The exposure is that the safety net is down: the next note
+  whose live `enrich`/`transcribe` call fails has nothing to unstick it.
+- **The clock that matters:** `digest-enqueue` (jobid 3, `0 3 * * 6`) last
+  actually ran 2026-08-15, before the regression started. Its next tick is
+  **Saturday 2026-08-22, 03:00 UTC** and will get the same `403` unless this
+  is fixed first.
+- **Root cause narrowed, not confirmed:** almost certainly the Vault-stored
+  `sweep_service_role_key` (and whatever digest's schedule reads) no longer
+  matches the project's live `SUPABASE_SERVICE_ROLE_KEY` — a stale key from
+  before a rotation, or whitespace from how it was originally pasted into
+  `vault.create_secret()`.
+- **Deliberately not fixed by an agent.** Confirming it means comparing the
+  stored secret against the real one, which means reading raw service-role
+  key material — out of scope for this agent by design, the same reasoning
+  SB-001 and the original 08-17 diagnosis both applied.
+- **Start at:** the owner re-runs `vault.create_secret` (or `update`) for the
+  relevant secret(s) with the current real service-role key from Project
+  Settings → API, pasted with no trailing whitespace. SB-001's own
+  instructions are the same steps.
+- **Accept:** `net._http_response` for the next `sweep-worker`/`digest-collect`
+  tick shows `200`, not `403`; written into `docs/00-verification.md` either
+  way. Do this before 2026-08-22 03:00 UTC.
 
 ---
 
@@ -100,7 +145,7 @@ Supply `COHERE_API_KEY` and run the embedding stage for real for the first time.
   (This held: all 14 notes stayed `ready` throughout, on both the earlier
   degraded path and this backfill.)
 
-### SB-006 · Cross-lingual retrieval test · `blocked` · S
+### SB-006 · Cross-lingual retrieval test · `todo` · S
 
 The highest-value unknown in the project, and it is one afternoon of work.
 
@@ -916,8 +961,6 @@ voice longer than promised is a privacy failure, not a cleanup task.
 > `status: ready` with `model: claude-sonnet-5` on its own. Evidence:
 > `docs/00-verification.md` "SB-016".
 
-Everything so far is local only.
-
 - **Accept:** migrations applied to a hosted project, functions deployed,
   secrets set, the PWA served over HTTPS, and one real note captured on it.
 
@@ -1048,10 +1091,19 @@ the local path.
 - **Accept:** with IndexedDB writes forced to fail, the text stays in the
   textarea and an error appears. Test covers it.
 
-### SB-027 · A destination for accepted suggestions · `agreed, blocked on the design` · L
+### SB-027 · A destination for accepted suggestions · `partially done` · L
 
 **Decided by the owner: build the real thing — a tasks/calendar destination
 inside the product. Sequenced after the new design lands, not before.**
+
+**The design landed 2026-08-03 and the task half is now built**, via
+SB-036 (Tasks screen — a real filter over `category = 'task'` notes),
+SB-037 (opens the source note), SB-038 (`completed_at`), and SB-033
+(accept/dismiss are distinct recorded states, closing the exact gap this
+task named below). SB-050 added a due-soon badge and an overdue marker on
+top of that. **What is still not built is the `event` half** — no
+`create_event` destination, no calendar view. `action_due_at` already
+resolves correctly for events too; nothing reads it into a calendar yet.
 
 Today, clicking **"أضفها كمهمة"** creates no task — it records
 `action_dismissed_at`, exactly like "تجاهل". The label promises something the
@@ -1059,15 +1111,14 @@ system does not do, and trust in AI output is the product (principle 5:
 degrade honestly). The owner hit this himself: he clicked, nothing happened
 anywhere, and he was right.
 
-- **Blocked on:** the Stitch redesign (SB-031). What a task *is* on screen —
-  a separate tab, a state on the note, a list that empties — is a design
-  question, and building the model first would freeze an answer the design has
-  not given yet.
-- **Do not do the cheap relabel** unless the design slips badly. Renaming the
-  chip to "تمّت المعالجة" is honest, but it retires the product's most
-  valuable promise (the AI files things *for* you) to avoid a week of work.
+- **Was blocked on:** the Stitch redesign (SB-031) — resolved, the design
+  landed 2026-08-03 and answered the question below for tasks: a real tab
+  (SB-036), not a state on the note or a list that empties.
+- **Not blocked, just not started:** the `event` half — no design screen for
+  a calendar view has been produced or asked for.
 
-When it happens, the parts that are already known:
+For events, the parts that are already known (the task half's equivalents are
+now built, not merely known):
 
 - `notes.action_dismissed_at` cannot distinguish "I acted on it" from "I
   ignored it". Accepting and dismissing need to become different recorded
@@ -1516,8 +1567,192 @@ Only Chromium has ever run this app.
 | SB-040 | `add_circle`/`description`/`check_circle` redrawn as inline SVG (CDN icon font is CSP-blocked); rounded active pill | same |
 | SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
 | SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
+| SB-050 | Badge showed 2 from the Capture tab against 6 real rows; completed/later/undated correctly excluded; `inset-inline-end` proven to mirror in the live document; one stale-badge bug found by ticking a box | `00-verification.md` "SB-050" |
 
 ---
+
+### SB-050 · Due-date reach: a badge you see without opening Tasks · `done` · S
+
+Owner request, 2026-08-20: "تنبيه لما ميعاد المهمة يقرب". The due dates were
+already there and already grouped — what was missing was **reach**. The app
+opens on Capture, so a reminder living only on the Tasks screen reminds nobody.
+
+**What was already true** (verified by reading, not assumed):
+
+| Question | Answer | Where |
+|---|---|---|
+| Is there a due date? | Yes, `note_enrichments.action_due_at`, model-resolved | `20260801000200_enums_and_tables.sql:161` |
+| Is it indexed? | Yes, partial index on the dated rows | `20260801000300_indexes.sql:35` |
+| Does the screen group by it? | Yes — today / this week / later | `Tasks.tsx:34` |
+| Is overdue distinguished? | **No** — it folded silently into "today" | `Tasks.tsx:33` |
+
+So: no migration, no Edge Function, no new column, no vendor cost.
+
+**Done:** `web/src/core/due.ts` (pure, 15 tests), `core/clock.ts` (`useNow`),
+`core/dueSoon.ts` (the count), a badge on the Tasks tab in `App.tsx`, and a
+`متأخرة` chip in `Tasks.tsx`. Grouping deliberately **unchanged** — folding
+overdue into today is a written decision, and the chip is what separates the
+two without reversing it.
+
+**Accept:** the badge counts open tasks that are overdue or due today, is
+absent at zero, and is visible from Capture ✅ — showed `2` against six real
+rows through a real signed-in session, with completed / later-this-week /
+undated all correctly excluded. Evidence: `docs/00-verification.md` "SB-050".
+
+**Found on the way:** ticking a task off left the badge stale (`2`) beside a
+heading that said `مهمة واحدة` — two readers of the same rows, one uninformed.
+Fixed with `NOTE_CHANGED_EVENT`; re-proved live.
+
+### SB-051 · Notifications that arrive with the app closed · `todo` · M
+
+The half of the owner's request SB-050 deliberately did not cover. A badge only
+works while the app is open; this is the one that reaches a locked phone.
+
+**Acceptance (the whole task, in one line):** a notification arrives on the
+owner's real iPhone with the app fully closed, naming a task that is overdue or
+due today, and tapping it opens that task. Written into
+`docs/00-verification.md` whether it passes or fails. "The subscription row
+was saved" is not this.
+
+#### Do this first, before writing anything else
+
+Two gates, both cheap, both capable of changing the plan:
+
+1. **Fix SB-052.** This feature is a seventh `pg_cron` job calling a
+   service-only Edge Function through Vault — the exact mechanism that has
+   been returning `403` since 2026-08-17. Building on top of it while it is
+   broken means the first failed send is indistinguishable from the existing
+   fault.
+2. **Spike the sender for 30 minutes.** Web Push is not an HTTP POST you can
+   hand-roll quickly: the payload is AES128GCM-encrypted to the subscriber's
+   own key pair and the request carries a VAPID JWT signed with ES256. The
+   open question is *which* library survives Supabase's Deno Edge Runtime —
+   `npm:web-push` pulls Node's `https`/`crypto` through the compat layer,
+   which may or may not hold there. Send **one** real notification to one real
+   device from a throwaway function before designing anything around it. If no
+   library works, the fallback is WebCrypto by hand (`ECDH` + `HKDF` + `AES-GCM`,
+   RFC 8291) — that is a different-sized task and should be re-scoped, not
+   absorbed silently.
+
+#### The five pieces, in build order
+
+**1 · `push_subscriptions` table** — new migration, additive.
+
+```
+id            uuid pk
+user_id       uuid not null references auth.users on delete cascade
+endpoint      text not null                  -- the push service URL
+p256dh        text not null                  -- subscriber public key
+auth          text not null                  -- subscriber auth secret
+user_agent    text                           -- which device this is
+created_at    timestamptz not null default now()
+last_sent_at  timestamptz
+failure_count smallint not null default 0
+disabled_at   timestamptz                    -- set on a 404/410, never deleted silently
+unique (user_id, endpoint)
+```
+
+Ships in the **same change** as its RLS policy, its table-level `GRANT` to
+`authenticated` (insert/select/delete on own rows), and an assertion in
+`verify.sql` — CLAUDE.md's rule, and the `permission denied for table notes`
+bug is why it exists. The unique constraint is what makes re-subscribing on
+every app launch an upsert instead of a slow leak of dead endpoints.
+
+**2 · VAPID keys.** One ES256 pair, generated once.
+
+- Public key → `VITE_VAPID_PUBLIC_KEY`. This is the one `VITE_` variable that
+  is *supposed* to be public — the browser needs it to subscribe. Say so in a
+  comment, or the next reader will file it as a rule-4 violation.
+- Private key → `supabase secrets set VAPID_PRIVATE_KEY=... VAPID_SUBJECT=mailto:…`.
+  Never in the client, never in a migration.
+
+**3 · A real service worker** — `web/src/sw.ts`, and the piece with the most
+hidden cost.
+
+`vite.config.ts` runs `VitePWA` in **`generateSW`** mode today: Workbox writes
+`sw.js` and there is nowhere to put a `push` handler. Push needs
+`strategies: "injectManifest"` with an own-source worker that keeps the
+current precache behaviour (`self.__WB_MANIFEST`, `navigateFallback`) and adds:
+
+```ts
+self.addEventListener("push", …)              // showNotification, Arabic body from the payload
+self.addEventListener("notificationclick", …) // focus an open tab, else open /?task=<id>
+```
+
+Watch for three things: the notification's text must arrive **in the payload**
+(the worker cannot import `i18n/`, and hard-coding Arabic there breaks rule 2 —
+build the string server-side from the enum, or pass the pieces and let the
+worker template them); `registerType: "autoUpdate"` means installed clients
+carry the *old* worker until it updates, so the first deploy proves nothing
+until an installed device has actually rotated; and `npm run verify` must stay
+green — the build shape changes, not just a file.
+
+**4 · `functions/push`** — the sender, service-only.
+
+`requireServiceRole()` at the top, exactly like `sweep` and `digest` (rule 6).
+It runs on a schedule, takes no user input, and picks its own recipients:
+
+- for each user with at least one live subscription, find open tasks
+  (`completed_at is null`, `archived_at is null`) whose
+  `note_enrichments.action_due_at` is overdue or falls today **in that user's
+  own timezone** — `profiles.timezone` already exists (default `Asia/Dubai`),
+  so this is a `at time zone` join, not a new column;
+- send at most one notification per user per run, summarising ("مهمتان
+  متأخرتان") rather than one buzz per task — the product is for someone with
+  ADHD; a burst of five notifications is worse than none;
+- record what was sent so a task cannot re-notify all day. Cheapest honest
+  version: `last_sent_at` on the subscription plus a `notified_on date` marker
+  per (user, note); a table you can query beats a heuristic you have to trust;
+- on `404`/`410` from the push service, set `disabled_at` — that endpoint is
+  gone for good. On other failures, increment `failure_count`.
+
+**5 · The schedule** — one more `pg_cron` job, copying
+`20260807000300_digest_schedule.sql` verbatim in shape: two Vault secrets
+(`push_function_url`, `push_service_role_key`), a live lookup subquery inside
+the job body so the key is never stored in `cron.job`, and a `NOTICE` instead
+of a failure when the secrets are absent. Hourly is enough; the send window is
+the user's morning, and the function decides whether this hour is that hour.
+
+#### Client side, small but easy to get wrong
+
+- Ask for permission **from a real tap**, on the Tasks screen, after the user
+  actually has a due task — never on first load. A denied permission is
+  permanent until the user digs into browser settings, so a badly-timed prompt
+  costs the feature forever.
+- All Arabic strings in `web/src/i18n/ar.ts` (and `en.ts`), including the
+  permission-request copy and the notification title/body templates.
+- Subscribe → upsert to `push_subscriptions` under the user's own JWT (RLS
+  does the scoping; the function never needs to trust the client).
+- A settings affordance to turn it off that actually deletes the row. If the
+  only way to stop the notifications is uninstalling the app, that is what the
+  user will do.
+
+**No CSP change is expected.** The page never talks to the push service — the
+browser does — and `worker-src 'self'` already covers the worker. Confirm it
+rather than assume it: the CSP is built in `vite.config.ts` and a violation
+here would surface as a silent non-subscription.
+
+#### iOS, which is the whole point
+
+The owner's phone is an iPhone, so this only counts on Safari/iOS, where:
+
+- web push exists from **iOS 16.4**, and **only** for a PWA the user has added
+  to the Home Screen. In a Safari tab there is no `pushManager` at all;
+- the permission prompt must come from a user gesture inside that installed
+  PWA;
+- Apple's push service returns the same `410` semantics on unsubscribe, so
+  the `disabled_at` path is not theoretical.
+
+`docs/11-features.md` 4.9 already records the install flow as untested on iOS.
+Testing it stops being optional here — the feature is unreachable without it.
+
+#### Cost of doing it
+
+Nothing per-notification: no vendor, no model call. The real cost is the
+service-worker mode switch (piece 3), which touches how every installed client
+updates itself, and the second `pg_cron`-through-Vault dependency (piece 5),
+which is currently the least reliable mechanism in the project (SB-052).
+
 
 ## Adding a task
 

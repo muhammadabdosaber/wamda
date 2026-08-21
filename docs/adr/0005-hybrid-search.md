@@ -35,10 +35,19 @@ verified — so retrieval does not depend on the AI pipeline having succeeded.
 
 **Cost:**
 - Two arms to tune, and the weights plus the 0.78 threshold are **untuned**.
-  Tuning against three test notes would be meaningless; it needs ~100 real notes.
-- Recall now has a vendor dependency. Today the semantic arm has never run
-  (no Cohere key), so search runs lexical-only with `p_embedding => null`.
-- `relate_note()` has never produced a row.
+  Tuning against three test notes would be meaningless; it needs ~100 real
+  notes. **Update 2026-08-13 (SB-045):** a distance floor of 0.6 was added to
+  the semantic arm after it matched nearly the whole corpus — measured on 6
+  notes and 3 real queries, so it is a grounded placeholder, not a tuned
+  number (SB-048).
+- Recall now has a vendor dependency. **Update 2026-08-13 (SB-005/045):** the
+  semantic arm runs for real — every `ready` note carries a Cohere embedding
+  and hybrid search is live on hosted. The dependency is now load-bearing
+  rather than theoretical: with no Cohere key, `/search` used to throw before
+  the lexical arm ever ran, which is how "search returns nothing, always"
+  reached production.
+- `relate_note()` has still never been confirmed to produce a row — it is
+  called, but nothing reads `note_relations` yet.
 - Embedding cost and latency on every note.
 
 ## Alternatives considered

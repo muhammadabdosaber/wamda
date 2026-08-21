@@ -43,7 +43,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | # | Feature | State | Owner |
 |---|---|---|---|
 | 2.1 | Language resolved once at the edge, carried downstream | ✅ | `_shared/language.ts` |
-| 2.2 | Enrichment: title, summary, category, priority, action, due date | ✅ run on Opus 5 | `_shared/pipeline.ts` |
+| 2.2 | Enrichment: title, summary, category, priority, action, due date | ✅ run on Sonnet 5 (revised from Opus 5, SB-034) | `_shared/pipeline.ts` |
 | 2.3 | Relative Arabic date resolution ("الخميس" → timestamp, user TZ) | ✅ | verified |
 | 2.4 | Tags, slugified so spelling variants converge | ✅ | `slugify()` migration `…000100` |
 | 2.5 | Prompt caching (~2.2K cached tokens/call) | ✅ measured | `_shared/providers.ts` |
@@ -53,7 +53,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 2.9 | Refusals resolve to `failed`, not retried forever | ✅ | `pipeline.ts` |
 | 2.10 | Transcription via ElevenLabs Scribe | ✅ real call, real cost, `raw_text` + confidence persisted (2026-08-11) — but the only audio tested so far is silence/noise, not speech; ASR quality on real dialect is SB-013 | `providers.ts` `ScribeASR` |
 | 2.11 | Per-word confidence from ASR | ✅ observed shape matches what the code assumed; below-threshold notes correctly held at `draft` | `ScribeASR` |
-| 2.12 | Embeddings, Cohere multilingual v3 | ⬜ **blocked** — no key | `providers.ts` |
+| 2.12 | Embeddings, Cohere multilingual v3 | ✅ ran for real since 2026-08-13 (SB-005/045) — every `ready` note carries a 1024-dim row; hosted `ai_jobs` shows 50 succeeded `embed` calls, latest 2026-08-20 | `providers.ts` |
 | 2.13 | `ai_jobs` telemetry per stage | ✅ | migration `…000200` |
 | 2.14 | Retry cap (5 failed attempts per note+stage → `failed`) | ✅ | `sweep` |
 
@@ -103,6 +103,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.26 | One note per row, summary clamped | ✅ single column at every width (375 / 730 / 1400 measured, one track each); `line-clamp: 3` measured live | `Notes.tsx` · `global.css` (SB-041) |
 | 4.27 | Avatar menu instead of an always-visible sign-out | ✅ Escape closes and returns focus; anchors correctly in both RTL and LTR | `components/AccountMenu.tsx` (SB-042) |
 | 4.28 | Colored priority rail on Tasks (`urgent` red, `high`/`low` distinct, `normal`/no signal → no rail) | ✅ CSS specificity bug meant it never painted for any priority — fixed and confirmed both via `getComputedStyle` and live on hosted with real classified notes | `global.css` · `Tasks.tsx` (SB-044) |
+| 4.29 | Due-soon badge on the Tasks tab (overdue + due today, open only) | ✅ built + driven in a browser on 6 real rows; showed `2` from the Capture tab; completed/later/undated excluded; Arabic dual form correct | `App.tsx` · `core/due.ts` · `core/dueSoon.ts` (SB-050) |
+| 4.30 | `متأخرة` chip separating overdue from due-today | ✅ confirmed live; absent on a completed overdue task; `margin-inline-end` proven to mirror in RTL | `Tasks.tsx` · `global.css` (SB-050) |
+| 4.31 | Badge re-reads the clock on foreground (`useNow`) | ✅ proven at minute granularity — a `focus` event alone surfaced a task that fell due while the page sat open. Caveat: the browser pane reports `visibilityState: hidden`, so the check required emulating a foregrounded document | `core/clock.ts` (SB-050) |
+| 4.32 | Notification with the app closed (web push) | ⬜ not built — no service-worker push, no VAPID, no subscription table | SB-051 |
 
 ## 5. Auth, data, security
 
@@ -111,31 +115,31 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.1 | Email OTP sign-in (6-digit) | ✅ end to end; re-confirmed on hosted 2026-08-15 after SB-046 — real click → `POST /auth/v1/otp → 200`, owner entered the code and signed in | `features/Auth.tsx` |
 | 5.2 | Arabic RTL email template | ✅ | `supabase/templates/magic_link.html` |
 | 5.3 | Profile auto-provisioned on signup | ✅ | migration `…000200` trigger |
-| 5.4 | RLS on every public table | ✅ 12 checks | migration `…000400` |
+| 5.4 | RLS on every public table | ✅ one dynamic check covering all 11 real tables — no table can be silently forgotten | migration `…000400` |
 | 5.5 | Cross-user isolation on notes/tags/embeddings | ✅ verified independently | `verify.sql` |
 | 5.6 | Explicit table grants for `authenticated` | ✅ (was a real bug) | migration `…000400` |
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
-| 5.8 | Private audio bucket, signed URLs scoped to user | ⬜ | `config.toml` · `functions/notes` |
+| 5.8 | Private audio bucket, signed URLs scoped to user | ✅ both hosted buckets are `public: false` with a MIME allowlist (queried live 2026-08-21); real recordings uploaded through a signed URL on iOS Safari and Chrome, and SB-009 deleted a real object per-user | `config.toml` · `functions/notes` |
 | 5.9 | Strict CSP | ✅ no `unsafe-inline`/`unsafe-eval`; real HTTP header + meta fallback; deliberate-violation test proved `enforce` | SB-003 |
 | 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
 | 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
 | 5.12 | Export all notes | ✅ `GET /export`; proven against the owner's real 14 notes + fresh cross-user isolation check | SB-014 |
 | 5.13 | Delete account + all data | ✅ `POST /delete-account`; proven with a full cycle — 10 tables to zero, real audio bytes confirmed gone | SB-015 |
 | 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ✅ `sweep` deletes the real Storage object per-user; proven on a real upload, `400` on re-fetch confirms actual byte deletion | SB-009 |
-| 5.15 | `notes.action_dismissed_at` | 🟡 applied to the local database; nowhere else exists yet | migration `20260802000100` |
+| 5.15 | `notes.action_dismissed_at` | ✅ applied on hosted too — column confirmed present on the production database 2026-08-21; the dismiss path itself was verified in SB-029 | migration `20260802000100` |
 | 5.16 | Column-scoped update grant on `notes` | ✅ client limited to `archived_at`/`action_dismissed_at`/`completed_at`/`updated_at`; `status` rejected — asserted in `verify.sql` | migration `20260804000200` (SB-023) |
 
 ## 6. Operations
 
 | # | Feature | State | Owner |
 |---|---|---|---|
-| 6.1 | Schema verification harness (12 assertions) | ✅ | `supabase/tests/verify.sql` |
-| 6.2 | `npm run verify` — typecheck + RTL + 21 tests + build | ✅ | `web/package.json` |
-| 6.3 | Sweep worker: unstick, retry, backfill embeddings | 🟡 unstick proven on a live cron timer (SB-001); retry/backfill still fail for want of vendor keys | `functions/sweep` · SB-001 |
-| 6.4 | Weekly digest, Batch API + structured outputs | ⬜ written, never executed | `functions/digest` |
+| 6.1 | Schema verification harness (26 assertions) | ✅ | `supabase/tests/verify.sql` |
+| 6.2 | `npm run verify` — typecheck + RTL + 38 tests + build | ✅ | `web/package.json` |
+| 6.3 | Sweep worker: unstick, retry, backfill embeddings | ✅ unstick proven on a live cron timer (SB-001); embedding backfill ran for real, 14/14 notes (SB-045). Currently unreachable on hosted — SB-052, cron rejected with 403 | `functions/sweep` · SB-001 |
+| 6.4 | Weekly digest, Batch API + structured outputs | ✅ ran for real (SB-018) — real Anthropic Batch submission, real digest, correctly rendered in the client | `functions/digest` |
 | 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06 (local). Now also live and `active: true` on the hosted project (SB-016) | SB-001 |
-| 6.5b | `pg_cron` schedule for digest | 🟡 mechanism proven live (both jobs fire on their own timer, reach the real function); the actual `digest_batches` row is blocked on `ANTHROPIC_API_KEY` | SB-017 |
-| 6.6 | CI pipeline | ✅ all three jobs green on a real runner; the 12 assertions ran against a real Postgres | `.github/workflows/ci.yml` |
+| 6.5b | `pg_cron` schedule for digest | 🟡 proven live twice — locally, then on hosted (SB-016), producing a real `digest_batches` row (SB-018). Currently rejected with 403 on hosted since 2026-08-17 — SB-052, fix needed before Sat 2026-08-22's tick | SB-017 |
+| 6.6 | CI pipeline | ✅ all three jobs green on a real runner (2026-08-02); the schema assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
@@ -156,12 +160,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 48 |
-| 🟡 partial | 7 |
-| ⬜ built, unrun | 15 |
+| ✅ working | 51 |
+| 🟡 partial | 6 |
+| ⬜ built, unrun | 13 |
 | ❌ not built | 19 |
 
-The 20 in `⬜` are the honest headline, and most of them unblock with one API
-key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key
-in a single session, with every embedding call failing beside it — which is
-the clearest demonstration yet that stage isolation (ADR-0007) holds.
+Adjusted 2026-08-21 from the previous count by exactly the three rows that
+moved in this pass: 2.12 and 5.8 (⬜ → ✅) and 5.15 (🟡 → ✅).

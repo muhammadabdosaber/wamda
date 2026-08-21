@@ -29,17 +29,25 @@ Vendor keys go in `supabase/functions/.env` (gitignored) — see
 ## The loop
 
 1. Take the first unblocked `todo` in `docs/13-tasks.md`.
-2. Branch: `feat/SB-0NN-short-slug`, `fix/…`, or `docs/…`.
+2. Branch: `feat/SB-0NN-short-slug`, `fix/…`, or `docs/…` (agent sessions use
+   `claude/<slug>`; either is fine, never commit to `main` directly).
 3. Build it, then **run it**. Code that only type-checks is not done.
 4. Verify (below), update the docs (below), open a PR.
+
+**`main` is production.** Cloudflare Pages auto-deploys the PWA on every merge,
+against the owner's real notes — there is no staging environment. Migrations
+and Edge Functions do *not* ride along: they need `supabase db push` and
+`supabase functions deploy <names>` as their own step, and a PR that changes
+one should say whether that step has been run.
 
 ## Verify
 
 | Changed | Run |
 |---|---|
-| anything in `web/` | `cd web && npm run verify` |
-| a migration | `supabase db reset` then `verify.sql` |
+| anything in `web/` | `cd web && npm run verify` — typecheck · RTL guard · 38 tests · build |
+| a migration | `supabase db reset` then `verify.sql` — expect 26 assertions, `ALL SCHEMA CHECKS PASSED` |
 | an Edge Function | `deno check supabase/functions/*/index.ts` |
+| `_shared/*.ts` logic | `deno test --allow-env supabase/functions/_shared/*.test.ts` |
 | a new table | all of the above **plus** a new RLS assertion in `verify.sql` |
 
 A new guard is not trusted until it has been made to fail on a deliberate
@@ -104,6 +112,12 @@ written. Failures belong in it as much as passes.
 
 ## Before starting anything large
 
-The user has flagged an **unspecified significant design change**
-(`docs/09-status-handoff.md`). Several recorded decisions are load-bearing and
-would need revisiting if the product shape moves. Ask first.
+Read `docs/09-status-handoff.md` first — it names the decisions that are
+load-bearing and must not be re-litigated (flat notes, local-first capture,
+language as a parameter, PWA over native). The 2026-08-03 redesign has landed
+and shipped; the rule it was ported under was **theme only**, and
+`docs/design/README.md` is still the contract for any UI work.
+
+Anything that touches authorization — RLS, grants, the service-role gate on
+`sweep`/`digest` — gets owner confirmation before it ships. That gate has
+already broken its own legitimate caller once (SB-052).

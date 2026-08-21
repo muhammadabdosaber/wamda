@@ -1,7 +1,7 @@
 # 2. Database Schema
 
 Migrations: `supabase/migrations/`. Verified by `supabase/tests/verify.sql`
-(12 checks, all passing).
+(26 checks, all passing — re-run 2026-08-20 against a clean `db reset`).
 
 ## The rule everything follows from
 

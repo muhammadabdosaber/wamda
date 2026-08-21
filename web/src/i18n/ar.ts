@@ -70,6 +70,10 @@ export const ar = {
   // Shown on a task with no resolved due date, so "لاحقًا" is not misread as a
   // date the app invented.
   tasksNoDate: "بلا موعد",
+  // SB-050. Marks a row whose date has already passed. Overdue and due-today
+  // share one group on purpose (a late task needs doing now, not hiding), so
+  // this chip is the only thing that tells the two apart.
+  tasksOverdue: "متأخرة",
 
   // The single-note detail view: the exact text captured, opened from a note
   // or a task row. This is what keeps a task a VIEW over its note (SB-037).
@@ -188,6 +192,16 @@ export const arPlurals = {
     few: "{n} مهام",
     many: "{n} مهمة",
     other: "{n} مهمة",
+  },
+  // SB-050. The tab badge's accessible name. A screen reader must not be left
+  // with a bare digit next to an icon, which is what the badge is visually.
+  tasksDueSoonCount: {
+    zero: "لا مهام مستحقة",
+    one: "مهمة واحدة متأخرة أو موعدها اليوم",
+    two: "مهمتان متأخرتان أو موعدهما اليوم",
+    few: "{n} مهام متأخرة أو موعدها اليوم",
+    many: "{n} مهمة متأخرة أو موعدها اليوم",
+    other: "{n} مهمة متأخرة أو موعدها اليوم",
   },
   // The result count shown beside the search box, same six-category need as
   // taskCount above.

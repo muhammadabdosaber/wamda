@@ -314,6 +314,33 @@ body {
   transition: background var(--ease), color var(--ease);
 }
 
+/* SB-050. Wraps the glyph so the badge can be positioned against the ICON
+   rather than against the whole tab -- anchoring it to the tab would push it
+   out beside the label, which is a different, wider box on every tab. */
+.tab-icon {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Logical inset, not `right`: in the RTL layout this app ships in, the badge
+   belongs on the other side of the glyph, and `inset-inline-end` is what
+   mirrors with the document direction. `check-rtl.mjs` fails the build on the
+   physical form, and it has caught a real one before. */
+.tab-badge {
+  position: absolute;
+  inset-block-start: -5px;
+  inset-inline-end: -9px;
+  min-inline-size: 16px;
+  padding-inline: 4px;
+  border-radius: 999px;
+  background: var(--danger);
+  color: var(--on-danger);
+  font-size: 0.625rem;
+  font-weight: 700;
+  line-height: 16px;
+  text-align: center;
+}
+
 .tab svg { transition: transform var(--ease); }
 .tab:active svg { transform: scale(0.9); }
 
@@ -651,6 +678,11 @@ body {
 }
 
 .chip.urgent { background: var(--danger-soft); color: var(--danger-ink); }
+
+/* SB-050. An overdue task keeps its date visible and gains the word for it --
+   the tint is the third signal, never the only one. */
+.chip.overdue { background: var(--danger-soft); color: var(--danger-ink); font-weight: 600; }
+.chip-flag { margin-inline-end: 6px; font-weight: 700; }
 
 .linkbtn {
   border: 0;

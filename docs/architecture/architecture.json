@@ -1,9 +1,9 @@
 {
   "meta": {
     "displayName": "Second Brain",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).",
-    "generatedAt": "2026-08-17",
+    "generatedAt": "2026-08-21",
     "techStack": {
       "language": "TypeScript (Deno 2 on the server, React 19 on the client)",
       "framework": "Supabase Edge Functions + PostgREST backend, Vite PWA frontend",
@@ -74,7 +74,7 @@
       "id": "web",
       "name": "web",
       "type": "frontend",
-      "description": "React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled).",
+      "description": "React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled). Pure date/clock logic lives in src/core/ and is unit-tested without a browser (38 tests).",
       "port": 5173,
       "entrypoint": "web/src/main.tsx"
     },
@@ -415,6 +415,24 @@
         "file": "supabase/functions/_shared/pipeline.ts",
         "description": "One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.",
         "exports": ["pipeline stage runners"]
+      },
+      {
+        "name": "due-date logic (client)",
+        "file": "web/src/core/due.ts",
+        "description": "Pure functions bucketing a task's action_due_at into overdue / today / later in the user's own timezone. No React, no network — which is why SB-050's badge is testable at all (15 of the suite's 38 tests).",
+        "exports": ["bucketOf", "isOverdue"]
+      },
+      {
+        "name": "due-soon counter (client)",
+        "file": "web/src/core/dueSoon.ts",
+        "description": "Counts open tasks that are overdue or due today for the Tasks-tab badge; completed, archived, undated and later-than-today notes are excluded.",
+        "exports": ["dueSoonCount"]
+      },
+      {
+        "name": "foreground clock (client)",
+        "file": "web/src/core/clock.ts",
+        "description": "Re-reads the wall clock when the document is foregrounded, so a task that falls due while the app sits open gains its overdue marker without a reload. Proven live at minute granularity.",
+        "exports": ["useNow"]
       }
     ]
   },

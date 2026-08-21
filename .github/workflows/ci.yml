@@ -1,7 +1,8 @@
 # CI — three independent checks, matching what `docs/14-testing.md` describes.
 #
-# NOTE: this workflow has never executed on a real runner. Treat the first run
-# as part of the change, not as a formality.
+# This workflow does run: every push to `main` and every PR since 2026-08-02,
+# green on real runners. `main` is production (Cloudflare Pages auto-deploys
+# the PWA from it), so a red check here is a blocked release, not a chore.
 name: CI
 
 on:
@@ -53,7 +54,7 @@ jobs:
       - run: deno test --allow-env supabase/functions/_shared/http.test.ts
 
   database:
-    name: database — migrations + 12 schema assertions
+    name: database — migrations + 26 schema assertions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +78,7 @@ jobs:
         # container has no reason to exist here -- and one that is never
         # created cannot fail to bind.
         #
-        # Worth removing rather than retrying: it failed BEFORE any of the 12
+        # Worth removing rather than retrying: it failed BEFORE any of the
         # assertions ran, so a red check said nothing about the schema, and
         # "probably the flake" is the habit that lets a real break through.
         #

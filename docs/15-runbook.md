@@ -2,8 +2,8 @@
 
 > Operating the thing: local stack, deploy, secrets, and the failures that have
 > actually happened on this project rather than the ones that theoretically
-> could. Nothing here has run against a hosted project yet — the app has only
-> ever existed locally (SB-016).
+> could. Hosted since 2026-08-09 (SB-016) — `hfjpotjbrrnghuqhxoux` /
+> `wamda-a8k.pages.dev`.
 
 ---
 
@@ -12,8 +12,12 @@
 الملف ده للتشغيل والصيانة. أهم حاجة فيه قسم **"لما حاجة تتعطل"** — الأعطال
 المكتوبة هناك حصلت فعلًا على المشروع ده، مش أعطال متخيّلة.
 
-أخطر مصيدة: **الـEdge Runtime المحلي بيفضل يشغّل كود قديم بعد ما تعدّل الملف**،
-و `docker restart` مش بيحلّها. لازم `supabase stop && supabase start`.
+أخطر مصيدة محلية: **الـEdge Runtime المحلي بيفضل يشغّل كود قديم بعد ما تعدّل
+الملف**، و `docker restart` مش بيحلّها. لازم `supabase stop && supabase start`.
+
+**عطل حالي فعليًا شغال دلوقتي (SB-052):** مهام الـcron على الاستضافة
+(`sweep`/`digest`) بترفض بـ`403` من ١٧ أغسطس. مفيش ضرر لسه، بس ميعاد الـdigest
+الجاي (السبت ٢٢ أغسطس) هياخد نفس الرفض لو محدش صلّحها.
 
 ---
 
@@ -66,40 +70,68 @@ The client gets exactly one credential: the Supabase **anon** key. That is safe
 to ship **only because RLS is correct**. If RLS is ever weakened, the anon key
 stops being safe on the same day.
 
-## Deploy (never executed — SB-016)
+## Deploy (done — SB-016, 2026-08-09)
+
+The PWA half deploys itself: Cloudflare Pages' own GitHub integration
+auto-deploys `dist/` on every merge to `main`, no manual step. What follows is
+the backend half.
 
 ```bash
-supabase link --project-ref <ref>
+supabase link --project-ref hfjpotjbrrnghuqhxoux
 supabase db push                      # migrations
-supabase functions deploy notes transcribe enrich search digest sweep
+supabase functions deploy notes transcribe enrich search digest sweep delete-account export
 supabase secrets set ANTHROPIC_API_KEY=... ELEVENLABS_API_KEY=... COHERE_API_KEY=...
 
-cd web && npm run build               # dist/ → any static host, HTTPS required
+cd web && npm run build               # dist/ → Cloudflare Pages (auto, on push to main)
 ```
 
-Before the first deploy:
+Re-run whichever of these actually changed — `db push` for a new migration,
+`functions deploy <name>` for a changed function. Redeploying everything for a
+one-file change is unnecessary and, per SB-046, `functions deploy` without a
+name list has burned real time before.
 
-- [ ] `ALLOWED_ORIGIN` **set** to the real origin (SB-010 built the
-      enforcement 2026-08-06; the env var itself is still unset everywhere —
-      this checklist item is about actually setting it at deploy time)
-- [ ] CSP headers configured at the host (SB-003 done for the app's own
-      header/meta tag 2026-08-06; the host still needs to add `frame-ancestors`
-      and `report-to`, which cannot live in the `<meta>` fallback)
-- [ ] Rate limits in place (SB-002 done locally 2026-08-06; re-verify against
-      the hosted database, not just this checklist) — deploying a paid
-      pipeline without them is how a bill becomes a story
-- [ ] Auth redirect URLs and the OTP email template pointed at the real domain
-- [ ] `verify.sql` run against the hosted database, not just the local one
+Confirmed live at first deploy (still worth re-checking after any change to
+the area it covers):
 
-## Scheduled work — currently none
+- [x] `ALLOWED_ORIGIN` **set** to the real origin (SB-010) — a foreign preflight
+      Origin gets `403` on the real deploy, not just locally
+- [x] CSP headers at the host — `frame-ancestors 'none'` confirmed by a real
+      `curl -sI https://wamda-a8k.pages.dev/` (`web/public/_headers`,
+      Cloudflare's own edge, not the `<meta>` fallback). `report-to` is still
+      genuinely absent — no collector exists (`docs/08-security.md`)
+- [x] Rate limits in place (SB-002) — proven locally; re-verify against the
+      hosted database specifically before relying on it under real traffic
+- [x] Auth redirect URLs and the OTP email template point at the real domain —
+      required Resend as custom SMTP (the hosted free tier rejects a custom
+      template on the default provider); see SB-016's entry in
+      `docs/13-tasks.md`
+- [ ] `verify.sql` run against the **hosted** database specifically, not just
+      local — not yet done as its own step
 
-**Nothing is scheduled.** No `pg_cron` job exists in any migration. Both the
-sweep worker and the weekly digest are written, and both only ever run when
-someone invokes them by hand (SB-001, SB-017).
+## Scheduled work — live on hosted, currently broken (SB-052)
 
-The shape when it gets built: `pg_cron` calls the deployed function URL through
-`pg_net.http_post`, with the service role key read from **Vault**. The key is
-never literal in a migration — a migration is a committed file.
+Four `pg_cron` jobs exist and were `active: true` as of the SB-016 deploy:
+`sweep-worker` (`*/5 * * * *`), `digest-enqueue`/`digest-collect`
+(`0 3 * * 6`, weekly), and the `ai_jobs` retention purge (daily). Each calls
+its deployed function URL through `pg_net.http_post`, with the service role
+key read from **Vault** — never a literal in a migration, since a migration is
+a committed file.
+
+**Currently rejected with `403` since 2026-08-17, re-confirmed 2026-08-21 —
+see SB-052.** `cron.job_run_details` still shows `succeeded` for every tick
+(that layer only confirms pg_net queued the HTTP call), so the failure is
+invisible unless `net._http_response` is read directly:
+
+```bash
+supabase db query --linked   "select status_code, left(content,80), created from net._http_response
+   order by created desc limit 8;"
+```
+
+`403 {"error":{"code":"forbidden"}}` on every row means the Vault-stored
+service-role key has drifted from the project's real one — the fix is the
+owner re-running `vault.create_secret`/`update` with the current key, not a
+code change. See SB-052 in `docs/13-tasks.md` for the full trace and the
+digest deadline (2026-08-22).
 
 ## When something breaks
 
@@ -174,7 +206,10 @@ where status in ('transcribing','enriching','queued')
 select * from ai_jobs where note_id = '<id>' order by created_at desc;
 ```
 
-The `sweep` function is the fix, and it currently needs a manual invocation.
+The `sweep` function is the fix. It is scheduled `*/5` on hosted, but that
+schedule is currently rejected with `403` (SB-052), so until the owner re-sets
+the Vault secret the only working invocation is a manual one with the service
+role key.
 Retries are capped at 5 failed attempts per (note, stage), after which the note
 is marked `failed` rather than retried forever.
 
@@ -205,10 +240,10 @@ feeds the sweep.
 
 | Stage | Vendor | Measured |
 |---|---|---|
-| Enrichment | Anthropic Opus 5 | **$0.008–0.011 / note** (design estimated $0.015) |
-| Transcription | ElevenLabs Scribe | never run |
-| Embeddings | Cohere multilingual v3 | never run |
-| Digest | Anthropic Batch API | never run |
+| Enrichment | Anthropic Opus 5 → Sonnet 5 (SB-034) | **$0.0094/call cache hit, $0.0220/call cache miss** ($0.018827 average over 11 real notes, `docs/10-product-spec.md`) |
+| Transcription | ElevenLabs Scribe | Ran for real (SB-007, confidence 0.925 on a real spoken sentence) — per-call cost not separately measured |
+| Embeddings | Cohere multilingual v3 | Ran for real, 14/14 `ready` notes embedded (SB-045) — per-call cost not separately measured |
+| Digest | Anthropic Batch API | Ran for real, produced a real digest (SB-018) — cost not separately measured |
 
 The one number that can move fast is enrichment, and the guard against it is
 per-user rate limiting: 60 calls / 15 minutes per user per stage, on `/enrich`

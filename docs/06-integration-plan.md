@@ -5,18 +5,19 @@
 | Phase | Work | State |
 |---|---|---|
 | 0 | Schema, RLS, migrations, verification harness | **done, verified** |
-| 0 | Edge Functions, all five | **done, type-checked** |
+| 0 | Edge Functions, all eight | **done, type-checked** |
 | 0 | React PWA: i18n, RTL, offline outbox, PWA shell | **done, verified in a browser** |
 | 1 | Auth (email OTP) + capture against a running Supabase | **done, verified end to end** |
-| 2 | Enrichment with live API keys | next — the only thing blocking a `ready` note |
-| 3 | Voice path on a real phone | next |
-| 4 | Hybrid search tuning on a real corpus | later |
-| 5 | Weekly digest via cron + Batch | later |
-| 6 | Rate limits, CSP, export/delete | later |
-| 7 | **English** | later, no schema change |
+| 2 | Enrichment + embeddings with live API keys | **done** — real Sonnet 5 output, semantic search live (SB-005) |
+| 3 | Voice path on a real phone | **done on iOS** — real transcription end to end on hosted (SB-007); Android untested |
+| 4 | Hybrid search tuning on a real corpus | later — needs ~100 notes |
+| 5 | Weekly digest via cron + Batch | **done, run for real** (SB-017/018) — currently blocked by SB-052's hosted cron regression, not by anything in this phase |
+| 6 | Rate limits, CSP, export/delete, hosted deploy | **done** (SB-002/003/010/014/015/016) |
+| 7 | **English** | later — gated on SB-006 (cross-lingual test), not on a key |
 
-Phase 0 is complete on both sides. What has *not* happened is the two halves
-talking to each other — see `docs/00-verification.md`.
+Phase 0 is complete on both sides, and so is everything through phase 6. The
+one live issue is operational, not a missing phase — see SB-052 in
+`docs/13-tasks.md` and `docs/00-verification.md`.
 
 ## Getting it running
 
@@ -62,12 +63,11 @@ npm run dev
 ```
 
 `npm run verify` is the single command CI should run. It currently passes:
-typecheck clean, 21 tests, RTL guard clean, production build 124 KB gzipped.
+typecheck clean, 38 tests, RTL guard clean, production build.
 
-**The Arabic font is not bundled.** `global.css` names IBM Plex Sans Arabic and
-Noto Sans Arabic first, but neither is committed, so rendering falls back to a
-system face. Drop the woff2 files into `web/public/fonts/` and add an
-`@font-face` block, or accept the fallback.
+**The Arabic font is bundled (SB-011).** Public Sans (Latin) paired with
+self-hosted Noto Sans Arabic, split by `unicode-range`, no CDN `<link>` — this
+line used to flag a gap that no longer exists.
 
 ## Phase order, and why
 
@@ -118,9 +118,11 @@ phase 2. A permanent warning means something volatile entered the system prompt
 and every note is paying full price.
 
 **Batch API + structured outputs.** The digest path requests JSON by prompt
-rather than by schema, because that combination is unverified here. It falls
-back to keeping the prose rather than dropping a week's review on a parse
-failure. Worth testing before relying on it.
+rather than by schema. Run for real (SB-018): the model wraps its JSON in a
+code fence, which broke the naive parse on the first real Batch response —
+found and fixed, not a hypothetical. The fallback (keep the prose rather than
+drop a week's review on a parse failure) has not itself been exercised, since
+the parse now succeeds.
 
 ## Phase 7 — English
 
