@@ -36,6 +36,10 @@ export function PushToggle({ t }: { t: Translator }) {
   // from "off" to "on" on every visit reads as a bug.
   if (state === null) return null;
 
+  // No VAPID key in this build. Nothing the user can do about it, and no
+  // sentence that would be honest -- so, nothing.
+  if (state === "unconfigured") return null;
+
   if (state === "unsupported") {
     // Worth saying on iOS Safari, where the API is simply absent in a tab.
     // Silence there looks like a broken app rather than a missing step.

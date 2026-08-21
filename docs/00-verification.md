@@ -2422,6 +2422,33 @@ source file rather than one Workbox writes. Confirmed rather than assumed:
 - `dist/index.html` still references `registerSW.js`, so installed clients
   keep updating the way they did
 
+### The new worker was driven in a real browser
+
+The `generateSW` → `injectManifest` switch is the change that could break
+something already working, so it was checked live rather than reasoned about:
+`vite preview` on the built `dist/`, driven in a browser.
+
+| Checked | Result |
+|---|---|
+| Registration | one registration, `sw.js`, **`state: activated`**, scope `/` |
+| Control | `navigator.serviceWorker.controller` is `sw.js` — the page is being served by it |
+| Precache | `workbox-precache-v2` holds **8 entries**: `index.html`, the JS and CSS bundles, both self-hosted fonts, `icon.svg`, `manifest.webmanifest`, `registerSW.js` — the same shell `generateSW` cached before |
+| Console | no errors |
+
+The `push` handler itself could not be exercised this way: a `push` event
+cannot be synthesized from the page, only delivered by a real push service.
+That remains the untested edge, and it is the one the acceptance line is
+about.
+
+**One bug found by this check, before it shipped.** With no
+`VITE_VAPID_PUBLIC_KEY` in the build, `pushSupported()` folded "this build has
+no key" into "this browser has no push API", so every visitor would have been
+shown the iOS hint — «أضف التطبيق إلى الشاشة الرئيسية أولاً» — a confident,
+specific and entirely wrong explanation. Split into `pushConfigured()`, and
+the unconfigured case now renders **nothing**. This is SB-046's lesson
+applied before rather than after: an unset `VITE_` variable must not produce
+a plausible-looking wrong answer.
+
 ### Where this ran, and what that excludes
 
 No local Supabase stack was available this session: Docker Desktop is not

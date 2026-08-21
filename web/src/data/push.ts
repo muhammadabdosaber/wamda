@@ -15,6 +15,8 @@ import { isConfigured, supabase } from "./api";
 const vapidPublicKey = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 export type PushState =
+  /** No VAPID key in this build, or no Supabase config. An operator's problem, not the user's -- the UI says nothing at all. */
+  | "unconfigured"
   /** No push API at all. On iOS this is what a Safari TAB reports -- the app must be installed to the Home Screen first. */
   | "unsupported"
   /** The user said no. No second prompt is possible; only browser settings can undo it. */
@@ -24,19 +26,33 @@ export type PushState =
   /** Supported, not yet subscribed. */
   | "off";
 
+/**
+ * Whether the BUILD can do push at all -- deliberately separate from whether
+ * the browser can.
+ *
+ * Without this split, a deploy that simply has no `VITE_VAPID_PUBLIC_KEY` set
+ * shows every visitor the iOS "add it to your Home Screen" hint, which is a
+ * confident, specific, and completely wrong explanation. That failure mode is
+ * this project's own history (SB-046: production ran for a day with empty
+ * VITE_ variables and looked normal), so the unconfigured case renders
+ * nothing instead of guessing.
+ */
+export function pushConfigured(): boolean {
+  return Boolean(vapidPublicKey) && isConfigured;
+}
+
 export function pushSupported(): boolean {
   return (
     typeof navigator !== "undefined" &&
     "serviceWorker" in navigator &&
     typeof window !== "undefined" &&
     "PushManager" in window &&
-    "Notification" in window &&
-    Boolean(vapidPublicKey) &&
-    isConfigured
+    "Notification" in window
   );
 }
 
 export async function pushState(): Promise<PushState> {
+  if (!pushConfigured()) return "unconfigured";
   if (!pushSupported()) return "unsupported";
   if (Notification.permission === "denied") return "blocked";
   const registration = await navigator.serviceWorker.getRegistration();
@@ -87,6 +103,7 @@ function keysOf(subscription: PushSubscription): { p256dh: string; auth: string 
  * the table from collecting one dead row per app launch.
  */
 export async function enablePush(): Promise<PushState> {
+  if (!pushConfigured()) return "unconfigured";
   if (!pushSupported()) return "unsupported";
 
   const permission = await Notification.requestPermission();
@@ -129,6 +146,7 @@ export async function enablePush(): Promise<PushState> {
  * stale sender could still reach the device.
  */
 export async function disablePush(): Promise<PushState> {
+  if (!pushConfigured()) return "unconfigured";
   if (!pushSupported()) return "unsupported";
 
   const registration = await navigator.serviceWorker.getRegistration();
