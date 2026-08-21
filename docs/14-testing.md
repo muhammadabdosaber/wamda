@@ -33,7 +33,7 @@ Plus the layer no tool covers: **live verification**, recorded by hand in
 
 ### `verify.sql` — the one that matters most
 
-26 assertions against a real Postgres, not a mock (grew from 12 as the schema did — rate limiting, retention, cost tracking, the scoped grant). It exists because the two
+31 assertions against a real Postgres, not a mock (grew from 12 as the schema did — rate limiting, retention, cost tracking, the scoped grant, and SB-051's push tables). It exists because the two
 highest-consequence properties of this system are database properties:
 
 - **Cross-user isolation.** User B authenticates, queries user A's note id
@@ -62,7 +62,7 @@ said so.
 What it does **not** do: prove anything ran. `ScribeASR.transcribe` type-checks
 perfectly and has never seen a real response.
 
-### `deno test` — new with SB-010
+### `deno test` — 14 tests, new with SB-010
 
 Added when `_shared/http.ts` grew its first piece of logic that is a pure
 function of a `Request` and an env var — no Postgres, no vendor, nothing that
@@ -74,6 +74,15 @@ is the first thing here: 5 cases, including a deliberately-missing `Origin`.
 the old, unguarded `preflight()` was swapped back in and 3 of 5 tests failed
 correctly before the fix was restored — not run once and trusted.
 
+**SB-051 added the five that carry the most weight.** `_shared/webpush.ts`
+implements RFC 8291 by hand, so it is asserted against that RFC's own
+published worked example — same keys, same salt, the exact body bytes the spec
+prints. That is interop evidence against the specification rather than a round
+trip against the implementation's own assumptions, which is the difference
+between "my encryption decrypts what my encryption encrypted" and "a push
+service will accept this". What it still cannot prove is delivery; only a real
+device does that.
+
 No test-framework import: `assert` helpers are ~5 lines written by hand in
 the test file, so `deno test` never needs network access to fetch a package.
 This is not (yet) a general pattern for every function — `enrich`/
@@ -82,12 +91,16 @@ exactly the class of thing this project already refuses to mock (see the
 "Vendor API calls" row below). Add a `*.test.ts` here only where the logic
 genuinely does not need either.
 
-### `vitest` — 38 tests
+### `vitest` — 46 tests
 
 Covers `i18n` (including all four Arabic plural categories), language
-resolution, and due-date bucketing/counting (`core/due.ts`, SB-050 — the rule
+resolution, due-date bucketing/counting (`core/due.ts`, SB-050 — the rule
 behind the Tasks screen's grouping and the tab badge, kept as pure functions
-specifically so it is unit-testable at all). Deliberately narrow otherwise: it
+specifically so it is unit-testable at all), and notification text
+(`core/pushMessage.ts`, SB-051 — which exists as its own module precisely
+because a service worker cannot be unit-tested: no DOM, no module graph a
+runner will load, and the only way to exercise it is to install it in a
+browser). Deliberately narrow otherwise: it
 does not test React rendering, because the rendering properties that matter
 here (direction, logical property mirroring) are *computed-style* properties
 that jsdom does not model faithfully. Those are verified in a real browser

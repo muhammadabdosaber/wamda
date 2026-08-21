@@ -10,6 +10,64 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — web push: the reminder that reaches a closed app (SB-051)
+
+SB-050 put a count on the Tasks tab; it only works while the app is open,
+which is precisely when nobody needs reminding. This is the other half: one
+summary notification per day — **at 08:00 in the user's own timezone**, read
+from `profiles.timezone`, not at a fixed UTC hour — saying how many open tasks
+are overdue or due today. One notification, not one per task: a burst of five
+buzzes is noise, and noise is what this product exists to remove.
+
+**The encryption is proven against the RFC, not against itself.** Web push
+payloads are AES128GCM-encrypted to the device's own key pair (RFC 8291) under
+an ES256-signed VAPID JWT (RFC 8292). The plan called for spiking
+`npm:web-push` first; that was impossible here (no Docker, no Deno on the
+build machine), and a dependency whose Node-compat failure would only surface
+on hosted is the worst kind in a project that just spent five days with a
+silently broken cron. So `_shared/webpush.ts` implements both RFCs on
+WebCrypto — and RFC 8291 section 5 publishes a complete worked example, which
+the test reproduces **byte for byte**, on two runtimes (Node locally, Deno in
+CI). A wrong info string, the two public keys in the wrong order, or a `0x01`
+record delimiter would all fail it.
+
+**Two new tables, both with RLS, grants and assertions in the same change.**
+`push_subscriptions` (one per device, column-scoped update grant so a client
+may rotate its own keys but not clear the sender's `disabled_at`) and
+`push_deliveries` (one per user per local day — how "once a day" survives an
+hourly schedule, a retry and a redeploy). `verify.sql` is now **31
+assertions**, up from 26; the new ones proved on a real Postgres in CI that a
+completed, an archived, a due-in-five-days and another user's task are all
+correctly excluded, and that `push_due_candidates()` is unreachable from the
+client.
+
+**The cost this task actually paid** was the service worker.
+`vite-plugin-pwa` moved from `generateSW` to `injectManifest`, because a
+worker Workbox writes for you has nowhere to put a `push` listener. The
+worker is now `web/src/sw.ts` — and it carries **no display text of its own**:
+it imports the app's i18n catalogue, which the built `dist/sw.js` was
+confirmed to contain. That is rule 2 surviving a place it could easily have
+been broken, since a queued push message with Arabic baked in would arrive
+hours after the wording changed.
+
+Also: a `PushToggle` on the Tasks screen that asks for permission from a real
+tap (a denied prompt is permanent, so it is never asked on load) and, when
+switched off, **deletes** the row rather than flagging it — if the only way to
+stop notifications were uninstalling the app, that is what a user would do.
+
+**Not done, and the task stays open until it is:** no notification has reached
+a real device. That needs a VAPID pair the owner mints himself
+(`docs/15-runbook.md`), `supabase functions deploy push`, the two Vault
+secrets for the new hourly cron job — and SB-052 fixed first, since that
+schedule reads its key the same way the currently-broken ones do. iOS gives a
+web app push only once it is on the Home Screen, so the acceptance line names
+the device on purpose.
+
+Ran: `npm run verify` (typecheck across two projects now — the worker needs
+WebWorker lib types — RTL guard, **46 tests**, injectManifest build), 14 Deno
+tests, 31 schema assertions. All green in CI.
+
+
 ### Docs — the root files brought current, and CLAUDE.md rewritten around production
 
 **Live on hosted since 2026-08-21 19:54 UTC.** This merge also shipped SB-050

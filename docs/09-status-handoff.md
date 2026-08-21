@@ -4,7 +4,7 @@
 > project actually stands, what is blocking it, and what must not be
 > re-litigated. Detail lives in the other docs; this is the map.
 >
-> Last brought current: 2026-08-21.
+> Last brought current: 2026-08-22.
 
 ---
 
@@ -30,9 +30,9 @@ Sonnet 5)، البحث الدلالي (Cohere)، التسجيل الصوتي (El
 
 | Layer | State |
 |---|---|
-| Schema, RLS, RPCs | **Done, verified** — 14+ checks against live Postgres |
-| Edge Functions (8) | **Done, type-checked, deployed to hosted** |
-| React PWA client | **Done, verified in a browser** — 38 tests, RTL guard, build |
+| Schema, RLS, RPCs | **Done, verified** — 31 assertions against live Postgres, green in CI |
+| Edge Functions (9) | **Done, type-checked, deployed to hosted** — except `push`, built 2026-08-22 and not yet deployed (SB-051) |
+| React PWA client | **Done, verified in a browser** — 46 tests, RTL guard, build |
 | Auth (email OTP) | **Done, verified end to end**, hosted via custom SMTP |
 | AI enrichment | **Done, run for real** — Claude Sonnet 5 (revised from Opus 5, SB-034) |
 | Prompt caching | **Measured**, not estimated — $0.0094/call hit vs $0.0220/call miss |
@@ -82,6 +82,15 @@ fresh `git worktree` reports one as missing, that is almost certainly the
 worktree's own `supabase/functions/.env` being absent (gitignored by design --
 see "A new `git worktree` has no vendor keys" below), not the key having been
 lost.
+
+**SB-051 (web push) is built as of 2026-08-22, and deliberately not closed.**
+The encryption is asserted against RFC 8291's own worked example byte for
+byte, the schema half is proven on a real Postgres, and the client half
+builds — but no notification has reached a device, which is the acceptance
+line. It needs the owner: mint a VAPID pair, deploy `functions/push`, set two
+more Vault secrets (after SB-052, which breaks that exact mechanism), and
+install the PWA on the iPhone. Steps are listed in `docs/13-tasks.md`
+"SB-051".
 
 **What genuinely remains, smaller than SB-052:**
 

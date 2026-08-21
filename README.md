@@ -34,8 +34,8 @@ docs/           design + planning docs — start with 09-status-handoff.md
 supabase/
   migrations/   schema, RLS, RPCs
   functions/    notes · transcribe · enrich · search · digest · sweep ·
-                export · delete-account
-  tests/        verify.sql — 26 assertions against a live database
+                export · delete-account · push
+  tests/        verify.sql — 31 assertions against a live database
 web/            React PWA client
 ```
 
@@ -62,7 +62,7 @@ Client:
 cd web
 npm install
 cp .env.example .env.local   # paste the anon key from `supabase status`
-npm run verify               # typecheck + RTL guard + 38 tests + build
+npm run verify               # typecheck + RTL guard + 46 tests + build
 npm run dev
 ```
 
@@ -77,8 +77,8 @@ manually.
 ElevenLabs transcription → Claude enrichment → Cohere embeddings →
 hybrid search, all against real Arabic notes through a real signed-in
 session. The weekly review has produced a real digest from a real Anthropic
-Batch call. 38 client tests, 26 schema assertions, 9 Deno tests, RTL guard,
-production build 133 KB gzipped — all green on CI runners.
+Batch call. 46 client tests, 31 schema assertions, 14 Deno tests, RTL guard,
+production build 134 KB gzipped — all green on CI runners.
 
 **Known gaps, stated plainly:**
 
@@ -88,7 +88,7 @@ production build 133 KB gzipped — all green on CI runners.
 | **SB-006** — cross-lingual retrieval never tested as its own experiment | the load-bearing assumption behind phase-2 English |
 | Android voice capture | untested in either direction (iOS is proven) |
 | Safari / Firefox | untested; only Chromium |
-| **SB-051** — notifications with the app closed | not built |
+| **SB-051** — notifications with the app closed | built and verified up to the wire; never delivered to a real device yet |
 
 `docs/00-verification.md` is the full ledger. Read it before trusting any
 claim here — including these.

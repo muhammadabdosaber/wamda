@@ -1097,9 +1097,9 @@
         </div>
         <div class="sidebar-badges" style="margin-top:0; display: flex; align-items: center; gap: 8px;">
             <button class="btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
-            <span class="badge">v1.1.0</span>
+            <span class="badge">v1.2.0</span>
             <span class="badge">TypeScript (Deno 2 on the server, React 19 on the client)</span>
-            <span class="badge badge-green">Generated 2026-08-21</span>
+            <span class="badge badge-green">Generated 2026-08-22</span>
         </div>
     </div>
 </header>
@@ -1120,7 +1120,7 @@
             </button>
             <button class="nav-btn" onclick="showTab('modules', this)">
                 <div class="nav-btn-left"><span>&#128230;</span> <span>API Modules</span></div>
-                <span class="nav-count">8</span>
+                <span class="nav-count">9</span>
             </button>
             <button class="nav-btn" onclick="showTab('sysarch', this)">
                 <div class="nav-btn-left"><span>&#127963;</span> <span>System Architecture</span></div>
@@ -1160,8 +1160,8 @@
     <!-- 1. OVERVIEW -->
     <div class="section active" id="sec-overview">
         <div class="stats">
-            <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">API Modules</div></div>
-            <div class="stat"><div class="stat-num">10</div><div class="stat-lbl">Total Endpoints</div></div>
+            <div class="stat"><div class="stat-num">9</div><div class="stat-lbl">API Modules</div></div>
+            <div class="stat"><div class="stat-num">11</div><div class="stat-lbl">Total Endpoints</div></div>
             <div class="stat"><div class="stat-num">7</div><div class="stat-lbl">Docker Services</div></div>
             <div class="stat"><div class="stat-num">0</div><div class="stat-lbl">Permissions</div></div>
             <div class="stat"><div class="stat-num">8</div><div class="stat-lbl">SQL Queries</div></div>
@@ -1524,6 +1524,29 @@
 
             </div>
 
+            <div class="card mod-card">
+                <div class="color-bar" style="background: #0ea5e9"></div>
+                <div class="chead">
+                    <span style="font-size:22px">🔔</span>
+                    <div>
+                        <div class="card-title">push</div>
+                        <div class="card-sub" style="font-family: var(--font-code);">/functions/v1/push</div>
+                    </div>
+                </div>
+                <div class="card-desc">Not client-facing. Invoked by the push-due-tasks pg_cron job (5 * * * *) via pg_net with Vault-stored URL/service-role secrets. Sends one web push summary per user per LOCAL day — at 08:00 in that user&#x27;s own timezone — counting open tasks overdue or due today. Encrypts payloads with RFC 8291 aes128gcm under an RFC 8292 VAPID JWT, implemented on WebCrypto in _shared/webpush.ts and asserted against the RFC&#x27;s own worked example. Built 2026-08-22 (SB-051); not yet deployed.</div>
+                
+                
+                <div class="endpoint clickable-ep" data-method="POST" data-path="/functions/v1/push" onclick="openApiPromptFromEl(this)" title="Click to view AI Senior Developer prompt">
+                    <span class="method POST">POST</span>
+                    <div style="flex:1">
+                        <div class="ep-path">/<span class="lock">🔑</span></div>
+                        <div class="ep-desc">Service-role only (requireServiceRole). Body {force?: boolean} skips the 08:00-local window and the once-a-day push_deliveries mark, for proving delivery on a real device. Recipients come from push_due_candidates(); a 404/410 from the push service disables that subscription rather than retrying it.</div>
+                    </div>
+                    <button class="btn-prompt-copy" onclick="event.stopPropagation(); copyApiPromptDirectFromEl(this.parentElement)" title="Copy AI Prompt">📋 Prompt</button>
+                </div>
+
+            </div>
+
         </div>
     </div>
 
@@ -1653,7 +1676,7 @@ flowchart TD
                 <span style="font-size:28px">&#9889;</span>
                 <div>
                     <div class="card-title">Swagger & OpenAPI 3.0 API Specification & Explorer</div>
-                    <div class="card-sub">Interactive REST API documentation generated from architecture manifest (10 Endpoints)</div>
+                    <div class="card-sub">Interactive REST API documentation generated from architecture manifest (11 Endpoints)</div>
                 </div>
                 <span class="badge badge-green" style="margin-left:auto; font-size: 12px; padding: 6px 12px;">STATUS: VERIFIED PARITY (9/9 DOCUMENTED ENDPOINTS, DOCS/03-API.MD)</span>
             </div>
@@ -1681,7 +1704,7 @@ flowchart TD
         <!-- View Mode Selector -->
         <div style="display: flex; gap: 8px; margin-bottom: 16px;">
             <button class="sub-tab-btn active" onclick="switchSwaggerView('ui', this)">&#9889; Interactive Swagger UI</button>
-            <button class="sub-tab-btn" onclick="switchSwaggerView('catalog', this)">&#128216; API Endpoint Catalog & cURL (10)</button>
+            <button class="sub-tab-btn" onclick="switchSwaggerView('catalog', this)">&#128216; API Endpoint Catalog & cURL (11)</button>
             <button class="sub-tab-btn" onclick="switchSwaggerView('json', this)">&#128220; OpenAPI 3.0 JSON Spec</button>
         </div>
 
@@ -1941,6 +1964,33 @@ flowchart TD
                 </div>
             </div>
 
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="chead" style="margin-bottom: 12px;">
+                    <span style="font-size: 22px;">🔔</span>
+                    <div>
+                        <div class="card-title">push API Module</div>
+                        <div class="card-sub">Base Path: <code>/functions/v1/push</code> | 1 Endpoints</div>
+                    </div>
+                </div>
+
+                <div class="grid1" style="gap: 12px;">
+
+                    <div style="background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px;">
+                        <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                            <span class="tag tb" style="font-weight: 700; font-size: 11px;">POST</span>
+                            <span style="font-family: var(--font-code); font-weight: 600; font-size: 13px; color: var(--text);">/functions/v1/push</span>
+                            <span class="tag tg" style="font-size:10px; margin-left:auto;">&#128274; Authenticated</span>
+                        </div>
+                        <div style="font-size: 12px; color: var(--muted); margin-top: 6px;">Service-role only (requireServiceRole). Body {force?: boolean} skips the 08:00-local window and the once-a-day push_deliveries mark, for proving delivery on a real device. Recipients come from push_due_candidates(); a 404/410 from the push service disables that subscription rather than retrying it.</div>
+                        <div style="margin-top: 8px;">
+                            <div style="font-size: 10px; color: var(--muted); margin-bottom: 2px;">cURL Snippet:</div>
+                            <code style="display: block; font-size: 11px; color: var(--accent); background: var(--bg); padding: 6px 10px; border-radius: 4px; overflow-x: auto;">curl -X POST &quot;http://127.0.0.1:54421/functions/v1/push&quot; -H &quot;Authorization: Bearer $JWT_TOKEN&quot; -H &quot;Content-Type: application/json&quot; -d &#x27;{&quot;key&quot;:&quot;value&quot;}&#x27;</code>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
         </div>
 
         <!-- Pane 3: Raw OpenAPI 3.0 JSON Spec -->
@@ -1954,7 +2004,7 @@ flowchart TD
   &quot;openapi&quot;: &quot;3.0.0&quot;,
   &quot;info&quot;: {
     &quot;title&quot;: &quot;Second Brain&quot;,
-    &quot;version&quot;: &quot;1.1.0&quot;,
+    &quot;version&quot;: &quot;1.2.0&quot;,
     &quot;description&quot;: &quot;Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).&quot;
   },
   &quot;servers&quot;: [
@@ -1999,6 +2049,10 @@ flowchart TD
     {
       &quot;name&quot;: &quot;sweep&quot;,
       &quot;description&quot;: &quot;Not client-facing. Invoked by the sweep-worker pg_cron job (*/5 * * * *) via pg_net, using Vault-stored URL/service-role secrets. Unsticks notes stranded in transcribing/enriching, retries stale queued notes (capped at 5 attempts via ai_jobs before marking failed), backfills missing embeddings, and deletes expired audio from Storage.&quot;
+    },
+    {
+      &quot;name&quot;: &quot;push&quot;,
+      &quot;description&quot;: &quot;Not client-facing. Invoked by the push-due-tasks pg_cron job (5 * * * *) via pg_net with Vault-stored URL/service-role secrets. Sends one web push summary per user per LOCAL day \u2014 at 08:00 in that user&#x27;s own timezone \u2014 counting open tasks overdue or due today. Encrypts payloads with RFC 8291 aes128gcm under an RFC 8292 VAPID JWT, implemented on WebCrypto in _shared/webpush.ts and asserted against the RFC&#x27;s own worked example. Built 2026-08-22 (SB-051); not yet deployed.&quot;
     }
   ],
   &quot;paths&quot;: {
@@ -2533,6 +2587,62 @@ flowchart TD
           }
         }
       }
+    },
+    &quot;/functions/v1/push&quot;: {
+      &quot;post&quot;: {
+        &quot;tags&quot;: [
+          &quot;push&quot;
+        ],
+        &quot;summary&quot;: &quot;Service-role only (requireServiceRole). Body {force?: boolean} skips the 08:00-local window and the once-a-day push_deliveries mark, for proving delivery on a real device. Recipients come from push_due_candidates(); a 404/410 from the push service disables that subscription rather than retrying it.&quot;,
+        &quot;description&quot;: &quot;Service-role only (requireServiceRole). Body {force?: boolean} skips the 08:00-local window and the once-a-day push_deliveries mark, for proving delivery on a real device. Recipients come from push_due_candidates(); a 404/410 from the push service disables that subscription rather than retrying it. | Public / Authenticated Route&quot;,
+        &quot;parameters&quot;: [],
+        &quot;responses&quot;: {
+          &quot;200&quot;: {
+            &quot;description&quot;: &quot;Successful Request&quot;,
+            &quot;content&quot;: {
+              &quot;application/json&quot;: {
+                &quot;example&quot;: {
+                  &quot;success&quot;: true,
+                  &quot;data&quot;: {}
+                }
+              }
+            }
+          },
+          &quot;400&quot;: {
+            &quot;description&quot;: &quot;Invalid payload parameters&quot;
+          },
+          &quot;401&quot;: {
+            &quot;description&quot;: &quot;Missing or expired JWT Bearer token&quot;
+          },
+          &quot;403&quot;: {
+            &quot;description&quot;: &quot;Forbidden - Insufficient permissions&quot;
+          },
+          &quot;422&quot;: {
+            &quot;description&quot;: &quot;Validation error&quot;
+          },
+          &quot;500&quot;: {
+            &quot;description&quot;: &quot;Internal server error&quot;
+          }
+        },
+        &quot;security&quot;: [
+          {
+            &quot;bearerAuth&quot;: []
+          }
+        ],
+        &quot;requestBody&quot;: {
+          &quot;required&quot;: true,
+          &quot;content&quot;: {
+            &quot;application/json&quot;: {
+              &quot;schema&quot;: {
+                &quot;type&quot;: &quot;object&quot;,
+                &quot;example&quot;: {
+                  &quot;exampleField&quot;: &quot;exampleValue&quot;
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   &quot;components&quot;: {
@@ -2922,6 +3032,13 @@ order by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),10
                 <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/pipeline.ts</div>
                 <div class="card-desc">One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.</div>
                 <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">pipeline stage runners</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">web push crypto</div>
+                <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/webpush.ts</div>
+                <div class="card-desc">RFC 8291 (aes128gcm payload encryption) and RFC 8292 (VAPID) on WebCrypto, with no npm dependency — asserted byte for byte against RFC 8291&#x27;s published example in webpush.test.ts.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">encryptPayload</span><span class="tag tb" style="font-family:var(--font-code); font-size:11px">vapidAuthorization</span><span class="tag tb" style="font-family:var(--font-code); font-size:11px">sendWebPush</span></div>
             </div>
 
             <div class="card">

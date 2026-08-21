@@ -37,6 +37,21 @@ multilingual work is *structural*, and it is concentrated in two tables.
 | `weekly_digests` | AI weekly review | `(user, period_start, language)` |
 | `ai_jobs` | pipeline telemetry | shape and cost, never content |
 | `digest_batches` | Batch API handles | operational, not user-facing |
+| `push_subscriptions` | **one row per (user, device endpoint)** | the device's own keys; column-scoped update grant (SB-051) |
+| `push_deliveries` | **one row per (user, local day)** | proof a reminder was already sent; no client grant at all |
+
+### Why the push tables carry no text
+
+`push_subscriptions` holds an endpoint and two keys the *browser* minted;
+`push_deliveries` holds two counts and a date. Neither stores a word of the
+notification -- the sender transmits counts and the service worker renders
+them from `web/src/i18n/ar.ts` (SB-051). That is rule 2 pushed one step
+further than usual: a label stored in a queued push message would arrive on
+the device hours after the wording changed.
+
+`push_deliveries.notified_on` is the user's OWN local date, computed through
+`profiles.timezone`, so a reminder sent at 08:00 in Dubai is not sent again
+when UTC rolls over that evening.
 
 ### Why `note_enrichments` is keyed by language
 

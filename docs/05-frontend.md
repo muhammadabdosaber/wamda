@@ -10,7 +10,8 @@ disabled.
 ```
 web/
   index.html          lang="ar" dir="rtl" in the SERVED markup
-  vite.config.ts      PWA manifest + service worker
+  vite.config.ts      PWA manifest + service worker build (injectManifest)
+  src/sw.ts           the service worker itself: precache + web push
   src/
     core/language.ts  resolver — mirrors the server
     core/due.ts       due-date bucketing/count — pure, shared by Tasks + badge
@@ -213,6 +214,20 @@ The service worker precaches the app shell so a cold launch works offline. API
 responses are deliberately **not** cached — notes live in IndexedDB, which is
 queryable and writable offline, and a stale HTTP cache would shadow the local
 store and show the user older data than they have on device.
+
+**Since SB-051 the worker is the project's own source file** (`web/src/sw.ts`,
+`vite-plugin-pwa` in `injectManifest` mode) rather than one Workbox generates.
+Web push is the reason: a `push` listener has to live somewhere, and a
+generated worker has nowhere to put one. Two consequences worth knowing before
+touching it — the precaching is now this file's responsibility (it does the
+same two things `generateSW` did), and the worker gets its own
+`tsconfig.worker.json`, because `WebWorker` and `DOM` lib types cannot share a
+TypeScript project.
+
+The worker imports the app's own i18n catalogue rather than carrying strings:
+the sender transmits counts, and the Arabic sentence is built on the device
+from `i18n/ar.ts`. A display label baked into a push message would arrive on a
+phone hours after the wording changed.
 
 **Three things a PWA does worse than the native client this replaced:**
 

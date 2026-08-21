@@ -2338,6 +2338,116 @@ with the current real key, pasted without trailing whitespace. Filed as
 **SB-052**, `todo`, ahead of everything else in the backlog — see
 `docs/13-tasks.md`.
 
+## SB-051 · Web push: everything up to the wire, and nothing past it
+
+Built 2026-08-22. **The acceptance line is not met**: no notification has
+reached a real device, because that needs a VAPID pair the owner must mint, a
+`functions deploy`, and an iPhone with the PWA on its Home Screen. What
+follows is what actually ran, and it is deliberately specific about where the
+evidence stops.
+
+### The encryption is asserted against the RFC, not against itself
+
+`_shared/webpush.ts` implements RFC 8291 (aes128gcm payload encryption) and
+RFC 8292 (VAPID) directly on WebCrypto. The plan called for spiking
+`npm:web-push` first; that spike was impossible on this machine (no Docker,
+no Deno — see "Where this ran" below), and a dependency whose Node-compat
+failure would only appear on hosted is exactly the kind of thing SB-052 has
+been teaching this project about for five days. Hand-written removes the
+compat unknown and adds a correctness risk, so the correctness is proven:
+
+RFC 8291 section 5 publishes a complete worked example — both parties' keys,
+the auth secret, the plaintext ("When I grow up, I want to be a watermelon")
+and the exact body a correct implementation emits. The test feeds this code
+that example's keys and its salt (read back out of the published body's first
+16 bytes) and compares **the whole message, byte for byte**:
+
+```
+record size in the RFC example: 4096   expected body bytes: 144
+MATCH: true
+```
+
+Run twice, on two runtimes: locally under Node 24's WebCrypto, and in CI under
+Deno (`deno test --allow-env supabase/functions/_shared/*.test.ts` →
+`ok | 14 passed | 0 failed`, of which 5 are new). A wrong info string, the two
+public keys in the wrong order, or a `0x01` record delimiter instead of `0x02`
+all fail this comparison — which is why it is worth more than the round-trip
+test that was the alternative.
+
+Also asserted, in the same run:
+
+| Claim | How |
+|---|---|
+| The VAPID JWT is one a push service will accept | Signed, then verified with `crypto.subtle.verify` against the public key; `aud` is the endpoint's **origin** (not its full URL), `exp` is exactly 12 h out, `sub` carried through |
+| A dead subscription is reported, not thrown | Stub `fetch` returning `410` → `{status: 410, gone: true}`; the caller disables the row instead of retrying |
+| A busy push service is not treated as dead | `429` → `gone: false` |
+| Each message is uniquely salted | Two sends of identical text produce different bytes; header carries a 65-byte key id and a 4096 record size |
+
+### The database half ran on a real Postgres
+
+`verify.sql` is now **31 assertions** (was 26), and the five new ones passed
+on a real Postgres in CI (`database — migrations + 31 schema assertions`,
+3 m 10 s):
+
+```
+PASS: scoped grant blocks disabled_at, allows endpoint rotation
+PASS: push_deliveries is not reachable by the client
+PASS: cross-user reads blocked on push_subscriptions
+PASS: push_due_candidates counts 1 overdue for the subscribed user only (tz Asia/Dubai, local hour 0)
+PASS: push_due_candidates is service-role only
+ALL SCHEMA CHECKS PASSED
+```
+
+The fourth is the one that matters most: seeded with five tasks — one overdue,
+one due in five days, one completed-but-overdue, one archived-but-overdue, and
+one belonging to a user with no subscription — the function returns exactly
+one row for exactly the right user. That is the same rule
+`web/src/core/due.ts` applies on screen, now proven to agree in SQL, in the
+user's own timezone rather than the server's.
+
+### The client half built, and the worker carries no display text
+
+`npm run verify`: typecheck (now two projects — the service worker needs
+`WebWorker` lib types, which cannot share a project with `DOM`), RTL guard
+clean, **46 tests** (8 new), build green.
+
+The build switched `vite-plugin-pwa` from `generateSW` to `injectManifest`,
+which is the real cost of this task: the worker is now the project's own
+source file rather than one Workbox writes. Confirmed rather than assumed:
+
+- `dist/sw.js` is 29 413 bytes, precaching the same 9 entries as before
+- it **contains the string `متأخرة أو موعدها اليوم`** — the app's own i18n
+  catalogue is bundled into the worker, which is what lets the notification
+  text obey rule 2 instead of hard-coding Arabic in `sw.ts`
+- `dist/index.html` still references `registerSW.js`, so installed clients
+  keep updating the way they did
+
+### Where this ran, and what that excludes
+
+No local Supabase stack was available this session: Docker Desktop is not
+installed on this machine and `deno` is not on PATH, so **nothing was
+exercised against a running Edge Runtime or a local database**. Every SQL and
+Deno claim above comes from CI, which runs both against real instances; every
+client claim comes from a local `npm run verify`. Said plainly because it
+changes what the green checks mean.
+
+**Not run, and not claimable:**
+
+- No notification has been delivered to any device. The sender has never
+  talked to a real push service — `sendWebPush` has only ever been called
+  with a stub `fetch`.
+- No VAPID pair exists yet. Generating one here would have put a private key
+  in a transcript; `docs/15-runbook.md` carries the one-line command for the
+  owner instead. (The command itself was run once and confirmed to print both
+  halves — the values were never read.)
+- `functions/push` is not deployed, and `push-due-tasks` is not scheduled on
+  hosted: it needs its own two Vault secrets, and SB-052 means the *existing*
+  Vault-based jobs are being rejected with `403` today.
+- iOS specifically is untested, and it is the only device that matters here.
+  Safari gives a web app push only when it has been added to the Home Screen;
+  `docs/11-features.md` 4.9 has recorded that install flow as untested since
+  it was written.
+
 ## 2026-08-21 · Repo-wide accuracy pass, hosted state read, and the SB-050 deploy
 
 Three things ran here: the client suite against the merged SB-050 work, a

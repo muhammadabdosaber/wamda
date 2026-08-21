@@ -61,7 +61,7 @@ blocked on.
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | `todo` |
 | SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
 | SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
-| SB-051 | Notifications that arrive with the app closed | M8 | M | `todo` |
+| SB-051 | Notifications that arrive with the app closed | M8 | M | `in progress` — built; needs the owner to mint VAPID keys and prove it on a phone |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -1603,10 +1603,35 @@ undated all correctly excluded. Evidence: `docs/00-verification.md` "SB-050".
 heading that said `مهمة واحدة` — two readers of the same rows, one uninformed.
 Fixed with `NOTE_CHANGED_EVENT`; re-proved live.
 
-### SB-051 · Notifications that arrive with the app closed · `todo` · M
+### SB-051 · Notifications that arrive with the app closed · `in progress` · M
 
 The half of the owner's request SB-050 deliberately did not cover. A badge only
 works while the app is open; this is the one that reaches a locked phone.
+
+> **Built 2026-08-22 (PR #38).** All five pieces below exist. What is *not*
+> done is the only thing that closes this task: a notification arriving on a
+> real device. Evidence for everything that did run — including the RFC 8291
+> byte-for-byte match — is in `docs/00-verification.md` "SB-051".
+>
+> **What the owner has to do, in order:**
+>
+> 1. Generate the VAPID pair (`docs/15-runbook.md` → "VAPID keys"). Public
+>    half into Cloudflare Pages as `VITE_VAPID_PUBLIC_KEY`; private half plus
+>    `VAPID_SUBJECT` via `supabase secrets set`.
+> 2. `supabase db push` (two new migrations) and
+>    `supabase functions deploy push`.
+> 3. Fix **SB-052** first if it is still open — the schedule reads its key
+>    from Vault exactly like `sweep`/`digest`, which are being rejected with
+>    `403` today. Then set `push_function_url` / `push_service_role_key` and
+>    re-run `20260822000200_push_schedule.sql`.
+> 4. On the iPhone: add the PWA to the Home Screen, open Tasks, tap
+>    «ذكّرني والتطبيق مقفول», allow.
+> 5. Prove it without waiting for 08:00:
+>    `curl -X POST .../functions/v1/push -H "Authorization: Bearer <service
+>    role key>" -H "Content-Type: application/json" -d '{"force":true}'`
+>    — then close the app completely and confirm the phone buzzes.
+> 6. Write the result into `docs/00-verification.md` **either way**, and move
+>    this task to Done only if step 5 actually produced a notification.
 
 **Acceptance (the whole task, in one line):** a notification arrives on the
 owner's real iPhone with the app fully closed, naming a task that is overdue or

@@ -205,3 +205,35 @@ reach Storage objects). Proven with a full cycle on a disposable test user:
       `GET` on the removed object returned `400`. See `docs/00-verification.md`.
 - [ ] **Rotate the local anon/service keys** before any non-local deployment —
       the ones in `supabase start` output are the well-known development keys.
+
+## Web push (SB-051)
+
+Three things about this feature are security-relevant, and none of them
+involve a new secret reaching the client.
+
+**The VAPID pair.** The public half ships in the bundle on purpose -- the
+browser needs it to subscribe, and it authorizes nothing by itself. The
+private half signs the request to the push service and lives only in an Edge
+Function secret. This is the one `VITE_` variable in the project that is
+*supposed* to be public, which is exactly why it is called out here: the next
+reader should not have to decide whether it is a rule-4 violation.
+
+**The subscription keys are the device's, not ours.** `p256dh` and
+`auth_secret` are minted by the browser. They are still worth protecting --
+anyone holding them plus the endpoint can push to that device -- so
+`push_subscriptions` is RLS-scoped per user, its update grant is column-scoped
+(a client may rotate its own keys, not clear the sender's `disabled_at`), and
+cross-user reads are asserted in `verify.sql` the same way `notes` is.
+
+**The sender is service-only.** `functions/push` calls
+`requireServiceRole()`, and `push_due_candidates()` -- which by design reads
+every user's tasks -- is revoked from `authenticated` and granted only to
+`service_role`, asserted both ways. Without that, the anon key in every
+browser bundle would be enough to make someone else's phone buzz.
+
+What is NOT protected: the push service itself sees the timing and size of
+every message (RFC 8291 is explicit about this). The payload is encrypted end
+to end -- Google or Apple cannot read the counts -- but the metadata is
+theirs. A notification that arrives is a fact about the user's habits, and
+this is the first feature in the project that leaks any such fact to a third
+party. Recorded here because it is a real, accepted trade, not an oversight.
