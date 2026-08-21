@@ -2398,6 +2398,36 @@ Still not diagnosed further, deliberately: confirming the cause means
 comparing the stored secret against the live service-role key, which is
 secret material an agent should not hold. Owner action, same as before.
 
+### Deployed to production, 2026-08-21 19:54 UTC
+
+PR #36 merged to `main` (which also closed #35, whose commit it carried).
+All four checks green on the PR **and** on the merge commit, including the
+schema job — so the 26 assertions were run for this change after all, on a
+real runner against a real Postgres, correcting the "not re-run" note above:
+
+| Check | Result |
+|---|---|
+| `web — typecheck · RTL guard · tests · build` | success, 19:54:37Z |
+| `functions — deno check · deno test` | success, 19:54:22Z |
+| `database — migrations + 26 schema assertions` | success on the PR run (`32520467072`, 3 m 16 s) |
+| `Cloudflare Pages` | success, **19:54:39Z** |
+
+**Confirmed live by fetching the deployed bundle**, not by trusting the green
+check: `https://wamda-a8k.pages.dev/assets/index-B4YxagE0.js` is 463 334 bytes
+and contains `متأخرة أو موعدها اليوم` — a string that exists only in SB-050's
+i18n catalogue and had never been on `main` before this merge. The response
+still carries `content-security-policy: frame-ancestors 'none'` and
+`x-frame-options: DENY` from `web/public/_headers`.
+
+**Which half shipped:** the PWA only. There was nothing else to ship —
+SB-050 added no migration and no Edge Function, and
+`supabase migration list --linked` showed 20 local / 20 remote before the
+merge. No `db push`, no `functions deploy` was run, and none was needed.
+
+**What this deploy does *not* fix:** SB-052. The hosted cron is still
+rejected with `403`; it is a Vault-secret problem on the backend half, which
+this deploy did not touch.
+
 ## SB-050 · A due date that reaches you before you open the Tasks tab
 
 **2026-08-20, local stack, a real signed-in session, six real task rows.**

@@ -12,6 +12,13 @@ added but never executed, say so — that distinction is the whole point of
 
 ### Docs — the root files brought current, and CLAUDE.md rewritten around production
 
+**Live on hosted since 2026-08-21 19:54 UTC.** This merge also shipped SB-050
+(the due-soon badge) to production — confirmed by fetching the deployed
+bundle and finding a string that exists only in that feature, not by trusting
+a green check. The PWA half only: SB-050 carries no migration and no Edge
+Function, and hosted was already at 20/20 migrations. SB-052 is untouched by
+it and still failing.
+
 The 2026-08-20 pass covered `docs/`; this one covers everything above it,
 which had drifted further. `README.md` still said the client had **never
 talked to the server** and that nothing requiring a vendor key had ever run
