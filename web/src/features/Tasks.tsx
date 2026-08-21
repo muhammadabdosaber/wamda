@@ -13,6 +13,7 @@ import {
 } from "../data/api";
 import { Loading } from "../components/Loading";
 import { NoteDetail } from "./NoteDetail";
+import { PushToggle } from "../components/PushToggle";
 
 /**
  * The Tasks screen is a FILTER OVER NOTES, not a container -- ADR-0004. A note
@@ -131,6 +132,11 @@ export function Tasks({ t, language }: { t: Translator; language: string }) {
           </section>
         );
       })}
+
+      {/* SB-051. Below the list, not above it: the tasks are what the user
+          came for, and the ask for permission earns its place by sitting
+          under proof that there is something worth being reminded about. */}
+      <PushToggle t={t} />
 
       {open && (
         <NoteDetail

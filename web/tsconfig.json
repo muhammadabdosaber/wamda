@@ -21,5 +21,8 @@
     "noEmit": true,
     "resolveJsonModule": true
   },
-  "include": ["src", "test", "vite.config.ts"]
+  "include": ["src", "test", "vite.config.ts"],
+  // Checked by `tsconfig.worker.json` instead: it needs the WebWorker lib,
+  // which cannot coexist with DOM in one project (SB-051).
+  "exclude": ["src/sw.ts"]
 }

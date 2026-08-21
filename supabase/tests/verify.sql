@@ -691,6 +691,178 @@ begin
 end
 $$;
 
+
+-- ---------------------------------------------------------------------------
+-- 13. Web push subscriptions: isolation, scoped grant, ops-table denial
+-- ---------------------------------------------------------------------------
+-- SB-051. A subscription row identifies a device and carries the keys needed
+-- to send that device a payload -- leaking one across users would let a
+-- stranger's notification reach your phone. Same RLS treatment as notes,
+-- asserted the same way rather than assumed to follow.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+
+insert into public.push_subscriptions (endpoint, p256dh, auth_secret, user_agent)
+values ('https://push.example.test/alice-1', 'alice-p256dh', 'alice-auth', 'test-agent');
+
+do $$
+begin
+  -- The client owns its own keys and must be able to rewrite them: browsers
+  -- rotate endpoints, and a re-subscribe is an upsert, not a new row.
+  update public.push_subscriptions
+     set endpoint = 'https://push.example.test/alice-2', p256dh = 'rotated'
+   where endpoint = 'https://push.example.test/alice-1';
+
+  -- The sender's own bookkeeping is not the client's to touch. Same
+  -- column-scoped grant reasoning as notes.status (section 5b).
+  begin
+    update public.push_subscriptions set disabled_at = null;
+    raise exception 'GRANT BREACH: authenticated client updated push_subscriptions.disabled_at';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS: scoped grant blocks disabled_at, allows endpoint rotation';
+  end;
+
+  -- push_deliveries has RLS enabled and NO grant to authenticated -- denial
+  -- twice over, on purpose.
+  begin
+    perform 1 from public.push_deliveries;
+    raise exception 'GRANT BREACH: authenticated client read push_deliveries';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS: push_deliveries is not reachable by the client';
+  end;
+end
+$$;
+commit;
+
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"22222222-2222-2222-2222-222222222222","role":"authenticated"}';
+
+do $$
+declare n integer;
+begin
+  select count(*) into n from public.push_subscriptions;
+  if n <> 0 then
+    raise exception 'RLS BREACH: user B sees % push subscription(s) of user A', n;
+  end if;
+  raise notice 'PASS: cross-user reads blocked on push_subscriptions';
+end
+$$;
+commit;
+
+-- ---------------------------------------------------------------------------
+-- 14. push_due_candidates() counts what the badge counts
+-- ---------------------------------------------------------------------------
+-- The client rule (web/src/core/due.ts): category 'task', not completed, not
+-- archived, due at or before the end of today, overdue folded in. This
+-- asserts the SQL says the same thing -- drift here reaches the user as a
+-- notification about a task the app itself does not list.
+--
+-- Bassam gets a due task too, but no subscription: he must not appear at all.
+do $$
+declare
+  alice        uuid := '11111111-1111-1111-1111-111111111111';
+  bassam       uuid := '22222222-2222-2222-2222-222222222222';
+  overdue_note uuid;
+  other_note   uuid;
+  n_rows       integer;
+  r            record;
+begin
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'overdue task')
+  returning id into overdue_note;
+
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, title, model, prompt_version)
+  values (overdue_note, alice, 'ar', 'summary', 'task', now() - interval '2 days',
+          'the overdue one', 'test-model', 'v-test');
+
+  -- Due in five days: real, dated, and deliberately not counted.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'later task')
+  returning id into other_note;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other_note, alice, 'ar', 'summary', 'task', now() + interval '5 days',
+          'test-model', 'v-test');
+
+  -- Completed but overdue: done is done.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text, completed_at)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'done task', now())
+  returning id into other_note;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other_note, alice, 'ar', 'summary', 'task', now() - interval '2 days',
+          'test-model', 'v-test');
+
+  -- Archived but overdue: out of sight, out of the count.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text, archived_at)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'archived task', now())
+  returning id into other_note;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other_note, alice, 'ar', 'summary', 'task', now() - interval '2 days',
+          'test-model', 'v-test');
+
+  -- Bassam: overdue task, no subscription.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (bassam, gen_random_uuid(), 'text', 'ready', 'ar', 'bassam task')
+  returning id into other_note;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other_note, bassam, 'ar', 'summary', 'task', now() - interval '2 days',
+          'test-model', 'v-test');
+
+  select count(*) into n_rows from public.push_due_candidates();
+  if n_rows <> 1 then
+    raise exception 'push_due_candidates returned % rows, expected exactly 1 (Alice only -- Bassam has no subscription)', n_rows;
+  end if;
+
+  select * into r from public.push_due_candidates();
+  if r.user_id <> alice then
+    raise exception 'push_due_candidates returned the wrong user: %', r.user_id;
+  end if;
+  if r.overdue_count <> 1 then
+    raise exception 'push_due_candidates overdue_count = %, expected 1 (completed, archived and later-this-week tasks must all be excluded)', r.overdue_count;
+  end if;
+  if r.due_today_count <> 0 then
+    raise exception 'push_due_candidates due_today_count = %, expected 0', r.due_today_count;
+  end if;
+  if r.sample_note_id <> overdue_note then
+    raise exception 'push_due_candidates picked the wrong sample note';
+  end if;
+  if r.timezone is null or r.local_hour is null or r.local_date is null then
+    raise exception 'push_due_candidates returned no timezone/local clock (tz %, hour %, date %)',
+      r.timezone, r.local_hour, r.local_date;
+  end if;
+
+  raise notice 'PASS: push_due_candidates counts 1 overdue for the subscribed user only (tz %, local hour %)',
+    r.timezone, r.local_hour;
+end
+$$;
+
+-- The same function must be unreachable from the client: it reads every
+-- user's rows by design.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+
+do $$
+begin
+  begin
+    perform public.push_due_candidates();
+    raise exception 'GRANT BREACH: authenticated client executed push_due_candidates()';
+  exception
+    when insufficient_privilege then
+      raise notice 'PASS: push_due_candidates is service-role only';
+  end;
+end
+$$;
+commit;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

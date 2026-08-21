@@ -1,0 +1,17 @@
+{
+  // The service worker is the one file in `src/` that does not run in a
+  // window: no `document`, no `window`, and a `self` that is a
+  // ServiceWorkerGlobalScope. Loading the DOM and WebWorker lib definitions
+  // together produces conflicting globals, so it gets its own project rather
+  // than a pile of casts (SB-051).
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "WebWorker"],
+    "types": ["vite/client", "vite-plugin-pwa/client"]
+  },
+  // Only the worker entry point: TypeScript follows its imports from here,
+  // so the modules it actually shares with the app (the i18n catalogue,
+  // `core/pushMessage.ts`) are checked under WebWorker rules, while the
+  // DOM-bound ones are not dragged in.
+  "include": ["src/sw.ts", "src/vite-env.d.ts"]
+}

@@ -52,6 +52,15 @@ export const en: Messages = {
   tasksNoDate: "No date",
   tasksOverdue: "Overdue",
 
+  // SB-051.
+  pushDueTitle: "Tasks due",
+  pushEnable: "Remind me when the app is closed",
+  pushDisable: "Turn reminders off",
+  pushEnabled: "Reminders on — one notification in the morning when something is due.",
+  pushBlocked: "Notifications are blocked in your browser settings. Allow them there first.",
+  pushUnsupported: "To get notifications on iPhone, add this app to your Home Screen first.",
+  pushFailed: "Couldn't turn notifications on.",
+
   detailTitle: "Note",
   detailRawLabel: "As you wrote it",
   detailClose: "Close",

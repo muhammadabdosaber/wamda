@@ -1045,3 +1045,29 @@ body {
   border-radius: var(--radius);
   padding: 14px;
 }
+
+/* SB-051. The closed-app reminder control, below the task list.
+
+   Logical properties only, like everything here: `margin-block-start` keeps
+   it under the list in both directions, and the button's own padding comes
+   from `.btn`, so this adds spacing and nothing else. Deliberately quiet --
+   it is an offer, not the screen's purpose. */
+.push-toggle {
+  margin-block-start: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.push-button { font-size: 0.9375rem; padding-block: 10px; }
+
+/* Explanations under the control: centred, and `text-align: center` rather
+   than `start` because the sentence is a caption for the button above it,
+   not body text following the reading direction. */
+.push-note {
+  margin: 0;
+  text-align: center;
+  max-inline-size: 34ch;
+}
+
