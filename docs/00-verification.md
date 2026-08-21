@@ -2449,6 +2449,24 @@ the unconfigured case now renders **nothing**. This is SB-046's lesson
 applied before rather than after: an unset `VITE_` variable must not produce
 a plausible-looking wrong answer.
 
+### The client half is live; the backend half is not
+
+PR #38 merged to `main` 2026-08-21 20:46 UTC, all four checks green.
+Cloudflare Pages rebuilt, and the deployed worker was confirmed by fetching
+it: `https://wamda-a8k.pages.dev/sw.js` returns `200` and contains the
+`wamda-due-tasks` notification tag — a string that exists only in this
+feature's `push` handler.
+
+So installed clients pick up the new worker on their next update, and the
+toggle is on the Tasks screen — rendering **nothing** until
+`VITE_VAPID_PUBLIC_KEY` is set, per the fix above.
+
+**Not deployed, deliberately, because none of it is an agent's to do:** the
+two migrations (`supabase db push`), `functions/push`
+(`supabase functions deploy push`), the three VAPID/subject secrets, and the
+`push-due-tasks` Vault secrets. Until then the sender does not exist on
+hosted and nothing is scheduled.
+
 ### Where this ran, and what that excludes
 
 No local Supabase stack was available this session: Docker Desktop is not
