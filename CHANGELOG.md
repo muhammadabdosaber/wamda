@@ -10,6 +10,64 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Docs — the root files brought current, and CLAUDE.md rewritten around production
+
+The 2026-08-20 pass covered `docs/`; this one covers everything above it,
+which had drifted further. `README.md` still said the client had **never
+talked to the server** and that nothing requiring a vendor key had ever run
+— both false since 2026-08-09/13. `SECURITY.md` opened its weakness table
+with "the project has never been deployed" and listed export, account
+deletion, audio retention and `ai_jobs` retention as unfixed; all four
+shipped. `CONTRIBUTING.md` still asked contributors to hold off on anything
+large pending an "unspecified significant design change" that landed on
+2026-08-03 and has since shipped. CI's database job was labelled `12 schema
+assertions` (26) and carried a header saying the workflow had never run on a
+real runner (it has, on every push and PR since 2026-08-02).
+
+**`CLAUDE.md` was rewritten around the one fact it never mentioned: this is
+live software.** It now opens with what production *is* — the Pages URL, the
+Supabase project ref, and the fact that merging to `main` auto-deploys the PWA
+to the owner's real notes while migrations and Edge Functions do **not** ride
+along. New rule 6 records that `sweep`/`digest` are service-only and that
+changing that gate has already broken its own cron caller once. New traps
+section: `cron.job_run_details` reports `succeeded` when `pg_net` merely
+*queued* the call, so a job can fail every five minutes and look healthy —
+the truth is in `net._http_response`. Also added: the vendor model ids in one
+place (`claude-sonnet-5` enrichment, `claude-opus-5` digest, `scribe_v1`,
+`embed-multilingual-v3.0`), the real function list (8, not 6), the real counts
+(38 tests, 26 assertions, 9 Deno tests), and two "do nots" that were only
+folklore before — never rewrite the ledgers, never read raw key material to
+diagnose.
+
+Corrected in `docs/11-features.md` against the live database rather than from
+memory: embeddings were still marked `⬜ blocked — no key` in §2 while §3
+described them running (hosted `ai_jobs`: 50 succeeded `embed` calls); the
+private audio bucket and per-user signed URLs were `⬜` (both hosted buckets
+are `public: false` with a MIME allowlist, queried live); and
+`action_dismissed_at` was described as existing only on the local database
+(it is on production). `docs/adr/0005-hybrid-search.md` got dated update notes
+rather than an edit — its "the semantic arm has never run" cost is now
+history, and the 0.6 distance floor belongs beside it.
+
+**SB-052 re-checked live, not assumed: still broken.** Every one of the last
+eight `net._http_response` rows is `403 {"error":{"code":"forbidden"}}`,
+through 2026-08-21 13:15 UTC — five days now. No damage yet (hosted:
+`ready: 17`, `draft: 7`, `failed: 1`, nothing stranded, pipeline succeeding as
+recently as 2026-08-20), but `digest-enqueue` fires 2026-08-22 03:00 UTC and
+will be rejected the same way. Owner action, unchanged: re-set the Vault
+service-role secret.
+
+**SB-051 (web push) written up as a real plan** rather than a paragraph:
+build order, the `push_subscriptions` schema with its RLS/grant/assertion
+obligation, VAPID key placement (the one `VITE_` variable that is supposed to
+be public), the `generateSW` → `injectManifest` switch that is the task's
+hidden cost, a service-only sender modelled on `sweep`, the Vault-secret cron
+job, and the iOS constraint that makes "installed to the Home Screen" a
+precondition rather than a detail. It opens with two gates: fix SB-052 first,
+and spike the Deno web-push sender for 30 minutes before designing anything
+around it.
+
+
 ### Docs brought current, and a live hosted regression found in the process (SB-052)
 
 A full pass over every doc in `docs/` against the actual current state of the

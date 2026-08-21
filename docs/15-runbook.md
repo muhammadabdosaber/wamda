@@ -117,7 +117,7 @@ its deployed function URL through `pg_net.http_post`, with the service role
 key read from **Vault** — never a literal in a migration, since a migration is
 a committed file.
 
-**Currently rejected with `403` since 2026-08-17, re-confirmed 2026-08-20 —
+**Currently rejected with `403` since 2026-08-17, re-confirmed 2026-08-21 —
 see SB-052.** `cron.job_run_details` still shows `succeeded` for every tick
 (that layer only confirms pg_net queued the HTTP call), so the failure is
 invisible unless `net._http_response` is read directly:
@@ -206,7 +206,10 @@ where status in ('transcribing','enriching','queued')
 select * from ai_jobs where note_id = '<id>' order by created_at desc;
 ```
 
-The `sweep` function is the fix, and it currently needs a manual invocation.
+The `sweep` function is the fix. It is scheduled `*/5` on hosted, but that
+schedule is currently rejected with `403` (SB-052), so until the owner re-sets
+the Vault secret the only working invocation is a manual one with the service
+role key.
 Retries are capped at 5 failed attempts per (note, stage), after which the note
 is marked `failed` rather than retried forever.
 

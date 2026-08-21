@@ -53,7 +53,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 2.9 | Refusals resolve to `failed`, not retried forever | ✅ | `pipeline.ts` |
 | 2.10 | Transcription via ElevenLabs Scribe | ✅ real call, real cost, `raw_text` + confidence persisted (2026-08-11) — but the only audio tested so far is silence/noise, not speech; ASR quality on real dialect is SB-013 | `providers.ts` `ScribeASR` |
 | 2.11 | Per-word confidence from ASR | ✅ observed shape matches what the code assumed; below-threshold notes correctly held at `draft` | `ScribeASR` |
-| 2.12 | Embeddings, Cohere multilingual v3 | ⬜ **blocked** — no key | `providers.ts` |
+| 2.12 | Embeddings, Cohere multilingual v3 | ✅ ran for real since 2026-08-13 (SB-005/045) — every `ready` note carries a 1024-dim row; hosted `ai_jobs` shows 50 succeeded `embed` calls, latest 2026-08-20 | `providers.ts` |
 | 2.13 | `ai_jobs` telemetry per stage | ✅ | migration `…000200` |
 | 2.14 | Retry cap (5 failed attempts per note+stage → `failed`) | ✅ | `sweep` |
 
@@ -119,14 +119,14 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.5 | Cross-user isolation on notes/tags/embeddings | ✅ verified independently | `verify.sql` |
 | 5.6 | Explicit table grants for `authenticated` | ✅ (was a real bug) | migration `…000400` |
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
-| 5.8 | Private audio bucket, signed URLs scoped to user | ⬜ | `config.toml` · `functions/notes` |
+| 5.8 | Private audio bucket, signed URLs scoped to user | ✅ both hosted buckets are `public: false` with a MIME allowlist (queried live 2026-08-21); real recordings uploaded through a signed URL on iOS Safari and Chrome, and SB-009 deleted a real object per-user | `config.toml` · `functions/notes` |
 | 5.9 | Strict CSP | ✅ no `unsafe-inline`/`unsafe-eval`; real HTTP header + meta fallback; deliberate-violation test proved `enforce` | SB-003 |
 | 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
 | 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
 | 5.12 | Export all notes | ✅ `GET /export`; proven against the owner's real 14 notes + fresh cross-user isolation check | SB-014 |
 | 5.13 | Delete account + all data | ✅ `POST /delete-account`; proven with a full cycle — 10 tables to zero, real audio bytes confirmed gone | SB-015 |
 | 5.14 | Audio retention enforcement (`profiles.audio_retention_days`) | ✅ `sweep` deletes the real Storage object per-user; proven on a real upload, `400` on re-fetch confirms actual byte deletion | SB-009 |
-| 5.15 | `notes.action_dismissed_at` | 🟡 applied to the local database; nowhere else exists yet | migration `20260802000100` |
+| 5.15 | `notes.action_dismissed_at` | ✅ applied on hosted too — column confirmed present on the production database 2026-08-21; the dismiss path itself was verified in SB-029 | migration `20260802000100` |
 | 5.16 | Column-scoped update grant on `notes` | ✅ client limited to `archived_at`/`action_dismissed_at`/`completed_at`/`updated_at`; `status` rejected — asserted in `verify.sql` | migration `20260804000200` (SB-023) |
 
 ## 6. Operations
@@ -160,12 +160,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | State | Count |
 |---|---|
-| ✅ working | 48 |
-| 🟡 partial | 7 |
-| ⬜ built, unrun | 15 |
+| ✅ working | 51 |
+| 🟡 partial | 6 |
+| ⬜ built, unrun | 13 |
 | ❌ not built | 19 |
 
-The 20 in `⬜` are the honest headline, and most of them unblock with one API
-key: **Cohere**. Enrichment has now run 42 times against a real Anthropic key
-in a single session, with every embedding call failing beside it — which is
-the clearest demonstration yet that stage isolation (ADR-0007) holds.
+Adjusted 2026-08-21 from the previous count by exactly the three rows that
+moved in this pass: 2.12 and 5.8 (⬜ → ✅) and 5.15 (🟡 → ✅).

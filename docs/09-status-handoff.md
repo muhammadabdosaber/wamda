@@ -4,7 +4,7 @@
 > project actually stands, what is blocking it, and what must not be
 > re-litigated. Detail lives in the other docs; this is the map.
 >
-> Last brought current: 2026-08-20.
+> Last brought current: 2026-08-21.
 
 ---
 
@@ -49,7 +49,10 @@ Full evidence ledger: `docs/00-verification.md`.
 ## The blocking point
 
 **Not a vendor key -- a live operational regression on hosted (SB-052).**
-Found 2026-08-17, re-confirmed 2026-08-20: every `sweep-worker` and
+Found 2026-08-17, re-confirmed 2026-08-20, and re-confirmed again
+**2026-08-21 13:15 UTC** — the last eight `net._http_response` rows are all
+`403`, so this is now five days old with the digest deadline under a day
+away. Every `sweep-worker` and
 `digest-collect` cron tick on the hosted project gets `403
 {"error":{"code":"forbidden"}}` from `requireServiceRole()`, the exact gate
 that's supposed to let `pg_cron`'s own calls through. `cron.job_run_details`
@@ -57,7 +60,9 @@ still shows `succeeded` for every tick -- the failure is only visible by
 reading `net._http_response` directly, which is presumably why it sat
 unnoticed for three days.
 
-- **No damage yet.** Zero notes currently stranded in a non-terminal state.
+- **No damage yet, re-checked 2026-08-21.** Hosted statuses are `ready: 17`,
+  `draft: 7`, `failed: 1` — nothing stranded in a non-terminal state, and the
+  one `failed` note predates the regression by eight days.
 - **The deadline that matters:** `digest-enqueue` last actually fired
   2026-08-15, before the regression started. Its next tick is **Saturday
   2026-08-22, 03:00 UTC** and will get the same `403` unless fixed first.

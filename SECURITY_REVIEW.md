@@ -11,6 +11,10 @@
 > caller — see F1 below and `docs/00-verification.md`. **Not yet a Fixed
 > item; owner action needed.**
 >
+> **2026-08-21 update:** re-checked live, **still failing** (`403` on every
+> tick through 13:15 UTC). Filed as SB-052 with a hard deadline of
+> 2026-08-22 03:00 UTC, when the weekly digest next fires.
+>
 > **Status legend:** `Not Started` · `In Progress` · `Fixed` · `Accepted Risk` · `Deferred (owner)`
 
 ---
@@ -101,6 +105,17 @@ no credential leak, and no unauthenticated data access.
   SB-001 already documents, via Supabase Studio's SQL editor or `psql`) —
   see `docs/00-verification.md` "REGRESSION found 2026-08-17" for the full
   evidence and the exact next check to run afterward.
+- **Re-checked 2026-08-20 and again 2026-08-21 13:15 UTC — still `403` on
+  every tick, now five days.** Tracked as **SB-052** in `docs/13-tasks.md`,
+  ahead of everything else in the backlog. Still no damage: hosted note
+  statuses are `ready: 17` / `draft: 7` / `failed: 1`, nothing stranded, and
+  the pipeline's own `enrich`/`embed` calls succeeded as recently as
+  2026-08-20. The deadline is `digest-enqueue` at **2026-08-22 03:00 UTC**.
+  Two hypotheses remain open and only the owner can separate them: a stale
+  key from a rotation, or trailing whitespace in the stored secret. If it
+  turns out to be whitespace, `requireServiceRole()` should be hardened to
+  compare trimmed values — raised here rather than changed unilaterally,
+  because it is the authorization path.
 
 **F2 · `notes/audio-url` service-role write not filtered by `user_id` — LOW — `Fixed`**
 - **Location:** [supabase/functions/notes/index.ts:145](supabase/functions/notes/index.ts:145)

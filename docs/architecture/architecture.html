@@ -1097,9 +1097,9 @@
         </div>
         <div class="sidebar-badges" style="margin-top:0; display: flex; align-items: center; gap: 8px;">
             <button class="btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
-            <span class="badge">v1.0.0</span>
+            <span class="badge">v1.1.0</span>
             <span class="badge">TypeScript (Deno 2 on the server, React 19 on the client)</span>
-            <span class="badge badge-green">Generated 2026-08-17</span>
+            <span class="badge badge-green">Generated 2026-08-21</span>
         </div>
     </div>
 </header>
@@ -1179,7 +1179,7 @@
                         <div class="card-sub">FRONTEND : 5173</div>
                     </div>
                 </div>
-                <div class="card-desc">React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled).</div>
+                <div class="card-desc">React 19 + Vite PWA client. Local-first capture to IndexedDB, offline outbox replay, RTL-driven UI with logical CSS properties, i18n (Arabic default, English wired but disabled). Pure date/clock logic lives in src/core/ and is unit-tested without a browser (38 tests).</div>
                 <span class="tag tq">web/src/main.tsx</span>
             </div>
 
@@ -1954,7 +1954,7 @@ flowchart TD
   &quot;openapi&quot;: &quot;3.0.0&quot;,
   &quot;info&quot;: {
     &quot;title&quot;: &quot;Second Brain&quot;,
-    &quot;version&quot;: &quot;1.0.0&quot;,
+    &quot;version&quot;: &quot;1.1.0&quot;,
     &quot;description&quot;: &quot;Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).&quot;
   },
   &quot;servers&quot;: [
@@ -2922,6 +2922,27 @@ order by n.client_created_at asc limit least(greatest(coalesce(p_limit,25),1),10
                 <div class="card-sub" style="margin-bottom:8px;">supabase/functions/_shared/pipeline.ts</div>
                 <div class="card-desc">One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.</div>
                 <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">pipeline stage runners</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">due-date logic (client)</div>
+                <div class="card-sub" style="margin-bottom:8px;">web/src/core/due.ts</div>
+                <div class="card-desc">Pure functions bucketing a task&#x27;s action_due_at into overdue / today / later in the user&#x27;s own timezone. No React, no network — which is why SB-050&#x27;s badge is testable at all (15 of the suite&#x27;s 38 tests).</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">bucketOf</span><span class="tag tb" style="font-family:var(--font-code); font-size:11px">isOverdue</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">due-soon counter (client)</div>
+                <div class="card-sub" style="margin-bottom:8px;">web/src/core/dueSoon.ts</div>
+                <div class="card-desc">Counts open tasks that are overdue or due today for the Tasks-tab badge; completed, archived, undated and later-than-today notes are excluded.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">dueSoonCount</span></div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">foreground clock (client)</div>
+                <div class="card-sub" style="margin-bottom:8px;">web/src/core/clock.ts</div>
+                <div class="card-desc">Re-reads the wall clock when the document is foregrounded, so a task that falls due while the app sits open gains its overdue marker without a reload. Proven live at minute granularity.</div>
+                <div style="margin-top:8px"><span class="tag tb" style="font-family:var(--font-code); font-size:11px">useNow</span></div>
             </div>
 
         </div>

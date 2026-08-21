@@ -2338,6 +2338,66 @@ with the current real key, pasted without trailing whitespace. Filed as
 **SB-052**, `todo`, ahead of everything else in the backlog — see
 `docs/13-tasks.md`.
 
+## 2026-08-21 · Repo-wide accuracy pass, hosted state read, and the SB-050 deploy
+
+Three things ran here: the client suite against the merged SB-050 work, a
+read-only audit of the hosted project, and the production deploy itself.
+
+### What ran locally
+
+```
+cd web && npm ci && npm run verify
+```
+
+`npm ci` on a fresh worktree checkout: **0 vulnerabilities**. `verify` →
+typecheck clean, RTL guard clean, **38/38 tests** (`language` 10, `due` 15,
+`i18n` 13), production build green — `dist/assets/index-*.js` 463.13 kB raw /
+**132.55 kB gzipped**, CSS 17.52 kB / 3.93 kB gzipped, PWA precache 9 entries
+(660 KiB). This is the same commit CI ran green on run `32450892938`.
+
+Not run in this session: `supabase db reset` + `verify.sql`, and the Deno
+tests. Nothing in this change touches the schema or a function — the diff is
+docs plus the already-CI-verified SB-050 client work — so the 26 schema
+assertions and 9 Deno tests are inherited from the previous session's run,
+not re-proven here. Said plainly rather than implied.
+
+### What the hosted project actually looks like (read-only, 2026-08-21)
+
+Queried through the CLI's cached login against `hfjpotjbrrnghuqhxoux`. No
+secret material was read; every query below is state, not credentials.
+
+| Checked | Result |
+|---|---|
+| Migrations | **20 local / 20 remote, zero drift** — `supabase migration list --linked` |
+| Note statuses | `ready: 17`, `draft: 7`, `failed: 1` — nothing in `queued`/`transcribing`/`enriching` |
+| The one `failed` note | dates from 2026-08-09 (`enrich`, `unknown` ×5), eight days before the current regression |
+| `ai_jobs`, last 14 days | `embed` 50 succeeded, `enrich` 17 succeeded, `transcribe` 18 succeeded, latest 2026-08-20; every failure row predates the key fixes |
+| `cron.job` | four jobs, all `active: true` — `ai-jobs-retention`, `sweep-worker`, `digest-enqueue`, `digest-collect` |
+| Storage buckets | `audio` and `screenshots` both `public: false`, both with a MIME allowlist |
+| `note_enrichments.action_due_at` | 7 rows carry a due date — so SB-050's badge has real data to count on hosted, not just locally |
+
+Two doc claims were corrected because of this, not because they read
+strangely: `11-features.md` 5.8 (private bucket + signed URLs, was `⬜`) and
+5.15 (`action_dismissed_at` "exists only on the local database" — it is on
+production).
+
+### SB-052 · still failing, fifth day
+
+```
+select status_code, left(content,60), created
+from net._http_response order by created desc limit 8;
+```
+
+All eight rows `403 {"error":{"code":"forbidden"}}`, the most recent at
+**2026-08-21 13:15:00 UTC** — the `*/5` `sweep-worker` tick. Unchanged from
+the 08-17 finding and the 08-20 re-check. `digest-enqueue` fires **2026-08-22
+03:00 UTC** and will be rejected the same way unless the owner re-sets the
+Vault secret first.
+
+Still not diagnosed further, deliberately: confirming the cause means
+comparing the stored secret against the live service-role key, which is
+secret material an agent should not hold. Owner action, same as before.
+
 ## SB-050 · A due date that reaches you before you open the Tasks tab
 
 **2026-08-20, local stack, a real signed-in session, six real task rows.**

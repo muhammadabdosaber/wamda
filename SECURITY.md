@@ -37,21 +37,29 @@ Evidence: [`docs/00-verification.md`](docs/00-verification.md).
 
 ## Known weaknesses — current, unfixed
 
-Stated plainly because the project has never been deployed and these must not be
-discovered after it is.
+The app is **live** (`wamda-a8k.pages.dev`, hosted Supabase, since
+2026-08-09), so this list is about production, not about a future deploy.
+A full per-finding review is in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)
+(reviewed 2026-08-16; 0 Critical, 1 High).
 
 | # | Weakness | Impact | Task |
 |---|---|---|---|
-| 1 | ~~No CSP.~~ **Fixed 2026-08-06** — strict CSP, no `unsafe-inline`/`unsafe-eval`, proven against a deliberate violation | was: one XSS is a full session compromise | SB-003 |
-| 2 | ~~No rate limiting~~ on `/enrich` and `/transcribe`. **Fixed 2026-08-06** — 60 calls/15 min per user/stage, proven over 61 real HTTP calls | was: a runaway loop is a runaway vendor bill | SB-002 |
-| 3 | ~~`ALLOWED_ORIGIN` defaults to `*`.~~ **Fixed 2026-08-06** — a configured origin now rejects a foreign preflight at `403` | was: any origin can call the functions when configured | SB-010 |
-| 4 | **Audio retention not enforced** — `profiles.audio_retention_days` is read by nothing | voice kept longer than promised | SB-009 |
-| 5 | No account deletion | a user cannot remove their data | SB-015 |
-| 6 | No export | a user cannot retrieve their data | SB-014 |
-| 7 | `ai_jobs` grows without limit | unbounded retention of processing metadata | SB-004 |
+| 1 | **`sweep`/`digest` cron rejected with `403` since 2026-08-17** — the service-role gate added for F1 is refusing `pg_cron`'s own call | availability, not exposure: notes that fail have no retry safety net, and the weekly digest cannot run | SB-052 |
+| 2 | Session tokens in `localStorage` | one XSS is a full session compromise; **accepted risk** — mitigated by a strict CSP with no `unsafe-inline`, and the alternative (httpOnly cookies) is not available to a Supabase JS client | F3 |
+| 3 | No CSP violation collector (`report-to`) | violations are visible only in the reporting browser's DevTools; nobody is told | `docs/08-security.md` |
+| 4 | `/search` rate limit written but never exercised live | the 429 path is type-checked and unit-covered, not observed under real load | F7 |
+| 5 | No structured alerting on pipeline failures | a broken stage is found by someone querying `ai_jobs`, not by being told — which is exactly how #1 went unnoticed for four days | SB-019 follow-on |
 
-Items 1–3 must be closed **before any public deployment** (M6 in
-[`docs/12-roadmap.md`](docs/12-roadmap.md)).
+**Closed since the last revision of this file**, each with evidence in
+`docs/00-verification.md`: no CSP → strict CSP proven against a deliberate
+violation (SB-003); no rate limiting → 60 calls/15 min per user/stage, proven
+over 61 real HTTP calls (SB-002); `ALLOWED_ORIGIN: '*'` → foreign preflight
+rejected at `403` (SB-010); audio retention unenforced → real Storage bytes
+deleted, `400` on re-fetch (SB-009); no account deletion → full cycle proven
+across 10 tables (SB-015); no export → `GET /export` proven on real notes
+(SB-014); unbounded `ai_jobs` → 90-day purge on a daily `pg_cron` (SB-004);
+no host security headers → `frame-ancestors 'none'` confirmed live by `curl`
+against the real deployment (F11).
 
 ## Handling secrets
 
