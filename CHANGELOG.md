@@ -12,6 +12,12 @@ added but never executed, say so — that distinction is the whole point of
 
 ### Added — web push: the reminder that reaches a closed app (SB-051)
 
+**Client half live on hosted 2026-08-21 20:46 UTC** (PR #38) — confirmed by
+fetching the deployed `sw.js` and finding this feature's own notification tag
+in it. The backend half is **not** live: the two migrations, `functions/push`,
+the VAPID secrets and the cron job's Vault secrets are all owner steps, listed
+in `docs/13-tasks.md` "SB-051".
+
 SB-050 put a count on the Tasks tab; it only works while the app is open,
 which is precisely when nobody needs reminding. This is the other half: one
 summary notification per day — **at 08:00 in the user's own timezone**, read
