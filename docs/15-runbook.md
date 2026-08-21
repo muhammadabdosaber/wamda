@@ -63,6 +63,26 @@ supabase secrets set ELEVENLABS_API_KEY=...
 supabase secrets set COHERE_API_KEY=...
 ```
 
+### VAPID keys (SB-051, web push)
+
+Not a vendor key -- a pair this project generates once, itself. Both halves
+come out of one command; nobody needs to see them but you:
+
+```bash
+node -e "crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign']).then(async k=>{const jwk=await crypto.subtle.exportKey('jwk',k.privateKey);const raw=Buffer.from(await crypto.subtle.exportKey('raw',k.publicKey));console.log('VITE_VAPID_PUBLIC_KEY='+raw.toString('base64url'));console.log('VAPID_PRIVATE_KEY='+jwk.d)})"
+```
+
+| Half | Goes to | Why |
+|---|---|---|
+| `VITE_VAPID_PUBLIC_KEY` | `web/.env.local` **and** Cloudflare Pages env | The browser needs it to subscribe. This is the one `VITE_` variable that is *meant* to be public -- it authorizes nothing on its own |
+| `VAPID_PRIVATE_KEY` | `supabase secrets set` | Signs the request to the push service. Never a `VITE_` variable, never a migration literal |
+| `VAPID_SUBJECT` | `supabase secrets set` | `mailto:` contact, required by RFC 8292 -- push services reject a JWT without one |
+
+Rotating the pair invalidates every existing subscription: devices must
+subscribe again. `push_subscriptions` rows keyed to the old key will start
+returning `403` from the push service, and the sender will count them as
+failures rather than as `gone`. Rotate only for a reason.
+
 Locally: the same three in `supabase/functions/.env` (gitignored — see
 `.env.example`), then `supabase functions serve`.
 
@@ -79,7 +99,7 @@ the backend half.
 ```bash
 supabase link --project-ref hfjpotjbrrnghuqhxoux
 supabase db push                      # migrations
-supabase functions deploy notes transcribe enrich search digest sweep delete-account export
+supabase functions deploy notes transcribe enrich search digest sweep delete-account export push
 supabase secrets set ANTHROPIC_API_KEY=... ELEVENLABS_API_KEY=... COHERE_API_KEY=...
 
 cd web && npm run build               # dist/ → Cloudflare Pages (auto, on push to main)
@@ -112,7 +132,11 @@ the area it covers):
 
 Four `pg_cron` jobs exist and were `active: true` as of the SB-016 deploy:
 `sweep-worker` (`*/5 * * * *`), `digest-enqueue`/`digest-collect`
-(`0 3 * * 6`, weekly), and the `ai_jobs` retention purge (daily). Each calls
+(`0 3 * * 6`, weekly), and the `ai_jobs` retention purge (daily). A fifth,
+`push-due-tasks` (`5 * * * *`, SB-051), is written and **not yet scheduled on
+hosted** -- it needs its own two Vault secrets (`push_function_url`,
+`push_service_role_key`) exactly like the other two, then a re-run of
+`20260822000200_push_schedule.sql`. Each calls
 its deployed function URL through `pg_net.http_post`, with the service role
 key read from **Vault** — never a literal in a migration, since a migration is
 a committed file.

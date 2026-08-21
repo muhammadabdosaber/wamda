@@ -106,7 +106,8 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 4.29 | Due-soon badge on the Tasks tab (overdue + due today, open only) | ✅ built + driven in a browser on 6 real rows; showed `2` from the Capture tab; completed/later/undated excluded; Arabic dual form correct | `App.tsx` · `core/due.ts` · `core/dueSoon.ts` (SB-050) |
 | 4.30 | `متأخرة` chip separating overdue from due-today | ✅ confirmed live; absent on a completed overdue task; `margin-inline-end` proven to mirror in RTL | `Tasks.tsx` · `global.css` (SB-050) |
 | 4.31 | Badge re-reads the clock on foreground (`useNow`) | ✅ proven at minute granularity — a `focus` event alone surfaced a task that fell due while the page sat open. Caveat: the browser pane reports `visibilityState: hidden`, so the check required emulating a foregrounded document | `core/clock.ts` (SB-050) |
-| 4.32 | Notification with the app closed (web push) | ⬜ not built — no service-worker push, no VAPID, no subscription table | SB-051 |
+| 4.32 | Notification with the app closed (web push) | 🟡 **built, never delivered.** Encryption asserted against RFC 8291's own example byte for byte (locally and in CI), subscription flow and toggle built, service worker carries the push handler. No device has received one: needs a VAPID pair, a `functions deploy`, and an iPhone with the PWA installed | `sw.ts` · `data/push.ts` · `functions/push` (SB-051) |
+| 4.33 | Turning reminders on, and off for real | ⬜ built, unrun — the control asks for permission from a real tap and DELETES the row when switched off, so the app is not the only way to stop the buzzing. Never clicked in a browser | `components/PushToggle.tsx` (SB-051) |
 
 ## 5. Auth, data, security
 
@@ -133,13 +134,15 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | # | Feature | State | Owner |
 |---|---|---|---|
-| 6.1 | Schema verification harness (26 assertions) | ✅ | `supabase/tests/verify.sql` |
-| 6.2 | `npm run verify` — typecheck + RTL + 38 tests + build | ✅ | `web/package.json` |
+| 6.1 | Schema verification harness (31 assertions) | ✅ | `supabase/tests/verify.sql` |
+| 6.2 | `npm run verify` — typecheck (app + worker) + RTL + 46 tests + build | ✅ | `web/package.json` |
 | 6.3 | Sweep worker: unstick, retry, backfill embeddings | ✅ unstick proven on a live cron timer (SB-001); embedding backfill ran for real, 14/14 notes (SB-045). Currently unreachable on hosted — SB-052, cron rejected with 403 | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ✅ ran for real (SB-018) — real Anthropic Batch submission, real digest, correctly rendered in the client | `functions/digest` |
 | 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06 (local). Now also live and `active: true` on the hosted project (SB-016) | SB-001 |
 | 6.5b | `pg_cron` schedule for digest | 🟡 proven live twice — locally, then on hosted (SB-016), producing a real `digest_batches` row (SB-018). Currently rejected with 403 on hosted since 2026-08-17 — SB-052, fix needed before Sat 2026-08-22's tick | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner (2026-08-02); the schema assertions ran against a real Postgres | `.github/workflows/ci.yml` |
+| 6.6b | Due-task reminder sender (`functions/push`) | ⬜ built, unrun — one summary per user per local day at 08:00 their time, deduped by `push_deliveries`; `push_due_candidates()` proven on a real Postgres (5 assertions), the sender itself has only ever run against a stub `fetch` | `functions/push` (SB-051) |
+| 6.6c | `pg_cron` schedule for push (`push-due-tasks`, `5 * * * *`) | ⬜ written, not scheduled — needs its own two Vault secrets; the existing Vault-based jobs are rejected with 403 today (SB-052) | migration `20260822000200` |
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
@@ -161,9 +164,10 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | State | Count |
 |---|---|
 | ✅ working | 51 |
-| 🟡 partial | 6 |
-| ⬜ built, unrun | 13 |
+| 🟡 partial | 7 |
+| ⬜ built, unrun | 15 |
 | ❌ not built | 19 |
 
-Adjusted 2026-08-21 from the previous count by exactly the three rows that
-moved in this pass: 2.12 and 5.8 (⬜ → ✅) and 5.15 (🟡 → ✅).
+Adjusted 2026-08-22 for SB-051: 4.32 moved ⬜ → 🟡 (built, never
+delivered) and 4.33, 6.6b, 6.6c are new ⬜ rows — net ⬜ 13 → 15. The three rows that moved
+on 2026-08-21 were 2.12 and 5.8 (⬜ → ✅) and 5.15 (🟡 → ✅).

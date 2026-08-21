@@ -27,7 +27,7 @@ it daily on his own phone:
 | PWA | `https://wamda-a8k.pages.dev` — Cloudflare Pages, **auto-deploys on every merge to `main`** |
 | Backend | hosted Supabase project `hfjpotjbrrnghuqhxoux` (Postgres 17 + pgvector) |
 | Vendor keys | all three real and working on hosted: Anthropic, ElevenLabs, Cohere |
-| Scheduled work | four `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge |
+| Scheduled work | four `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge. A fifth (`push-due-tasks`) is written but not yet scheduled |
 
 Two consequences you must hold onto:
 
@@ -64,7 +64,7 @@ A note stranded outside a terminal state is invisible to the user and retried by
 nobody. Optional stages (embed, relate) degrade the note; they never fail it.
 See ADR-0007 — it was written from two real bugs.
 
-**6. `sweep` and `digest` are service-only.**
+**6. `sweep`, `digest` and `push` are service-only.**
 `requireServiceRole()` (`_shared/http.ts`) compares the bearer to
 `SUPABASE_SERVICE_ROLE_KEY` and returns `403` otherwise — the anon key ships in
 every browser bundle and must not be enough to spend vendor money. Their only
@@ -77,17 +77,18 @@ Changing that gate breaks the cron caller; it already did once (SB-052).
 cd web && npm run verify
 ```
 
-typecheck + RTL guard + 38 tests + build. If the schema moved:
+typecheck (app **and** the service worker's own WebWorker project) + RTL
+guard + 46 tests + build. If the schema moved:
 
 ```bash
 docker exec -i supabase_db_Second_Brain \
   psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
 ```
 
-Expect `ALL SCHEMA CHECKS PASSED` — 26 assertions. If a function moved:
+Expect `ALL SCHEMA CHECKS PASSED` — 31 assertions. If a function moved:
 `deno check supabase/functions/*/index.ts`. If `_shared/*.ts` logic moved:
-`deno test --allow-env supabase/functions/_shared/*.test.ts` (9 tests today,
-all in `http.test.ts`).
+`deno test --allow-env supabase/functions/_shared/*.test.ts` (14 tests today:
+9 in `http.test.ts`, 5 in `webpush.test.ts`).
 
 **A new table needs an RLS policy, a table-level `GRANT`, and an assertion in
 `verify.sql` — in the same change.** Correct policies with no grant produce
@@ -151,11 +152,14 @@ docs/           design + planning docs · docs/adr/ decision log
 supabase/
   migrations/   schema, RLS, RPCs — additive, never edited in place
   functions/    notes · transcribe · enrich · search · digest · sweep ·
-                export · delete-account
+                export · delete-account · push
     _shared/    pipeline.ts is shared by enrich/transcribe/sweep — one copy
-  tests/        verify.sql — 26 assertions against a live database
+  tests/        verify.sql — 31 assertions against a live database
 web/            React 19 + Vite PWA
-  src/core/     pure logic, unit-tested without a browser (due dates, clock)
+  src/sw.ts     the service worker (push handler) — its own tsconfig, since
+                WebWorker and DOM lib types cannot share one project
+  src/core/     pure logic, unit-tested without a browser (due dates, clock,
+                notification text)
   src/i18n/     the only place Arabic display text is allowed
 ```
 

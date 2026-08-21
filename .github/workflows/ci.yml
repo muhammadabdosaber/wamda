@@ -51,10 +51,10 @@ jobs:
       # SB-010: the first Deno unit tests in the project — pure functions of
       # a Request and an env var, no DB or vendor needed. --allow-env only:
       # no network, no filesystem beyond what Deno itself needs.
-      - run: deno test --allow-env supabase/functions/_shared/http.test.ts
+      - run: deno test --allow-env supabase/functions/_shared/*.test.ts
 
   database:
-    name: database — migrations + 26 schema assertions
+    name: database — migrations + 31 schema assertions
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

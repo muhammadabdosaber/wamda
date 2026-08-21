@@ -1,9 +1,9 @@
 {
   "meta": {
     "displayName": "Second Brain",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Arabic-first capture and recall app. React 19 PWA client with offline-durable capture, Supabase (Postgres + Edge Functions on Deno) backend, RLS-enforced multi-tenancy, and a server-side-only AI pipeline (ElevenLabs transcription, Anthropic enrichment, Cohere embeddings).",
-    "generatedAt": "2026-08-21",
+    "generatedAt": "2026-08-22",
     "techStack": {
       "language": "TypeScript (Deno 2 on the server, React 19 on the client)",
       "framework": "Supabase Edge Functions + PostgREST backend, Vite PWA frontend",
@@ -356,6 +356,28 @@
       "endpoints": [
         { "method": "POST", "path": "/", "auth": true, "permission": null, "description": "Service-role only. Shares pipeline logic with enrich/transcribe via _shared/pipeline.ts." }
       ]
+    },
+    {
+      "id": "push",
+      "name": "push",
+      "basePath": "/functions/v1/push",
+      "description": "Not client-facing. Invoked by the push-due-tasks pg_cron job (5 * * * *) via pg_net with Vault-stored URL/service-role secrets. Sends one web push summary per user per LOCAL day — at 08:00 in that user's own timezone — counting open tasks overdue or due today. Encrypts payloads with RFC 8291 aes128gcm under an RFC 8292 VAPID JWT, implemented on WebCrypto in _shared/webpush.ts and asserted against the RFC's own worked example. Built 2026-08-22 (SB-051); not yet deployed.",
+      "color": "#0ea5e9",
+      "icon": "🔔",
+      "files": [
+        "supabase/functions/push/index.ts",
+        "supabase/functions/_shared/webpush.ts"
+      ],
+      "permissions": [],
+      "endpoints": [
+        {
+          "method": "POST",
+          "path": "/",
+          "auth": true,
+          "permission": null,
+          "description": "Service-role only (requireServiceRole). Body {force?: boolean} skips the 08:00-local window and the once-a-day push_deliveries mark, for proving delivery on a real device. Recipients come from push_due_candidates(); a 404/410 from the push service disables that subscription rather than retrying it."
+        }
+      ]
     }
   ],
   "systemEndpoints": [],
@@ -415,6 +437,16 @@
         "file": "supabase/functions/_shared/pipeline.ts",
         "description": "One copy of the transcribe/enrich/embed/relate pipeline logic, called by enrich, transcribe, and sweep — not three copies.",
         "exports": ["pipeline stage runners"]
+      },
+      {
+        "name": "web push crypto",
+        "file": "supabase/functions/_shared/webpush.ts",
+        "description": "RFC 8291 (aes128gcm payload encryption) and RFC 8292 (VAPID) on WebCrypto, with no npm dependency — asserted byte for byte against RFC 8291's published example in webpush.test.ts.",
+        "exports": [
+          "encryptPayload",
+          "vapidAuthorization",
+          "sendWebPush"
+        ]
       },
       {
         "name": "due-date logic (client)",

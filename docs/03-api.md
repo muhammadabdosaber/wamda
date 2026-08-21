@@ -33,6 +33,7 @@ Two rules that matter:
 | `POST` | `/enrich` | Enrichment + embedding + relations (stages 3–5). |
 | `POST` | `/search` | Hybrid / semantic / lexical retrieval. |
 | `POST` | `/digest` | `{action: "enqueue" \| "collect"}` — cron-triggered. |
+| `POST` | `/push` | Due-task reminders. Cron-triggered, service-role only (SB-051). |
 | `GET` | `/export` | Every note, enrichment, and tag the caller owns. |
 | `POST` | `/delete-account` | Irreversible. Requires `confirm_email`. |
 
@@ -148,6 +149,36 @@ digests, `ai_jobs`, `profiles`. That cascade already existed
 (`docs/08-security.md`); this endpoint's own job is the Storage audio
 objects, which no Postgres FK reaches, deleted first so a failure there
 leaves the account — and the ability to retry — intact.
+
+### `POST /push`
+
+Service-only, like `/digest` and `/sweep`: `requireServiceRole()` compares the
+bearer to `SUPABASE_SERVICE_ROLE_KEY` and returns `403` otherwise. Its only
+legitimate caller is the `push-due-tasks` cron job, which reads that key from
+Vault at call time.
+
+Takes no user input. It asks `push_due_candidates()` who has open tasks
+overdue or due today **in their own timezone**, sends at most one notification
+per user per local day, and records that fact in `push_deliveries`.
+
+```json
+{ "force": true }
+```
+
+`force` skips the 08:00-local send window and the once-a-day mark -- the path
+for proving delivery on a real device without waiting for morning. It does not
+skip the due rule or the subscription list. Same role `forceEmbedBackfill`
+plays in `/sweep`, and reachable only with the service role.
+
+Response:
+
+```json
+{ "candidates": 1, "notified": 1, "sent": 2, "disabled": 0,
+  "results": [{ "user_id": "...", "endpoint_host": "fcm.googleapis.com", "status": 201, "gone": false }] }
+```
+
+A `404`/`410` from a push service means that subscription is dead for good:
+the row is disabled, not deleted, and not retried.
 
 ### Errors
 

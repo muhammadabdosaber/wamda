@@ -4,6 +4,8 @@
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL: string;
   readonly VITE_SUPABASE_ANON_KEY: string;
+  /** SB-051. Public by design -- the browser needs it to subscribe to push. */
+  readonly VITE_VAPID_PUBLIC_KEY: string;
 }
 
 interface ImportMeta {

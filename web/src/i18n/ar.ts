@@ -75,6 +75,24 @@ export const ar = {
   // this chip is the only thing that tells the two apart.
   tasksOverdue: "متأخرة",
 
+  // SB-051. Notifications that arrive with the app closed. The permission
+  // prompt is asked for from a tap on this control, never on load: a denied
+  // permission is permanent until the user digs into browser settings, so a
+  // badly-timed ask costs the feature forever.
+  pushDueTitle: "مهام مستحقة",
+  pushEnable: "ذكّرني والتطبيق مقفول",
+  pushDisable: "إيقاف التذكير",
+  pushEnabled: "التذكير شغّال — إشعار واحد صباحًا لو فيه مهام مستحقة.",
+  // Chrome and Firefox let a site ask again after a reload; Safari does not.
+  // Either way the browser will not show a second prompt, so the app has to
+  // say where the switch now lives.
+  pushBlocked: "الإشعارات مرفوضة من إعدادات المتصفّح. فعّلها من هناك أولاً.",
+  // iOS gives a web app push only after it is added to the Home Screen. Saying
+  // that plainly beats a button that does nothing on the one device this app
+  // was built for.
+  pushUnsupported: "لتفعيل الإشعارات على الآيفون، أضف التطبيق إلى الشاشة الرئيسية أولاً.",
+  pushFailed: "تعذّر تفعيل الإشعارات.",
+
   // The single-note detail view: the exact text captured, opened from a note
   // or a task row. This is what keeps a task a VIEW over its note (SB-037).
   detailTitle: "الملاحظة",

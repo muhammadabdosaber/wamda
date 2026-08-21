@@ -83,6 +83,14 @@ export default defineConfig(({ mode }) => {
     cspMetaPlugin(cspMeta),
     VitePWA({
       registerType: "autoUpdate",
+      // SB-051: `injectManifest`, not the default `generateSW`. Web push
+      // needs a `push` listener, and a worker Workbox writes for you has
+      // nowhere to put one. The cost is that `web/src/sw.ts` now owns the
+      // precaching too -- it does the same two things generateSW did, and
+      // `workbox.globPatterns` below still supplies the file list.
+      strategies: "injectManifest",
+      srcDir: "src",
+      filename: "sw.ts",
       includeAssets: ["icon.svg"],
       manifest: {
         name: "ومضة",
@@ -106,14 +114,12 @@ export default defineConfig(({ mode }) => {
           },
         ],
       },
-      workbox: {
+      // Under `injectManifest` this is `injectManifest`, not `workbox`: the
+      // plugin only uses it to build the file list it substitutes for
+      // `self.__WB_MANIFEST`. Runtime caching behaviour moved into
+      // `src/sw.ts` (the navigation fallback is registered there).
+      injectManifest: {
         globPatterns: ["**/*.{js,css,html,svg,woff2}"],
-        // The app shell is precached so a cold launch works offline. API
-        // responses are deliberately NOT cached here -- notes live in
-        // IndexedDB, which is queryable and writable offline. A stale HTTP
-        // cache would shadow the local store and show the user older data
-        // than they have on device.
-        navigateFallback: "index.html",
       },
       devOptions: { enabled: false },
     }),
