@@ -30,7 +30,7 @@ blocked on.
 
 | # | Task | Milestone | Size | Status |
 |---|---|---|---|---|
-| SB-052 | Hosted cron rejected with 403 since 2026-08-17 — safety net down, digest at risk Sat | M5/M6 | S | `todo` |
+| SB-052 | Hosted cron rejected with 403 since 2026-08-17 — reported fixed, re-checked, still broken; this week's digest missed | M5/M6 | S | `todo` |
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | **done** |
@@ -82,36 +82,47 @@ blocked on.
 
 ### SB-052 · Hosted cron rejected with 403 since 2026-08-17 · `todo` · S
 
-**Currently live, not historical.** Found 2026-08-17 checking the next tick
-after SB-016's deploy, re-checked 2026-08-20, and re-checked again
-**2026-08-21 13:15 UTC** — `403 {"error":{"code":"forbidden"}}` on every one
-of the last eight `net._http_response` rows, i.e. **still failing on the
-fifth day**, with the digest deadline now less than 24 hours out (see
-`docs/00-verification.md` "SB-052"). `sweep-worker` and `digest-collect` both call their function through
+**Currently live, not historical.** Found 2026-08-17, re-checked 2026-08-20
+and 2026-08-21. **Re-checked again 2026-08-22 05:45 UTC after being told this
+was fixed — it is not.** Still `403` on every tick, and the digest's
+Saturday 03:00 UTC deadline this entry has been tracking since 2026-08-17
+fired and was rejected the same way: the weekly review did not run.
+
+**New evidence, from a diagnostic someone deployed straight to hosted (not
+through this repo — confirmed via `git log --all`) at 2026-08-21 13:16 UTC:**
+the `403` body now carries `debug: bearer_len=219, expected_len=41,
+bearer_sha=..., expected_sha=...`. 219 is the shape of a real service-role
+JWT; 41 is neither this project's 3-character placeholder convention nor a
+real key's 100+. That does not fit "a stale key from a rotation" — a rotated
+real key would still be long. See `docs/00-verification.md` "SB-052
+correction (2026-08-22)" for the full trace and what it does and does not
+prove. `sweep-worker` and `digest-collect` both call their function through
 `pg_cron` → `pg_net`, and every one of the last 8 calls got `403
 {"error":{"code":"forbidden"}}` from `requireServiceRole()` (F1, PR #31) —
 the exact caller that gate is supposed to let through.
 
-- **No damage yet, re-confirmed 2026-08-21.** Hosted note statuses are
-  `ready: 17`, `draft: 7`, `failed: 1` — nothing in `queued`/`transcribing`/
-  `enriching`, and the single `failed` note dates from 2026-08-09, long before
-  this regression. The pipeline itself is healthy: `ai_jobs` shows the last
-  successful `enrich` and `embed` calls on 2026-08-20 with no failures since
-  the key fixes. The exposure is that the safety net is down: the next note
+- **No damage yet, re-confirmed 2026-08-22.** Hosted note statuses are
+  `ready: 17`, `draft: 7`, `failed: 1` — unchanged since the last check, and
+  the single `failed` note still dates from 2026-08-09, long before this
+  regression. The exposure is that the safety net is down: the next note
   whose live `enrich`/`transcribe` call fails has nothing to unstick it.
-- **The clock that matters:** `digest-enqueue` (jobid 3, `0 3 * * 6`) last
-  actually ran 2026-08-15, before the regression started. Its next tick is
-  **Saturday 2026-08-22, 03:00 UTC** and will get the same `403` unless this
-  is fixed first.
+- **The clock that mattered has passed.** `digest-enqueue`'s
+  **2026-08-22 03:00 UTC** tick fired on schedule and was rejected with the
+  same `403` — this week's digest did not run. The next chance is next
+  Saturday.
 - **Root cause narrowed, not confirmed:** almost certainly the Vault-stored
   `sweep_service_role_key` (and whatever digest's schedule reads) no longer
   matches the project's live `SUPABASE_SERVICE_ROLE_KEY` — a stale key from
   before a rotation, or whitespace from how it was originally pasted into
   `vault.create_secret()`.
-- **Deliberately not fixed by an agent.** Confirming it means comparing the
-  stored secret against the real one, which means reading raw service-role
-  key material — out of scope for this agent by design, the same reasoning
-  SB-001 and the original 08-17 diagnosis both applied.
+- **Deliberately not fixed by an agent.** Confirming the root cause means
+  comparing the stored secret against the real one, which means reading raw
+  service-role key material — out of scope for this agent by design, the same
+  reasoning SB-001 and the original 08-17 diagnosis both applied. What has
+  been read is safe by that same rule: lengths and SHA-256 prefixes only,
+  surfaced by a diagnostic someone (not this repo's history) deployed
+  directly to hosted on 2026-08-21. See the 2026-08-22 correction in
+  `docs/00-verification.md`.
 - **Start at:** the owner re-runs `vault.create_secret` (or `update`) for the
   relevant secret(s) with the current real service-role key from Project
   Settings → API, pasted with no trailing whitespace. SB-001's own

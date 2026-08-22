@@ -10,6 +10,25 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Corrected — SB-052 reported fixed, checked live, still broken; this week's digest missed
+
+Reported resolved. Checked before updating anything: **still `403` on every
+tick**, latest 2026-08-22 05:45 UTC. Worse, the Saturday 03:00 UTC deadline
+this ledger named a week ago came and went — `digest-enqueue` fired on
+schedule and was rejected the same way, so this week's review did not run.
+No damage otherwise: note statuses unchanged.
+
+A diagnostic someone deployed straight to hosted on 2026-08-21 13:16 UTC
+(not through this repository — confirmed via `git log --all`) added a safe
+length/hash comparison to the `403` body, and it complicates the standing
+theory: the bearer `pg_cron` sends is 219 characters, shaped like a real
+service-role key; what it is compared against is 41, which is neither this
+project's 3-character placeholder convention nor a real key's 100+. "Stale
+key from a rotation" does not explain a 41-character comparison value. Not
+diagnosed further — that boundary is deliberate. Full trace:
+`docs/00-verification.md` "SB-052 correction (2026-08-22)".
+
+
 ### Added — web push: the reminder that reaches a closed app (SB-051)
 
 **Client half live on hosted 2026-08-21 20:46 UTC** (PR #38) — confirmed by
