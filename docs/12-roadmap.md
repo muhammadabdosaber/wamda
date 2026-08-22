@@ -15,9 +15,9 @@
 "خلصنا تقريبًا". المرحلة متتقفلش غير لما الشرط ده يتحقّق فعلًا وينتكتب في
 `docs/00-verification.md`.
 
-كل المفاتيح موجودة ومشتغلة فعليًا (M2/M3 خلصوا). الحاجز الحالي الوحيد:
-**cron الاستضافة واقف من ١٧ أغسطس** برفض `403` (SB-052) — مش مفتاح ناقص، مفتاح
-اتغيّر في Vault ومحتاج تحديث يدوي من المالك قبل السبت الجاي.
+كل المفاتيح موجودة ومشتغلة فعليًا (M2/M3 خلصوا). SB-052 (رفض cron الاستضافة)
+اتحل ٢٢ أغسطس — السبب الحقيقي كان Supabase غيّرت مفتاح من غير تنبيه، والحل
+بقى الكود يعتمد على سرّ المشروع نفسه بدل مفتاح المنصة.
 
 ---
 
@@ -29,7 +29,7 @@ M1 ████████████ done      auth + capture against a real 
 M2 ███████████░ done*     enrichment + embeddings live · *SB-006 cross-lingual test still unrun
 M3 ████████████ done      voice live end to end on hosted (SB-007); Android untested
 M4 ░░░░░░░░░░░░ later     search tuning — needs a real corpus (~100 notes)
-M5 ███████████░ live*     sweep + digest scheduled and proven · *hosted cron 403 since 2026-08-17, SB-052
+M5 ████████████ done      sweep + digest scheduled, proven, and fixed for real (SB-052, 2026-08-22)
 M6 ████████████ done      hardening: rate limits · CSP · export/delete · hosted deploy (SB-016)
 M7 ░░░░░░░░░░░░ later     English — gated on SB-006, not on a key
 ```
@@ -97,7 +97,7 @@ Needs ~100 real notes. Tuning against three test notes is theatre.
 
 **Exit:** >80% of a written set of 20 real recall attempts hit in the top 5.
 
-## M5 — It runs without you 🟡 (live, but currently broken — SB-052)
+## M5 — It runs without you ✅ (SB-052 resolved 2026-08-22)
 
 - [x] `pg_cron` + `pg_net` schedule for `sweep` (SB-001) — proven live locally,
       then live on hosted at deploy (SB-016): all four cron jobs `active: true`
@@ -110,13 +110,14 @@ Needs ~100 real notes. Tuning against three test notes is theatre.
       the client. Found and fixed a real bug along the way: the model wraps
       its JSON in a code fence, breaking the naive parse
 
-**Exit met, twice — and currently regressed.** A note deliberately stranded in
-`enriching` was recovered with no client open, both locally (2026-08-06) and
-on hosted. But **hosted cron has been rejected with `403` since 2026-08-17**
-(re-confirmed 2026-08-20) — `requireServiceRole()` no longer accepts the
-Vault-stored key pg_cron sends. No stuck notes yet, but the weekly digest's
-next tick (Sat 2026-08-22) will fail the same way unless the owner re-sets the
-secret first. See SB-052.
+**Exit met, three times.** A note deliberately stranded in `enriching` was
+recovered with no client open, locally (2026-08-06), on hosted at first
+deploy, and again after SB-052's fix (2026-08-22, real `200` with real
+execution). Hosted cron was rejected with `403` 2026-08-17 → 2026-08-22 --
+root cause was Supabase's own key migration, not anything in this project's
+schedule design; fixed by moving off a platform-managed credential entirely
+(`CRON_SECRET`). This Saturday's digest tick fired before the fix and was
+missed; next tick (2026-08-29) is on the fixed path. See SB-052.
 
 ## M6 — Safe to leave running ✅ (one header still missing)
 

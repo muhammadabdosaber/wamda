@@ -65,11 +65,16 @@ nobody. Optional stages (embed, relate) degrade the note; they never fail it.
 See ADR-0007 — it was written from two real bugs.
 
 **6. `sweep`, `digest` and `push` are service-only.**
-`requireServiceRole()` (`_shared/http.ts`) compares the bearer to
-`SUPABASE_SERVICE_ROLE_KEY` and returns `403` otherwise — the anon key ships in
-every browser bundle and must not be enough to spend vendor money. Their only
-legitimate caller is `pg_cron`, which reads the key from Vault at call time.
-Changing that gate breaks the cron caller; it already did once (SB-052).
+`requireCronSecret()` (`_shared/http.ts`) compares the bearer to
+`CRON_SECRET` — a secret this project owns, not `SUPABASE_SERVICE_ROLE_KEY`,
+which Supabase rotated underneath us (SB-052) — and returns `403` otherwise.
+The anon key ships in every browser bundle and must not be enough to spend
+vendor money. Their only legitimate caller is `pg_cron`, which reads the
+secret from Vault at call time (the `*_service_role_key` Vault names are
+historical; they hold `CRON_SECRET`). **Deploy all three with
+`--no-verify-jwt`** — the platform gateway rejects a non-JWT bearer before
+this code runs. Deploying them from a branch without this gate brings back the
+403 within five minutes; it happened twice (2026-08-17, 2026-10-07).
 
 ## Verify before you commit
 

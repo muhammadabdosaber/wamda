@@ -4,7 +4,7 @@
 > project actually stands, what is blocking it, and what must not be
 > re-litigated. Detail lives in the other docs; this is the map.
 >
-> Last brought current: 2026-08-22 (evening UTC).
+> Last brought current: 2026-10-21.
 
 ---
 
@@ -16,10 +16,12 @@ Sonnet 5)، البحث الدلالي (Cohere)، التسجيل الصوتي (El
 حقيقي، المراجعة الأسبوعية، والنشر الفعلي على استضافة حقيقية
 (`wamda-a8k.pages.dev`) — كل ده اشتغل فعليًا، مش مجرد كود موجود.
 
-**الحاجز الحالي مش مفتاح ناقص.** مهام الـcron على الاستضافة (`sweep` و
-`digest`) بترفض بـ403 من ١٧ أغسطس ٢٠٢٦ — مفتاح Vault مش متطابق مع مفتاح
-الخدمة الحقيقي. مفيش ضرر لسه، بس ميعاد المراجعة الأسبوعية الجاي (السبت ٢٢
-أغسطس) هيفشل بنفس الطريقة لو محدش صلّحها. التفاصيل في SB-052.
+**SB-052 اتحل خالص (٢٢ أغسطس ٢٠٢٦).** مهام الـcron كانت بترفض بـ403 من ١٧
+أغسطس لأن Supabase غيّرت المفتاح اللي الكود كان بيقارن بيه من غير أي تنبيه.
+الحل مش رقعة — الكود بقى بيقارن بسرّ المشروع بيملكه (`CRON_SECRET`)، مش
+بمفتاح Supabase بتتحكم فيه هي. اتأكد بتنفيذ حقيقي راجع `200` من الاستضافة.
+المراجعة الأسبوعية بتاعة السبت ده فاتت وفشلت قبل الإصلاح — الجاية (٢٩
+أغسطس) على المسار المُصلَّح. التفاصيل في SB-052.
 
 **التصميم وصل** (٣ أغسطس ٢٠٢٦) وخلص. القاعدة كانت: **الثيم بس** — وده اتنفذ
 من غير ما أي قرار أساسي يتحرك. اقرا `docs/design/README.md` لو هتلمس الواجهة.
@@ -40,48 +42,46 @@ Sonnet 5)، البحث الدلالي (Cohere)، التسجيل الصوتي (El
 | Voice / transcription | **Done on iOS** (SB-007) — real hosted pipeline, confidence 0.925; Android untested |
 | Weekly digest | **Done, run for real** — real Anthropic Batch call, real digest, rendered live in the client |
 | Hosted deploy | **Done** (SB-016, 2026-08-09) — `wamda-a8k.pages.dev` |
-| Scheduled jobs (sweep/digest/retention) | Built, proven, **currently rejected on hosted since 2026-08-17** — SB-052 |
+| Scheduled jobs (sweep/digest/retention) | **Done, fixed and confirmed live 2026-08-22** — SB-052 (was rejected 2026-08-17 → 2026-08-22) |
 | Cross-lingual retrieval test | **Not run** (SB-006) — the one M2 exit clause still open, blocking M7 |
 | English (phase 2) | Wired, deliberately disabled, gated on SB-006 |
 
 Full evidence ledger: `docs/00-verification.md`.
 
-## The blocking point
+## SB-052, resolved -- and the pattern behind it, worth remembering
 
-**Not a vendor key -- a live operational regression on hosted (SB-052).**
-Found 2026-08-17, re-confirmed several times since, most recently
-**2026-08-22 05:45 UTC after being told it was fixed** — it was not. The
-digest deadline this file has been tracking passed the same morning
-(03:00 UTC) and was rejected too: this week's review did not run. A
-diagnostic someone deployed straight to hosted on 2026-08-21 (not through
-this repo) now shows *why* the "stale key" theory may be wrong: the bearer
-`pg_cron` sends is 219 characters, real-key-shaped, but what the function
-compares it against is 41 — too short to be a real key. See
-`docs/00-verification.md` "SB-052 correction (2026-08-22)". Every
-`sweep-worker` and
-`digest-collect` cron tick on the hosted project gets `403
-{"error":{"code":"forbidden"}}` from `requireServiceRole()`, the exact gate
-that's supposed to let `pg_cron`'s own calls through. `cron.job_run_details`
-still shows `succeeded` for every tick -- the failure is only visible by
-reading `net._http_response` directly, which is presumably why it sat
-unnoticed for three days.
+**No longer blocking.** `sweep-worker`/`digest-collect` were rejected with
+`403` on hosted from 2026-08-17 to 2026-08-22 because Supabase's own
+2026-08-16 API-key migration silently changed what `SUPABASE_SERVICE_ROLE_KEY`
+resolves to inside a deployed function, and the code was comparing against
+that platform-owned value. Two owner-led Vault updates with a *correct* key
+still failed -- proof it wasn't a paste error. A temporary length+hash
+diagnostic (never a real secret value) found the actual mismatch: 219 chars
+(the real legacy key) vs 41 (what the function actually had).
 
-- **No damage yet, re-checked 2026-08-22.** Hosted statuses are `ready: 17`,
-  `draft: 7`, `failed: 1` — unchanged, nothing stranded. **This week's digest
-  did not run** — its Saturday tick fired and was rejected like everything
-  else.
-- **The deadline that matters:** `digest-enqueue` last actually fired
-  2026-08-15, before the regression started. Its next tick is **Saturday
-  2026-08-22, 03:00 UTC** and will get the same `403` unless fixed first.
-- **Cause, narrowed but not confirmed:** the Vault-stored service-role key has
-  almost certainly drifted from the project's real one. Confirming that means
-  reading raw service-role key material, which is deliberately out of scope
-  for an agent -- same reasoning as the original SB-001 design. **This needs
-  the owner**: re-run `vault.create_secret`/`update` with the current real key
-  from Project Settings -> API, no trailing whitespace, then watch the next
-  tick's `net._http_response`.
-- Full trace: SB-052 in `docs/13-tasks.md`; live re-check in
-  `docs/00-verification.md`.
+**Fixed structurally.** `requireServiceRole()` -> `requireCronSecret()`,
+comparing against `CRON_SECRET` -- a secret this project generates and owns,
+immune to Supabase rotating its own keys again. One more real bug surfaced
+finishing this: a `CRON_SECRET` deploy without `--no-verify-jwt` gets
+rejected by the platform gateway *before* the function even runs, because
+the gateway's own `verify_jwt` expects a real JWT and a random secret isn't
+one -- documented directly on `requireCronSecret()` so a plain redeploy
+doesn't reintroduce it. **Confirmed live 2026-08-22 12:55 UTC**: a real `200`
+with real execution, not an error path. Full trace: SB-052 in
+`docs/13-tasks.md`; complete diagnosis in `docs/00-verification.md`.
+
+**Known miss:** this Saturday's `digest-enqueue` tick (2026-08-22 03:00 UTC)
+fired before the fix landed and almost certainly failed the same way -- no
+weekly digest this week. Next tick, 2026-08-29, is on the fixed path.
+
+**The pattern worth remembering, for the next migration Supabase ships
+without warning:** any gate comparing against a platform-managed credential
+(`SUPABASE_*`) can break silently the moment Supabase changes what that
+credential resolves to, with `cron.job_run_details` reporting `succeeded`
+throughout because pg_net only confirms the request was *queued*, never that
+it *succeeded* past the target's own auth. If another service-only function
+starts silently failing, check `net._http_response.status_code` directly,
+not just `cron.job_run_details.status`.
 
 All three vendor keys (`ANTHROPIC_API_KEY`, `COHERE_API_KEY`,
 `ELEVENLABS_API_KEY`) are real and working, both locally and on hosted. If a
@@ -95,11 +95,11 @@ The encryption is asserted against RFC 8291's own worked example byte for
 byte, the schema half is proven on a real Postgres, and the client half
 builds — but no notification has reached a device, which is the acceptance
 line. It needs the owner: mint a VAPID pair, deploy `functions/push`, set two
-more Vault secrets (after SB-052, which breaks that exact mechanism), and
+more Vault secrets (holding `CRON_SECRET`, like `sweep`/`digest`), and
 install the PWA on the iPhone. Steps are listed in `docs/13-tasks.md`
 "SB-051".
 
-**What genuinely remains, smaller than SB-052:**
+**What genuinely remains:**
 
 - **SB-006 -- cross-lingual retrieval, never run as its own test.** Embeddings
   exist now; nobody has stored one Arabic and one English note about the same

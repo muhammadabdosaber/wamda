@@ -15,9 +15,10 @@
 أخطر مصيدة محلية: **الـEdge Runtime المحلي بيفضل يشغّل كود قديم بعد ما تعدّل
 الملف**، و `docker restart` مش بيحلّها. لازم `supabase stop && supabase start`.
 
-**عطل حالي فعليًا شغال دلوقتي (SB-052):** مهام الـcron على الاستضافة
-(`sweep`/`digest`) بترفض بـ`403` من ١٧ أغسطس. مفيش ضرر لسه، بس ميعاد الـdigest
-الجاي (السبت ٢٢ أغسطس) هياخد نفس الرفض لو محدش صلّحها.
+**SB-052 اتحل (٢٢ أغسطس):** كانت مهام الـcron على الاستضافة (`sweep`/`digest`)
+بترفض بـ`403` من ١٧ أغسطس بسبب تغيير مفتاح من غير تنبيه من Supabase نفسها.
+الحل بقى الكود يعتمد على سرّ خاص بالمشروع. مراجعة السبت ده فاتت وفشلت قبل
+الإصلاح؛ الجاية على المسار السليم.
 
 ---
 
@@ -128,34 +129,50 @@ the area it covers):
 - [ ] `verify.sql` run against the **hosted** database specifically, not just
       local — not yet done as its own step
 
-## Scheduled work — live on hosted, currently broken (SB-052)
+## Scheduled work — live on hosted
 
-Four `pg_cron` jobs exist and were `active: true` as of the SB-016 deploy:
-`sweep-worker` (`*/5 * * * *`), `digest-enqueue`/`digest-collect`
-(`0 3 * * 6`, weekly), and the `ai_jobs` retention purge (daily). A fifth,
-`push-due-tasks` (`5 * * * *`, SB-051), is written and **not yet scheduled on
-hosted** -- it needs its own two Vault secrets (`push_function_url`,
-`push_service_role_key`) exactly like the other two, then a re-run of
-`20260822000200_push_schedule.sql`. Each calls
-its deployed function URL through `pg_net.http_post`, with the service role
-key read from **Vault** — never a literal in a migration, since a migration is
-a committed file.
+Four `pg_cron` jobs exist and are `active: true`: `sweep-worker`
+(`*/5 * * * *`), `digest-enqueue`/`digest-collect` (`0 3 * * 6`, weekly), and
+the `ai_jobs` retention purge (daily). Each calls its deployed function URL
+through `pg_net.http_post`, with a shared secret read from **Vault** — never a
+literal in a migration, since a migration is a committed file.
 
-**Currently rejected with `403` since 2026-08-17, re-confirmed 2026-08-21 —
-see SB-052.** `cron.job_run_details` still shows `succeeded` for every tick
-(that layer only confirms pg_net queued the HTTP call), so the failure is
-invisible unless `net._http_response` is read directly:
+A fifth, `push-due-tasks` (`5 * * * *`, SB-051), is written and **not yet
+scheduled on hosted**: it needs `push_function_url` and
+`push_service_role_key` in Vault -- the second holds the same value as
+`CRON_SECRET`, despite its name. `20260822000200_push_schedule.sql` was
+already applied on hosted (2026-10-07) and no-op'd, so `db push` will not
+re-run it: run its `do $ ... $` block in the SQL editor once the secrets
+exist.
+
+**Auth against these endpoints is `CRON_SECRET`, not `SUPABASE_SERVICE_ROLE_KEY`
+(SB-052, fixed 2026-08-22).** It used to be the service-role key, which broke
+silently 2026-08-17 → 2026-08-22 when Supabase's own key migration changed
+what that env var resolves to inside a deployed function, with no signal to
+Vault. `CRON_SECRET` is generated and owned by this project instead — Supabase
+rotating its own keys can't touch it. `cron.job_run_details` only ever
+confirms pg_net *queued* the call, never that the target accepted it — read
+`net._http_response.status_code` directly for the real answer:
 
 ```bash
-supabase db query --linked   "select status_code, left(content,80), created from net._http_response
+supabase db query --linked "select status_code, left(content,80), created from net._http_response
    order by created desc limit 8;"
 ```
 
-`403 {"error":{"code":"forbidden"}}` on every row means the Vault-stored
-service-role key has drifted from the project's real one — the fix is the
-owner re-running `vault.create_secret`/`update` with the current key, not a
-code change. See SB-052 in `docs/13-tasks.md` for the full trace and the
-digest deadline (2026-08-22).
+**`sweep`/`digest` must be redeployed with `--no-verify-jwt`** — a real
+finding from fixing SB-052, not a style choice:
+
+```bash
+supabase functions deploy sweep digest --project-ref hfjpotjbrrnghuqhxoux --no-verify-jwt
+```
+
+Without that flag, Supabase's platform gateway rejects `CRON_SECRET` outright
+(`401 UNAUTHORIZED_INVALID_JWT_FORMAT`) before the function code ever runs,
+because the gateway's default `verify_jwt` check expects the bearer to decode
+as a real JWT — the old service-role key happened to satisfy that structurally
+even while failing the application check; a random secret does not. A plain
+`supabase functions deploy sweep digest` (no flag) silently reintroduces this
+exact class of outage.
 
 ## When something breaks
 

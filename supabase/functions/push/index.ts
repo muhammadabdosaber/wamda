@@ -28,7 +28,7 @@
  * not list.
  */
 
-import { errorResponse, HttpError, json, preflight, requireEnv, requireServiceRole } from "../_shared/http.ts";
+import { errorResponse, HttpError, json, preflight, requireEnv, requireCronSecret } from "../_shared/http.ts";
 import { serviceClient } from "../_shared/supabase.ts";
 import { sendWebPush, type DeviceSubscription, type VapidKeys } from "../_shared/webpush.ts";
 
@@ -98,7 +98,7 @@ Deno.serve(async (req) => {
     // Service-triggered only. The anon key ships in every browser bundle and
     // must not be enough to make someone else's phone buzz (rule 6, SB-052's
     // lesson about which caller this gate has to keep working for).
-    requireServiceRole(req);
+    requireCronSecret(req);
 
     const body = await req.json().catch(() => ({}));
     // Bypasses the send-window and the once-a-day mark, not the subscription

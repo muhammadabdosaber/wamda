@@ -30,7 +30,7 @@ blocked on.
 
 | # | Task | Milestone | Size | Status |
 |---|---|---|---|---|
-| SB-052 | Hosted cron rejected with 403 since 2026-08-17 — reported fixed, re-checked, still broken; this week's digest missed | M5/M6 | S | `todo` |
+| SB-052 | Hosted cron 403 since 2026-08-17 — root cause found, `CRON_SECRET` replaces platform key | M5/M6 | S | **done** |
 | SB-029 | Verify **dismiss** for real; migration exists only on the local DB | M1 | S | done |
 | SB-023 | Column-scoped update grant on `notes` | M6 | S | **done** |
 | SB-002 | Per-user rate limit on `/enrich` and `/transcribe` | M6 | M | **done** |
@@ -81,56 +81,76 @@ blocked on.
 
 ---
 
-### SB-052 · Hosted cron rejected with 403 since 2026-08-17 · `todo` · S
+### SB-052 · Hosted cron rejected with 403 since 2026-08-17 · `done` · S
 
-**Currently live, not historical.** Found 2026-08-17, re-checked 2026-08-20
-and 2026-08-21. **Re-checked again 2026-08-22 05:45 UTC after being told this
-was fixed — it is not.** Still `403` on every tick, and the digest's
-Saturday 03:00 UTC deadline this entry has been tracking since 2026-08-17
-fired and was rejected the same way: the weekly review did not run.
+**Root cause found, then fixed structurally, not just patched.** Found
+2026-08-17, re-checked 2026-08-20 and 2026-08-21 (see
+`docs/00-verification.md` "SB-052") — `sweep-worker` and `digest-collect`
+rejected every tick with `403 {"error":{"code":"forbidden"}}` from
+`requireServiceRole()` (F1, PR #31). Two owner-led Vault updates on
+2026-08-21 (correct value, confirmed by length/format) did **not** fix it,
+which is what forced real diagnosis instead of another guess.
 
-**New evidence, from a diagnostic someone deployed straight to hosted (not
-through this repo — confirmed via `git log --all`) at 2026-08-21 13:16 UTC:**
-the `403` body now carries `debug: bearer_len=219, expected_len=41,
-bearer_sha=..., expected_sha=...`. 219 is the shape of a real service-role
-JWT; 41 is neither this project's 3-character placeholder convention nor a
-real key's 100+. That does not fit "a stale key from a rotation" — a rotated
-real key would still be long. See `docs/00-verification.md` "SB-052
-correction (2026-08-22)" for the full trace and what it does and does not
-prove. `sweep-worker` and `digest-collect` both call their function through
-`pg_cron` → `pg_net`, and every one of the last 8 calls got `403
-{"error":{"code":"forbidden"}}` from `requireServiceRole()` (F1, PR #31) —
-the exact caller that gate is supposed to let through.
+**The actual cause, proven without ever reading a secret value.** A
+temporary diagnostic (`_shared/http.ts`, reverted below) logged only a
+length and a truncated SHA-256 hash on mismatch: `bearer_len=219` (the
+Vault-stored legacy JWT) vs `expected_len=41` (what `SUPABASE_SERVICE_ROLE_KEY`
+actually resolved to inside the deployed function). 41 characters is not a
+JWT — Supabase's 2026-08-16 new-API-key migration had silently changed what
+gets injected into that env var (legacy JWT → `sb_secret_...`), and nothing
+told Vault. `requireServiceRole()` was comparing against a platform
+credential Supabase itself rotates on its own schedule, with no signal to
+either side when it moves.
 
-- **No damage yet, re-confirmed 2026-08-22.** Hosted note statuses are
-  `ready: 17`, `draft: 7`, `failed: 1` — unchanged since the last check, and
-  the single `failed` note still dates from 2026-08-09, long before this
-  regression. The exposure is that the safety net is down: the next note
-  whose live `enrich`/`transcribe` call fails has nothing to unstick it.
-- **The clock that mattered has passed.** `digest-enqueue`'s
-  **2026-08-22 03:00 UTC** tick fired on schedule and was rejected with the
-  same `403` — this week's digest did not run. The next chance is next
-  Saturday.
-- **Root cause narrowed, not confirmed:** almost certainly the Vault-stored
-  `sweep_service_role_key` (and whatever digest's schedule reads) no longer
-  matches the project's live `SUPABASE_SERVICE_ROLE_KEY` — a stale key from
-  before a rotation, or whitespace from how it was originally pasted into
-  `vault.create_secret()`.
-- **Deliberately not fixed by an agent.** Confirming the root cause means
-  comparing the stored secret against the real one, which means reading raw
-  service-role key material — out of scope for this agent by design, the same
-  reasoning SB-001 and the original 08-17 diagnosis both applied. What has
-  been read is safe by that same rule: lengths and SHA-256 prefixes only,
-  surfaced by a diagnostic someone (not this repo's history) deployed
-  directly to hosted on 2026-08-21. See the 2026-08-22 correction in
-  `docs/00-verification.md`.
-- **Start at:** the owner re-runs `vault.create_secret` (or `update`) for the
-  relevant secret(s) with the current real service-role key from Project
-  Settings → API, pasted with no trailing whitespace. SB-001's own
-  instructions are the same steps.
-- **Accept:** `net._http_response` for the next `sweep-worker`/`digest-collect`
-  tick shows `200`, not `403`; written into `docs/00-verification.md` either
-  way. Do this before 2026-08-22 03:00 UTC.
+**Confirmed independently, twice:** (1) the response carried
+`x-deno-execution-id` and `x-served-by: supabase-edge-runtime`, proving the
+request reached and executed our own code — not a Kong/gateway-level
+rejection; (2) `expected_sha=1fb9f99d54e2dd1f` matched, character for
+character, the first 16 hex digits of the digest `supabase secrets list`
+itself shows for `SUPABASE_SERVICE_ROLE_KEY` — independent confirmation the
+hash was measuring the real thing.
+
+**Fix: stop trusting a platform-owned credential for this gate.**
+`requireServiceRole()` → `requireCronSecret()`, comparing against a new
+`CRON_SECRET` — generated once, set as an Edge Function secret, and written
+into both Vault secrets the cron schedules read. This project owns
+`CRON_SECRET` outright; Supabase rotating its own keys can never break it
+again. Trade-off, stated plainly: it now has to be kept in sync in two
+places by hand if it's ever rotated, instead of riding along with a
+platform-managed value — acceptable, since the alternative already failed
+silently for 5 days.
+
+**Two more real findings along the way, both would have re-broken this
+quietly if missed:**
+
+1. The Vault **UI** (still BETA) silently did not persist at least one
+   update attempt — `vault.secrets.updated_at` for both rows stayed frozen
+   through two separate "I changed it" reports. The fix that actually stuck
+   used `vault.update_secret()` via SQL Editor directly.
+2. **The first `CRON_SECRET` deploy still failed — with a different error.**
+   `401 {"code":"UNAUTHORIZED_INVALID_JWT_FORMAT"}`, not our own
+   `{"error":{"code":"forbidden"}}` shape — proof the request was now being
+   rejected by Supabase's platform gateway *before* reaching our code at
+   all. The legacy JWT had happened to satisfy the gateway's `verify_jwt`
+   check (it decoded as a JWT, even though the value inside was then wrong);
+   a random `CRON_SECRET` string does not decode as one, so the gateway
+   rejects it outright. Fixed by deploying with
+   `supabase functions deploy sweep digest --no-verify-jwt`. Documented
+   directly on `requireCronSecret()` so a future plain redeploy (no flag)
+   doesn't silently reintroduce the exact class of outage this task exists
+   to close.
+
+- **Accept:** `net._http_response` for the next `sweep-worker` tick after the
+  `--no-verify-jwt` deploy shows a real `200` — **confirmed live, 2026-08-22
+  12:55:00 UTC**: `{"unstuck":0,"retried":0,"embedded":0,"audio_purged":0,
+  "debug":{"stage":"no_rows_found"}}`. Real execution, not an error path
+  that happens to return 200. See `docs/00-verification.md` "SB-052".
+- **Known miss:** `digest-enqueue`'s Saturday 2026-08-22 03:00 UTC tick fired
+  *before* the fix landed (~09:00 UTC same day) and almost certainly got the
+  same `403` — its response is no longer in `net._http_response` (pg_net
+  prunes old rows) to confirm directly, but nothing else changed between
+  08-17 and the fix. No weekly digest was produced this week. Next tick,
+  2026-08-29, is on the fixed path.
 
 ---
 
@@ -1598,6 +1618,7 @@ removed, nothing added; and a one-thought note shows no list. Written into
 | SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
 | SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
 | SB-050 | Badge showed 2 from the Capture tab against 6 real rows; completed/later/undated correctly excluded; `inset-inline-end` proven to mirror in the live document; one stale-badge bug found by ticking a box | `00-verification.md` "SB-050" |
+| SB-052 | Root cause proven via a length+hash diagnostic (219 vs 41 chars, no secret ever read); `requireServiceRole` → `requireCronSecret` against a project-owned secret; confirmed live, hosted cron returns 200 again | `00-verification.md` "SB-052" |
 
 ---
 
