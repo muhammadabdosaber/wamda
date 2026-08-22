@@ -2338,6 +2338,51 @@ with the current real key, pasted without trailing whitespace. Filed as
 **SB-052**, `todo`, ahead of everything else in the backlog — see
 `docs/13-tasks.md`.
 
+## SB-052 correction (2026-08-22) — reported fixed, checked live, still broken
+
+The owner reported this resolved. Checked live before touching any status:
+**still `403` on every tick**, latest at **2026-08-22 05:45:00 UTC** (six
+minutes before this check). No damage: `notes` status is unchanged
+(`ready: 17`, `draft: 7`, `failed: 1`, same single pre-existing `failed` row).
+
+**The digest deadline this ledger has been tracking since 2026-08-17 was
+missed.** `digest-enqueue`'s Saturday 03:00 UTC tick fired on schedule
+(`net._http_response` rows at `03:00:00.036098` and `03:00:01.755231`) and
+was rejected with `403` like every other tick. The weekly review did not run
+this week.
+
+**New, and it changes the theory.** Someone — not through this repository;
+confirmed by `git log --all` on `_shared/http.ts` — deployed an updated
+`sweep` and `digest` (`supabase functions list`: both versions bumped,
+`updated_at` **2026-08-21 13:16:14 UTC**, one minute after this project's own
+13:15 UTC check that day) carrying a diagnostic addition to the `403` body:
+
+```
+{"error":{"code":"forbidden","debug":"bearer_len=219,expected_len=41,bearer_sha=6fffce870a45fb64,expected_sha=1fb9f99d54e2dd1f"}}
+```
+
+Consistent across every tick from 02:50 to 05:45 UTC today. Reported here
+because it is exactly the safe comparison CLAUDE.md prescribes — lengths and
+a SHA-256 prefix, never the key itself — not a rule crossed to get it.
+
+**What it says:** the bearer `pg_cron` sends from Vault is 219 characters —
+the shape of a real service-role JWT. What `requireServiceRole()` is
+currently comparing it against is **41 characters** — neither this project's
+3-character placeholder convention nor a real key's 100+ (`CLAUDE.md`,
+"Check length before trusting a key"). That does not fit "a stale key from
+before a rotation," the theory this ledger has carried since 2026-08-17: a
+rotated real key would still be long. It points somewhere else — either the
+function's own `SUPABASE_SERVICE_ROLE_KEY` (normally a platform-injected
+value, not one this project sets) is currently short for a reason not yet
+understood, or the deployed diagnostic itself is comparing against the wrong
+value. Not resolved further here — the next step needs the owner, both
+because it is their diagnostic deploy to explain and because going further
+means looking at secret material this project has deliberately kept agents
+away from.
+
+**SB-052 is not marked done.** Still `todo` in `docs/13-tasks.md`, updated
+with this finding.
+
 ## SB-051 · Web push: everything up to the wire, and nothing past it
 
 Built 2026-08-22. **The acceptance line is not met**: no notification has

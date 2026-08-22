@@ -4,7 +4,7 @@
 > project actually stands, what is blocking it, and what must not be
 > re-litigated. Detail lives in the other docs; this is the map.
 >
-> Last brought current: 2026-08-22.
+> Last brought current: 2026-08-22 (evening UTC).
 
 ---
 
@@ -49,10 +49,16 @@ Full evidence ledger: `docs/00-verification.md`.
 ## The blocking point
 
 **Not a vendor key -- a live operational regression on hosted (SB-052).**
-Found 2026-08-17, re-confirmed 2026-08-20, and re-confirmed again
-**2026-08-21 13:15 UTC** — the last eight `net._http_response` rows are all
-`403`, so this is now five days old with the digest deadline under a day
-away. Every `sweep-worker` and
+Found 2026-08-17, re-confirmed several times since, most recently
+**2026-08-22 05:45 UTC after being told it was fixed** — it was not. The
+digest deadline this file has been tracking passed the same morning
+(03:00 UTC) and was rejected too: this week's review did not run. A
+diagnostic someone deployed straight to hosted on 2026-08-21 (not through
+this repo) now shows *why* the "stale key" theory may be wrong: the bearer
+`pg_cron` sends is 219 characters, real-key-shaped, but what the function
+compares it against is 41 — too short to be a real key. See
+`docs/00-verification.md` "SB-052 correction (2026-08-22)". Every
+`sweep-worker` and
 `digest-collect` cron tick on the hosted project gets `403
 {"error":{"code":"forbidden"}}` from `requireServiceRole()`, the exact gate
 that's supposed to let `pg_cron`'s own calls through. `cron.job_run_details`
@@ -60,9 +66,10 @@ still shows `succeeded` for every tick -- the failure is only visible by
 reading `net._http_response` directly, which is presumably why it sat
 unnoticed for three days.
 
-- **No damage yet, re-checked 2026-08-21.** Hosted statuses are `ready: 17`,
-  `draft: 7`, `failed: 1` — nothing stranded in a non-terminal state, and the
-  one `failed` note predates the regression by eight days.
+- **No damage yet, re-checked 2026-08-22.** Hosted statuses are `ready: 17`,
+  `draft: 7`, `failed: 1` — unchanged, nothing stranded. **This week's digest
+  did not run** — its Saturday tick fired and was rejected like everything
+  else.
 - **The deadline that matters:** `digest-enqueue` last actually fired
   2026-08-15, before the regression started. Its next tick is **Saturday
   2026-08-22, 03:00 UTC** and will get the same `403` unless fixed first.
