@@ -1,0 +1,1393 @@
+<title>دورة ومضة</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#F5F6F9;
+    --surface:#FFFFFF;
+    --surface-2:#ECEEF3;
+    --surface-3:#E2E5EC;
+    --border:#DBDEE6;
+    --text:#171A23;
+    --text-muted:#5B6270;
+    --text-faint:#8A90A0;
+    --accent:#C9660A;
+    --accent-strong:#A8540A;
+    --accent-soft:#FCEADB;
+    --accent-soft-border:#F0C892;
+    --link:#8A4A0E;
+    --code-bg:#12141C;
+    --code-text:#E7E9F0;
+    --code-border:#262A38;
+    --tok-kw:#F0973D;
+    --tok-str:#8FBF7A;
+    --tok-com:#7C8194;
+    --tok-num:#7FB6E0;
+    --tok-key:#E0A9E8;
+    --good:#2E7D4F;
+    --good-soft:#E6F4EA;
+    --warn:#9A6A00;
+    --warn-soft:#FFF3D6;
+    --bad:#B3261E;
+    --bad-soft:#FBE6E4;
+    --shadow: 0 1px 2px rgba(23,26,35,.05), 0 8px 24px -12px rgba(23,26,35,.12);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#14161C;
+      --surface:#1B1E27;
+      --surface-2:#232733;
+      --surface-3:#2B303E;
+      --border:#323747;
+      --text:#EDEFF4;
+      --text-muted:#A2A9BC;
+      --text-faint:#727892;
+      --accent:#F0973D;
+      --accent-strong:#F7B266;
+      --accent-soft:#3A2A16;
+      --accent-soft-border:#5C3F16;
+      --link:#F0A85E;
+      --code-bg:#0E1016;
+      --code-text:#E7E9F0;
+      --code-border:#252A38;
+      --good:#7FCB9B;
+      --good-soft:#173226;
+      --warn:#E7B94D;
+      --warn-soft:#3A2E0C;
+      --bad:#F2938C;
+      --bad-soft:#3A1917;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#14161C;
+    --surface:#1B1E27;
+    --surface-2:#232733;
+    --surface-3:#2B303E;
+    --border:#323747;
+    --text:#EDEFF4;
+    --text-muted:#A2A9BC;
+    --text-faint:#727892;
+    --accent:#F0973D;
+    --accent-strong:#F7B266;
+    --accent-soft:#3A2A16;
+    --accent-soft-border:#5C3F16;
+    --link:#F0A85E;
+    --code-bg:#0E1016;
+    --code-text:#E7E9F0;
+    --code-border:#252A38;
+    --good:#7FCB9B;
+    --good-soft:#173226;
+    --warn:#E7B94D;
+    --warn-soft:#3A2E0C;
+    --bad:#F2938C;
+    --bad-soft:#3A1917;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px -12px rgba(0,0,0,.5);
+    color-scheme: dark;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:"IBM Plex Sans Arabic","IBM Plex Sans",system-ui,sans-serif;
+    font-size:16px;
+    line-height:1.8;
+    direction:rtl;
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;}
+    *{animation-duration:.001ms !important; transition-duration:.001ms !important;}
+  }
+
+  h1,h2,h3,h4{
+    font-family:"Almarai","IBM Plex Sans Arabic",sans-serif;
+    font-weight:800;
+    line-height:1.35;
+    text-wrap:balance;
+    color:var(--text);
+    margin:0;
+  }
+  h1{font-size:clamp(1.9rem,3.2vw,2.5rem);}
+  h2{font-size:clamp(1.4rem,2.4vw,1.75rem); font-weight:700;}
+  h3{font-size:1.2rem; font-weight:700;}
+  h4{font-size:1.02rem; font-weight:700; color:var(--accent-strong);}
+
+  p{margin:0 0 1em; max-width:72ch;}
+  ul,ol{margin:0 0 1em; padding-inline-start:1.4em; max-width:72ch;}
+  li{margin-bottom:.4em;}
+  a{color:var(--link); text-underline-offset:3px;}
+  a:focus-visible, button:focus-visible, input:focus-visible{
+    outline:2px solid var(--accent); outline-offset:2px; border-radius:4px;
+  }
+  strong{color:var(--text); font-weight:700;}
+  code.inline{
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    background:var(--surface-3);
+    border:1px solid var(--border);
+    border-radius:5px;
+    padding:.05em .4em;
+    font-size:.87em;
+    direction:ltr;
+    display:inline-block;
+    unicode-bidi:isolate;
+  }
+  .eng{direction:ltr; unicode-bidi:isolate; display:inline-block;}
+
+  /* ---------- Shell ----------
+     Deterministic, direction-independent 2-column layout. The macro shell is
+     pinned to physical LTR and re-flips each pane to RTL internally via
+     `order` + `direction`, rather than leaning on how a grid/flex container's
+     own `direction` remaps track/order positions -- that mapping is exactly
+     the kind of subtlety that can render differently depending on the host
+     page wrapping this content, so it is avoided entirely here. */
+  .shell{
+    display:flex;
+    direction:ltr;
+    min-height:100vh;
+    align-items:stretch;
+  }
+  .sidebar{
+    direction:rtl;
+    order:2;
+    flex:0 0 300px;
+    width:300px;
+    max-width:300px;
+    position:sticky; top:0; align-self:flex-start; height:100vh; overflow-y:auto;
+    background:var(--surface);
+    border-inline-start:1px solid var(--border);
+    padding:1.5rem 1.25rem 3rem;
+    display:flex; flex-direction:column; gap:1.5rem;
+  }
+  .brand{
+    display:flex; align-items:center; gap:.6rem;
+    padding-inline-start:.15rem;
+  }
+  .brand-mark{
+    width:38px; height:38px; border-radius:10px;
+    background:linear-gradient(155deg,var(--accent),var(--accent-strong));
+    display:flex; align-items:center; justify-content:center;
+    font-size:1.25rem; flex:none; box-shadow:var(--shadow);
+  }
+  .brand-text h1{font-size:1.15rem; margin:0;}
+  .brand-text span{font-size:.78rem; color:var(--text-muted); font-family:"IBM Plex Mono",monospace; direction:ltr; display:block;}
+
+  nav.toc{display:flex; flex-direction:column; gap:.15rem;}
+  nav.toc a{
+    display:flex; align-items:baseline; gap:.55rem;
+    padding:.5rem .6rem;
+    border-radius:9px;
+    color:var(--text-muted);
+    text-decoration:none;
+    font-size:.94rem;
+    font-weight:500;
+    transition:background .12s ease, color .12s ease;
+  }
+  nav.toc a .num{
+    font-family:"IBM Plex Mono",monospace;
+    font-size:.72rem;
+    color:var(--text-faint);
+    min-width:1.6em;
+    direction:ltr;
+    text-align:end;
+  }
+  nav.toc a:hover{background:var(--surface-2); color:var(--text);}
+  nav.toc a.active{background:var(--accent-soft); color:var(--accent-strong); font-weight:700;}
+  nav.toc a.active .num{color:var(--accent-strong);}
+
+  .sidebar-foot{
+    margin-top:auto; padding-top:1rem; border-top:1px solid var(--border);
+    font-size:.78rem; color:var(--text-faint); line-height:1.7;
+  }
+
+  .menu-btn{display:none;}
+
+  main{
+    direction:rtl;
+    order:1;
+    flex:1 1 auto;
+    min-width:0;
+    padding: 3rem clamp(1.25rem,5vw,5rem) 6rem;
+    max-width:980px;
+  }
+
+  .chapter{
+    padding-top:2.25rem; margin-top:2.25rem;
+    border-top:1px solid var(--border);
+    scroll-margin-top:1.5rem;
+  }
+  .chapter:first-of-type{border-top:none; margin-top:0;}
+  .chapter-eyebrow{
+    display:flex; align-items:center; gap:.6rem;
+    font-family:"IBM Plex Mono",monospace;
+    color:var(--accent); font-size:.82rem; font-weight:600;
+    letter-spacing:.04em; margin-bottom:.5rem; direction:ltr; justify-content:flex-end;
+  }
+  .chapter-eyebrow .line{height:1px; flex:1; background:var(--border);}
+  .chapter h2{margin-bottom:.35rem;}
+  .chapter .lede{color:var(--text-muted); font-size:1.05rem; margin-bottom:1.75rem; max-width:66ch;}
+  .chapter h3{margin-top:2.1rem; margin-bottom:.7rem; padding-inline-start:.7rem; border-inline-start:3px solid var(--accent);}
+  .chapter h4{margin-top:1.4rem; margin-bottom:.5rem;}
+
+  /* ---------- Code ---------- */
+  .code-block{
+    background:var(--code-bg);
+    border:1px solid var(--code-border);
+    border-radius:12px;
+    margin:1rem 0 1.4rem;
+    overflow:hidden;
+    box-shadow:var(--shadow);
+    direction:ltr;
+  }
+  .code-head{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:.5rem .9rem;
+    border-bottom:1px solid var(--code-border);
+    font-family:"IBM Plex Mono",monospace;
+    font-size:.72rem; color:#9CA3B8; background:rgba(255,255,255,.02);
+  }
+  .code-head .path{color:#C7CCDB;}
+  .code-block pre{
+    margin:0; padding:1rem 1.1rem; overflow-x:auto;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;
+    font-size:.83rem; line-height:1.7; color:var(--code-text);
+  }
+  .code-block code{white-space:pre;}
+  .tok-kw{color:var(--tok-kw);}
+  .tok-str{color:var(--tok-str);}
+  .tok-com{color:var(--tok-com); font-style:italic;}
+  .tok-num{color:var(--tok-num);}
+  .tok-key{color:var(--tok-key);}
+
+  /* ---------- Components ---------- */
+  .callout{
+    display:flex; gap:.75rem;
+    border:1px solid var(--border);
+    border-inline-start:4px solid var(--accent);
+    background:var(--surface);
+    border-radius:10px;
+    padding:.9rem 1.1rem;
+    margin:1.1rem 0 1.4rem;
+    box-shadow:var(--shadow);
+  }
+  .callout .ic{font-size:1.15rem; line-height:1; flex:none;}
+  .callout p:last-child{margin-bottom:0;}
+  .callout.warn{border-inline-start-color:var(--warn); background:var(--warn-soft);}
+  .callout.bad{border-inline-start-color:var(--bad); background:var(--bad-soft);}
+  .callout.good{border-inline-start-color:var(--good); background:var(--good-soft);}
+  .callout strong{display:block; margin-bottom:.2rem;}
+
+  table{
+    width:100%; border-collapse:collapse;
+    margin:1rem 0 1.5rem; font-size:.92rem;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:10px; overflow:hidden; box-shadow:var(--shadow);
+  }
+  caption{caption-side:top; text-align:start; font-weight:700; padding-bottom:.5rem; color:var(--text);}
+  th,td{
+    padding:.6rem .85rem; text-align:start; border-bottom:1px solid var(--border);
+    vertical-align:top;
+  }
+  th{background:var(--surface-2); font-family:"Almarai",sans-serif; font-weight:700; font-size:.85rem;}
+  tr:last-child td{border-bottom:none;}
+  td code.inline, th code.inline{font-size:.82em;}
+  .table-wrap{overflow-x:auto; border-radius:10px;}
+
+  .pill{
+    display:inline-flex; align-items:center; gap:.3em;
+    font-family:"IBM Plex Mono",monospace; font-size:.72rem; font-weight:600;
+    padding:.18em .55em; border-radius:6px; direction:ltr;
+    border:1px solid transparent;
+  }
+  .pill-get{background:#E1F0FA; color:#0B5E86; border-color:#B9DDF0;}
+  .pill-post{background:#E7F2E4; color:#2E6B2E; border-color:#C6E2C0;}
+  .pill-status-2{background:var(--good-soft); color:var(--good);}
+  .pill-status-4{background:var(--warn-soft); color:var(--warn);}
+  .pill-status-5{background:var(--bad-soft); color:var(--bad);}
+  :root[data-theme="dark"] .pill-get, :root:not([data-theme="light"]) .pill-get{background:#132531; color:#8FCBEF; border-color:#1F3B4B;}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pill-get{background:#132531; color:#8FCBEF; border-color:#1F3B4B;}}
+  :root[data-theme="dark"] .pill-post, :root:not([data-theme="light"]) .pill-post{background:#132419; color:#9CD98E; border-color:#20361F;}
+  @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .pill-post{background:#132419; color:#9CD98E; border-color:#20361F;}}
+
+  .file-tree{
+    font-family:"IBM Plex Mono",monospace; font-size:.82rem; line-height:1.9;
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:1rem 1.2rem; direction:ltr; overflow-x:auto; box-shadow:var(--shadow);
+    color:var(--text-muted);
+  }
+  .file-tree .d{color:var(--accent-strong); font-weight:600;}
+  .file-tree .f{color:var(--text);}
+  .file-tree .c{color:var(--text-faint);}
+
+  .glossary-term{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:.9rem 1.1rem; margin-bottom:.75rem; box-shadow:var(--shadow);
+  }
+  .glossary-term dt{font-family:"Almarai",sans-serif; font-weight:700; color:var(--accent-strong); margin-bottom:.25rem;}
+  .glossary-term dd{margin:0; color:var(--text-muted);}
+
+  .kv-grid{
+    display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr));
+    gap:.75rem; margin:1rem 0 1.5rem;
+  }
+  .kv-card{
+    background:var(--surface); border:1px solid var(--border); border-radius:10px;
+    padding:.85rem 1rem; box-shadow:var(--shadow);
+  }
+  .kv-card .k{font-size:.74rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; margin-bottom:.3rem;}
+  .kv-card .v{font-weight:700; font-family:"Almarai",sans-serif;}
+
+  .step-list{list-style:none; margin:0 0 1.5rem; padding:0; counter-reset:step;}
+  .step-list > li{
+    counter-increment:step;
+    position:relative;
+    padding-inline-start:2.6rem;
+    padding-bottom:1.3rem;
+    margin-bottom:0;
+    border-inline-start:2px solid var(--border);
+    margin-inline-start:.95rem;
+  }
+  .step-list > li:last-child{border-color:transparent; padding-bottom:0;}
+  .step-list > li::before{
+    content:counter(step);
+    position:absolute; inset-inline-start:-1.05rem; top:0;
+    width:2.1rem; height:2.1rem; border-radius:50%;
+    background:var(--accent-soft); color:var(--accent-strong);
+    border:1px solid var(--accent-soft-border);
+    display:flex; align-items:center; justify-content:center;
+    font-family:"IBM Plex Mono",monospace; font-weight:700; font-size:.85rem;
+  }
+  .step-list h4{margin-top:0;}
+
+  .card-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1rem; margin:1.25rem 0;}
+  .nav-card{
+    display:block; background:var(--surface); border:1px solid var(--border); border-radius:12px;
+    padding:1rem 1.1rem; text-decoration:none; box-shadow:var(--shadow);
+    transition:transform .12s ease, border-color .12s ease;
+  }
+  .nav-card:hover{transform:translateY(-2px); border-color:var(--accent-soft-border);}
+  .nav-card .n{font-family:"IBM Plex Mono",monospace; font-size:.75rem; color:var(--accent); direction:ltr; display:block; margin-bottom:.35rem;}
+  .nav-card h4{color:var(--text); margin:0 0 .3rem;}
+  .nav-card p{margin:0; font-size:.85rem; color:var(--text-muted);}
+
+  hr.soft{border:none; border-top:1px dashed var(--border); margin:1.6rem 0;}
+
+  footer.end{
+    margin-top:4rem; padding-top:2rem; border-top:1px solid var(--border);
+    color:var(--text-faint); font-size:.85rem; text-align:center;
+  }
+
+  @media (max-width: 880px){
+    .shell{flex-direction:column;}
+    .sidebar{
+      position:fixed; right:0; top:0; bottom:0; width:82vw; max-width:320px;
+      transform:translateX(105%); transition:transform .2s ease; z-index:40;
+      box-shadow: -12px 0 40px rgba(0,0,0,.25);
+    }
+    .sidebar.open{transform:translateX(0);}
+    .menu-btn{
+      display:flex; position:sticky; top:.75rem; z-index:30; margin:0 0 -2.5rem auto;
+      inset-inline-end:1rem; width:2.6rem; height:2.6rem; border-radius:50%;
+      background:var(--surface); border:1px solid var(--border); box-shadow:var(--shadow);
+      align-items:center; justify-content:center; cursor:pointer; color:var(--text);
+      font-size:1.1rem;
+    }
+    .scrim{display:none; position:fixed; inset:0; background:rgba(10,12,16,.4); z-index:35;}
+    .scrim.open{display:block;}
+    main{padding-top:4.5rem;}
+  }
+</style>
+
+<div class="shell">
+  <button class="menu-btn" id="menuBtn" aria-label="القائمة">☰</button>
+  <div class="scrim" id="scrim"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">⚡</div>
+      <div class="brand-text">
+        <h1>دورة ومضة</h1>
+        <span>wamda · from source</span>
+      </div>
+    </div>
+
+    <nav class="toc" id="toc">
+      <a href="#intro"><span class="num">00</span><span>عن الكورس والمشروع</span></a>
+      <a href="#ch1"><span class="num">01</span><span>Docker</span></a>
+      <a href="#ch2"><span class="num">02</span><span>الـ API</span></a>
+      <a href="#ch3"><span class="num">03</span><span>شرح كل ملف</span></a>
+      <a href="#ch4"><span class="num">04</span><span>Supabase</span></a>
+      <a href="#ch5"><span class="num">05</span><span>الترجمة i18n</span></a>
+      <a href="#ch6"><span class="num">06</span><span>Validation والأخطاء</span></a>
+      <a href="#ch7"><span class="num">07</span><span>هيكل النظام</span></a>
+      <a href="#ch8"><span class="num">08</span><span>خدمات الذكاء الاصطناعي</span></a>
+      <a href="#ch9"><span class="num">09</span><span>أشياء نسيتها؟</span></a>
+    </nav>
+
+    <div class="sidebar-foot">
+      كل الأمثلة والأكواد هنا منسوخة فعليًا من ملفات المشروع، مش أمثلة توضيحية مُختلقة.
+    </div>
+  </aside>
+
+  <main id="top">
+
+    <!-- ================= INTRO ================= -->
+    <section class="chapter" id="intro" style="border-top:none; margin-top:0; padding-top:0;">
+      <div class="chapter-eyebrow"><span>00 · start here</span><span class="line"></span></div>
+      <h1>كورس تعليمي كامل: مشروع "ومضة" من الكود الحقيقي</h1>
+      <p class="lede">
+        الكورس ده مبني بالكامل على قراءة كود المشروع الفعلي — مفيش أمثلة وهمية.
+        كل Endpoint، كل جدول، كل سطر كود معروض هنا منسوخ من الملفات نفسها. الهدف إنك
+        تفهم <strong>إزاي مشروع حقيقي (real-world) اتبنى</strong>، مش بس تتعلم مفاهيم عامة.
+      </p>
+
+      <div class="callout">
+        <span class="ic">🧭</span>
+        <div>
+          <strong>إزاي تستخدم الكورس ده</strong>
+          <p>
+            استخدم القائمة الجانبية للتنقل بين الفصول التسعة. كل فصل مستقل، تقدر تبدأ منه على طول،
+            بس الترتيب هيفيدك لو ده أول مرة تشوف المشروع. كل الأكواد جوه صناديق سوداء منسّقة —
+            مسارات الملفات مكتوبة فوق كل صندوق كود.
+          </p>
+        </div>
+      </div>
+
+      <h2 style="margin-top:2rem;">عن مشروع ومضة في سطرين</h2>
+      <p>
+        <span class="eng" style="font-weight:700;">ومضة</span> تطبيق "دماغ ثاني" (second brain) لالتقاط الأفكار
+        بسرعة — بالصوت أو بالكتابة — موجّه لمستخدم يفكّر بالعربي وعنده ADHD. الفكرة الأساسية:
+        <strong>الوقت بين ما تقرر توثّق فكرة وبين ما تبقى محفوظة فعليًا</strong> هو أهم رقم في المنتج كله.
+        بعد كده الذكاء الاصطناعي بيصنّف الملاحظة، يلخّصها، ويقترح إجراء (مهمة، موعد، إلخ) — وده ممكن ياخد وقته.
+      </p>
+
+      <div class="kv-grid">
+        <div class="kv-card"><div class="k">Frontend</div><div class="v">React 19 + Vite PWA</div></div>
+        <div class="kv-card"><div class="k">Backend</div><div class="v">Supabase Edge Functions (Deno)</div></div>
+        <div class="kv-card"><div class="k">Database</div><div class="v">Postgres + pgvector + RLS</div></div>
+        <div class="kv-card"><div class="k">Offline</div><div class="v">IndexedDB Outbox</div></div>
+        <div class="kv-card"><div class="k">تحويل صوت لنص</div><div class="v">ElevenLabs Scribe</div></div>
+        <div class="kv-card"><div class="k">تصنيف وتلخيص</div><div class="v">Anthropic Claude</div></div>
+        <div class="kv-card"><div class="k">بحث دلالي</div><div class="v">Cohere Embeddings</div></div>
+        <div class="kv-card"><div class="k">استضافة</div><div class="v">Cloudflare Pages</div></div>
+      </div>
+
+      <h2 style="margin-top:2rem;">خريطة الفصول</h2>
+      <div class="card-grid">
+        <a class="nav-card" href="#ch1"><span class="n">01</span><h4>Docker</h4><p>Container vs Image، وليه المشروع ده أصلًا معندوش Dockerfile.</p></a>
+        <a class="nav-card" href="#ch2"><span class="n">02</span><h4>الـ API</h4><p>9 endpoints حقيقية، من الكود مباشرة.</p></a>
+        <a class="nav-card" href="#ch3"><span class="n">03</span><h4>شرح كل ملف</h4><p>شجرة المشروع كاملة + شرح سطر بسطر للملفات المعقدة.</p></a>
+        <a class="nav-card" href="#ch4"><span class="n">04</span><h4>Supabase</h4><p>Auth، RLS، Storage، وإزاي الكود بيتكلم مع القاعدة.</p></a>
+        <a class="nav-card" href="#ch5"><span class="n">05</span><h4>الترجمة</h4><p>ازاي تضيف نص عربي/إنجليزي وتبدّل اللغة.</p></a>
+        <a class="nav-card" href="#ch6"><span class="n">06</span><h4>Validation والأخطاء</h4><p>كل قواعد التحقق وكل رسائل الخطأ وفين مكتوبة.</p></a>
+        <a class="nav-card" href="#ch7"><span class="n">07</span><h4>هيكل النظام</h4><p>Diagram كامل + رحلة ملاحظة صوتية من أول لحظة للرد.</p></a>
+        <a class="nav-card" href="#ch8"><span class="n">08</span><h4>الذكاء الاصطناعي</h4><p>Anthropic، ElevenLabs، Cohere — كود الاستدعاء الحقيقي.</p></a>
+        <a class="nav-card" href="#ch9"><span class="n">09</span><h4>أشياء نسيتها؟</h4><p>Testing، Deployment، Security، Rate Limiting، Caching.</p></a>
+      </div>
+    </section>
+
+    <!-- ================= CH1 DOCKER ================= -->
+    <section class="chapter" id="ch1">
+      <div class="chapter-eyebrow"><span>01 · Docker</span><span class="line"></span></div>
+      <h2>Docker</h2>
+      <p class="lede">خبر مهم قبل ما نبدأ: المشروع ده معندوش <code class="inline">Dockerfile</code> ولا <code class="inline">docker-compose.yml</code> مكتوب بإيدينا. ده مش نقص — ده قرار. هنشرح ليه، وهنشرح Docker من الصفر عشان تفهم اللي بيحصل تحت السطح لما تشغّل <code class="inline">supabase start</code>.</p>
+
+      <h3>ايه هو Docker أصلًا؟</h3>
+      <p>
+        تخيّل إنك عايز تبعت تطبيق لزميلك يشغّله عنده. عندك مشكلة كلاسيكية: "شغّال عندي، مش شغّال عنده" —
+        فرق في نسخة Node، أو مكتبة ناقصة، أو نظام تشغيل مختلف. <strong>Docker</strong> بيحل المشكلة دي بإنه
+        يحزّم التطبيق مع <em>كل حاجة محتاجها</em> (نظام تشغيل مصغّر، المكتبات، الإعدادات) في وحدة واحدة اسمها
+        <strong>Container</strong> — تشتغل بنفس الشكل بالظبط على أي جهاز فيه Docker.
+      </p>
+      <p>
+        الفايدة العملية هنا في مشروع ومضة: بدل ما تثبّت Postgres، ونظام Auth، وStorage، وDeno runtime، كل واحد
+        لوحده على جهازك (ونتعامل مع مشاكل التوافق بينهم)، أداة <span class="eng">Supabase CLI</span> بتشغّلهم
+        كلهم كـ Containers جاهزة ومضبوطة بالفعل.
+      </p>
+
+      <h3>الفرق بين Container و Image و Docker Compose</h3>
+      <div class="table-wrap"><table>
+        <tr><th>المصطلح</th><th>يعني ايه</th><th>مثال من ومضة</th></tr>
+        <tr><td><strong>Image</strong></td><td>"القالب" — ملف جاهز فيه نظام التشغيل المصغّر + التطبيق + كل الاعتماديات. لا يتغيّر، بس يُستخدم لإنشاء Containers منه.</td><td><code class="inline">supabase/postgres</code>، <code class="inline">supabase/edge-runtime</code></td></tr>
+        <tr><td><strong>Container</strong></td><td>نسخة <em>شغّالة فعليًا</em> من الـ Image — عملية حقيقية على جهازك، ليها ذاكرتها وحالتها الخاصة.</td><td>حاوية Postgres شغّالة على المنفذ <code class="inline">54422</code></td></tr>
+        <tr><td><strong>Docker Compose</strong></td><td>ملف YAML بيوصف <em>مجموعة</em> Containers لازم تشتغل مع بعض (مين محتاج مين، أي منافذ، أي متغيرات بيئة).</td><td>مفيش ملف compose مكتوب في المشروع — Supabase CLI بيولّده ويديره داخليًا</td></tr>
+      </table></div>
+
+      <div class="callout warn">
+        <span class="ic">⚠️</span>
+        <div>
+          <strong>الصراحة المطلوبة هنا</strong>
+          <p>بحثت في المشروع كامل (<code class="inline">git ls-files</code>) ومفيش أي <code class="inline">Dockerfile</code> أو <code class="inline">docker-compose.yml</code>. الـ Docker الوحيد المستخدم هو اللي بتديره أداة <span class="eng">Supabase CLI</span> نفسها — هي اللي بتشغّل مجموعة Containers جاهزة (Postgres، PostgREST، GoTrue للـAuth، Storage API، Edge Runtime، Studio، Mailpit) عشان تحاكي مشروع Supabase حقيقي على جهازك، بدون ما تكتب أي إعداد Docker بنفسك.</p>
+        </div>
+      </div>
+
+      <h3>تفعيل Docker على جهازك من الصفر</h3>
+      <ol class="step-list">
+        <li>
+          <h4>ثبّت Docker Desktop</h4>
+          <p>حمّله من <span class="eng">docker.com</span> (Windows / Mac / Linux). هو اللي بيوفّر المحرّك اللي الـ Containers بتشتغل عليه.</p>
+        </li>
+        <li>
+          <h4>تأكد إنه شغّال</h4>
+          <div class="code-block"><div class="code-head"><span class="path">terminal</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">docker --version
+docker ps</code></pre></div>
+          <p><code class="inline">docker ps</code> بيعرض الـ Containers الشغّالة دلوقتي. لو رجع لك جدول فاضي من غير خطأ، Docker شغّال تمام.</p>
+        </li>
+        <li>
+          <h4>ثبّت Supabase CLI</h4>
+          <div class="code-block"><div class="code-head"><span class="path">terminal</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">npm install -g supabase
+supabase --version</code></pre></div>
+        </li>
+        <li>
+          <h4>شغّل الـ Stack المحلي</h4>
+          <div class="code-block"><div class="code-head"><span class="path">من جذر المشروع</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">supabase start</code></pre></div>
+          <p>الأمر ده بيحمّل الـ Images المطلوبة (أول مرة بس)، وبعدين يشغّل كل الـ Containers مع بعض. هيطبّعلك في الآخر عناوين الـ API والـ Studio والمفاتيح المحلية.</p>
+        </li>
+      </ol>
+
+      <h3>الـ Configuration الخاص بالمشروع ده جوه Docker</h3>
+      <p>كل إعدادات الـ stack المحلي في ملف <code class="inline">supabase/config.toml</code>. الأهم فيه:</p>
+
+      <div class="table-wrap"><table>
+        <caption>المنافذ (Ports) — معدَّلة عمدًا</caption>
+        <tr><th>الخدمة</th><th>Port</th><th>ليه</th></tr>
+        <tr><td>API Gateway</td><td><code class="inline">54421</code></td></tr>
+        <tr><td>Postgres</td><td><code class="inline">54422</code></td></tr>
+        <tr><td>Studio (لوحة الإدارة)</td><td><code class="inline">54423</code></td></tr>
+        <tr><td>Mailpit (صندوق بريد وهمي محلي لأكواد الدخول)</td><td><code class="inline">54424</code></td></tr>
+        <tr><td>Analytics</td><td><code class="inline">54427</code></td></tr>
+        <tr><td>Connection Pooler</td><td><code class="inline">54429</code></td></tr>
+      </table></div>
+      <p>المنافذ الافتراضية العادية بتاعة Supabase (زي <code class="inline">54322</code>) اتغيّرت للنطاق ده لأن مشروع Supabase تاني كان محجوز نفس المنفذ على نفس الجهاز — تذكار مفيد: لو عندك أكتر من مشروع Supabase محلي، هتحتاج تعمل نفس الحاجة.</p>
+
+      <p><strong>الـ Environment Variables</strong> بتتقسم مكانين مقصودًا:</p>
+      <div class="table-wrap"><table>
+        <tr><th>الملف</th><th>يحتوي على</th><th>مين بيستخدمه</th></tr>
+        <tr><td><code class="inline">.env</code> (جذر المشروع)</td><td><span class="eng">VITE_SUPABASE_URL</span>، <span class="eng">VITE_SUPABASE_ANON_KEY</span>، <span class="eng">SUPABASE_AUTH_SITE_URL</span></td><td>الـ Frontend (Vite) والـ Auth redirect</td></tr>
+        <tr><td><code class="inline">supabase/functions/.env</code></td><td><span class="eng">ANTHROPIC_API_KEY</span>، <span class="eng">ELEVENLABS_API_KEY</span>، <span class="eng">COHERE_API_KEY</span></td><td>الـ Edge Functions فقط — مفاتيح حساسة، متسربش أبدًا للمتصفح</td></tr>
+      </table></div>
+      <div class="callout">
+        <span class="ic">🔑</span>
+        <div><strong>الملفين دول في <code class="inline">.gitignore</code></strong><p>عشان كده لازم تنسخهم بنفسك من <code class="inline">.env.example</code> و<code class="inline">supabase/functions/.env.example</code> أول ما تسحب المشروع، وتحط قيمك الحقيقية.</p></div>
+      </div>
+
+      <h3>الأوامر اللي هتستخدمها كل يوم</h3>
+      <div class="code-block"><div class="code-head"><span class="path">يومي</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash"># تشغيل الـ stack كامل
+supabase start
+
+# إيقافه (بياخد نسخة احتياطية تلقائيًا في docker volume)
+supabase stop
+
+# إعادة تطبيق كل الـ migrations من الصفر (بيمسح البيانات المحلية)
+supabase db reset
+
+# حالة الـ containers
+docker ps -a --format "{{.Names}}\t{{.Status}}"
+
+# فحص سريع إن الـ API شغّال
+curl -s -o /dev/null -w "%{http_code}\n" http://127.0.0.1:54421/functions/v1/notes
+# 401 = شغّال وبيرفض طلب غير مُصادَق عليه (ده طبيعي وصحي)</code></pre></div>
+
+      <div class="callout bad">
+        <span class="ic">🪤</span>
+        <div>
+          <strong>فخ حقيقي اتسجّل في الـ runbook</strong>
+          <p>الـ Edge Runtime المحلي أحيانًا بيفضّل يشغّل نسخة قديمة من الكود بعد ما تعدّل ملف، و<code class="inline">docker restart</code> <strong>مبيحلّهاش</strong>. الحل المؤكد الوحيد: <code class="inline">supabase stop && supabase start</code>. قبل ما تصدّق إن إصلاح في كود الـ function "مبيشتغلش"، ضيف سطر <span class="eng">log</span> مميّز وتأكد إن اللي بيشتغل فعلًا هو الكود اللي بتقرأه.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= CH2 API ================= -->
+    <section class="chapter" id="ch2">
+      <div class="chapter-eyebrow"><span>02 · API</span><span class="line"></span></div>
+      <h2>الـ API</h2>
+      <p class="lede">كل الـ API عبارة عن 8 <strong>Edge Functions</strong> (كود Deno شغّال على سيرفر Supabase)، الأساس <code class="inline">/functions/v1</code>، والمصادقة عبر <span class="eng">Supabase JWT</span> في هيدر <code class="inline">Authorization: Bearer</code>.</p>
+
+      <h3>البنية العامة (structure)</h3>
+      <p>كل ملف <code class="inline">index.ts</code> جوه <code class="inline">supabase/functions/&lt;name&gt;/</code> هو دالة واحدة <code class="inline">Deno.serve(async (req) =&gt; {...})</code>. الشكل العام ثابت في كل الـ functions تقريبًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">الهيكل العام لأي edge function</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">Deno.serve(async (req) =&gt; {
+  const pre = preflight(req);       // رد الـ CORS الأولي (OPTIONS)
+  if (pre) return pre;
+
+  let language = "ar";
+  try {
+    const supabase = userClient(req);        // عميل يتصرف بصلاحيات المستخدم صاحب الطلب
+    const user = await authenticate(supabase); // تحقق من الـ JWT + جيب البروفايل
+    // ... منطق الـ endpoint
+    return json({ ... }, { language, direction });
+  } catch (err) {
+    return errorResponse(err, language);      // كل الأخطاء بتتحول لكود موحّد
+  }
+});</code></pre></div>
+
+      <h3>جدول الـ Endpoints</h3>
+      <div class="table-wrap"><table>
+        <tr><th>Method</th><th>المسار</th><th>الغرض</th></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/notes</code></td><td>التقاط ملاحظة جديدة (idempotent على <code class="inline">client_id</code>)</td></tr>
+        <tr><td><span class="pill pill-get">GET</span></td><td><code class="inline">/notes?lang=&cursor=&limit=</code></td><td>الخط الزمني، keyset pagination</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/notes/audio-url</code></td><td>رابط رفع موقّع لملاحظة صوتية</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/transcribe</code></td><td>صوت → نص (المرحلة 1 من الـ pipeline)</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/enrich</code></td><td>تصنيف + تلخيص + embedding + ربط بملاحظات مشابهة</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/search</code></td><td>بحث هجين (لفظي + دلالي)</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/digest</code></td><td><code class="inline">{action: "enqueue" | "collect"}</code> — بيُستدعى من جدولة تلقائية فقط</td></tr>
+        <tr><td><span class="pill pill-get">GET</span></td><td><code class="inline">/export</code></td><td>تصدير كل بيانات المستخدم</td></tr>
+        <tr><td><span class="pill pill-post">POST</span></td><td><code class="inline">/delete-account</code></td><td>حذف الحساب نهائيًا</td></tr>
+      </table></div>
+      <p>وفيه <code class="inline">POST /sweep</code> تاسع، مش موجّه للمستخدم أصلًا — بيُستدعى فقط من جدولة (<span class="eng">pg_cron</span>) كل 5 دقايق عشان "ينضّف" الملاحظات العالقة.</p>
+
+      <h4>لغة الطلب (Language)</h4>
+      <p>كل endpoint بياخد <code class="inline">lang</code> (query أو body) ويحترم هيدر <code class="inline">Accept-Language</code>. الترتيب: <strong>صريح ← إعداد المستخدم المحفوظ ← Accept-Language ← عربي افتراضيًا</strong>. وكل رد بيرجّع اللغة اللي اتخدم بها + الاتجاه (<code class="inline">rtl</code>/<code class="inline">ltr</code>) — العميل مايحتاجش يخمّن.</p>
+
+      <h3>مثال كامل: <code class="inline">POST /notes</code> (الالتقاط)</h3>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/notes/index.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const clientId: string | undefined = body.client_id;
+if (!clientId) {
+  // إلزامي، ومش السيرفر هو اللي بيولّده. الفكرة كلها إن العميل
+  // ولّده أوفلاين قبل ما يبقى عنده اتصال — لو السيرفر هو اللي بيولّده،
+  // كل إعادة محاولة أوفلاين هتبقى ملاحظة جديدة مكررة.
+  throw new HttpError(400, "client_id_required");
+}
+
+const source = body.source === "voice" ? "voice" : "text";
+if (source === "text" && !String(body.text ?? "").trim()) {
+  throw new HttpError(400, "text_required");
+}
+
+const { data: noteId, error } = await supabase.rpc("capture_note", {
+  p_client_id: clientId,
+  p_source: source,
+  p_language: language,
+  p_raw_text: body.text ?? null,
+  p_client_created: body.client_created_at ?? new Date().toISOString(),
+  p_capture_latency_ms: captureLatencyMs,
+});
+
+return json(
+  { note_id: noteId, client_id: clientId, source },
+  { status: 201, language, direction },
+);</code></pre></div>
+      <p>لاحظ إن الالتقاط نفسه بيتحصّل عن طريق استدعاء <code class="inline">RPC</code> (دالة SQL جوه Postgres اسمها <code class="inline">capture_note</code>) مش <code class="inline">insert</code> مباشر — هنشرح السبب في فصل Supabase.</p>
+
+      <h3>الـ Best Practices الفعلية المستخدمة في الكود ده</h3>
+      <ul>
+        <li><strong>Keyset Pagination مش <code class="inline">OFFSET</code></strong> في <code class="inline">GET /notes</code>: الـ <code class="inline">cursor</code> عبارة عن آخر <code class="inline">client_created_at</code> في الصفحة اللي فاتت، مش رقم صفحة. السبب موثّق في تعليق الكود نفسه: <code class="inline">OFFSET</code> بيعيد فحص ويرمي كل صف اتخطّاه، فصفحة 50 بتكلّف 50 ضعف صفحة 1.</li>
+        <li><strong>Idempotency على كل مرحلة مكلّفة</strong>: <code class="inline">/notes</code> على <code class="inline">client_id</code>، <code class="inline">/transcribe</code> على وجود <code class="inline">raw_text</code> بالفعل، <code class="inline">/enrich</code> على <code class="inline">(note, language, prompt_version)</code>. إعادة محاولة أبدًا متدفعش تاني.</li>
+        <li><strong>أكواد أخطاء ثابتة، مش جُمل بشرية</strong>: كل خطأ بيرجع <code class="inline">{error: {code: "..."}}</code>؛ العميل هو اللي بيترجم الكود لجملة (مفصّل في فصل 6).</li>
+        <li><strong>Rate Limiting قبل استدعاء أي مزوّد مدفوع</strong>: <code class="inline">/enrich</code> و<code class="inline">/transcribe</code> بيستدعوا <code class="inline">enforceRateLimit()</code> قبل ما يوصلوا لـ Anthropic/ElevenLabs.</li>
+        <li><strong>فصل عميل المستخدم عن عميل الخدمة</strong>: القراءة اللي بتتأكد من ملكية الملاحظة بتحصل بعميل المستخدم (تحت RLS)؛ الكتابة اللي محتاجة تتجاوز RLS (زي كتابة نتيجة التصنيف) بتحصل بعميل خدمة منفصل (<code class="inline">serviceClient()</code>).</li>
+        <li><strong>الـ Timeline بيسيب <code class="inline">raw_text</code> عمدًا</strong>: بيرجّع الملخّص بس، مش النص الكامل — الفرق بين رد 30KB و900KB على تمرير طويل.</li>
+      </ul>
+    </section>
+
+    <!-- ================= CH3 FILES ================= -->
+    <section class="chapter" id="ch3">
+      <div class="chapter-eyebrow"><span>03 · File by file</span><span class="line"></span></div>
+      <h2>شرح كل ملف في المشروع</h2>
+      <p class="lede">شجرة كاملة، وبعدها غوص عميق في الملفات المهمة/المعقدة سطر بسطر تقريبًا، وشرح مختصر لباقي الملفات.</p>
+
+      <h3>شجرة المشروع</h3>
+      <div class="file-tree">
+<span class="c">.github/workflows/ci.yml</span>          <span class="c"># CI: 3 jobs (web / functions / database)</span>
+<span class="d">docs/</span>                               <span class="c"># كل التوثيق — 16 ملف مرقّم + ADRs + design</span>
+<span class="d">supabase/</span>
+  config.toml                     <span class="c"># كل إعدادات الـ stack المحلي (منافذ، Auth، إلخ)</span>
+  <span class="d">migrations/</span>                    <span class="c"># 20 ملف SQL، تراكمي، بالترتيب الزمني</span>
+  <span class="d">functions/</span>
+    <span class="d">_shared/</span>                     <span class="c"># الكود المشترك بين أكتر من function</span>
+      http.ts  language.ts  supabase.ts
+      providers.ts  enrichment.ts  pipeline.ts  rateLimit.ts
+    <span class="d">notes/</span> <span class="d">transcribe/</span> <span class="d">enrich/</span> <span class="d">search/</span>
+    <span class="d">digest/</span> <span class="d">export/</span> <span class="d">delete-account/</span> <span class="d">sweep/</span>
+      index.ts                    <span class="c"># كل واحد فيهم index.ts واحد فقط</span>
+  <span class="d">templates/</span>magic_link.html         <span class="c"># قالب إيميل الـ OTP بالعربي RTL</span>
+  <span class="d">tests/</span>verify.sql               <span class="c"># 26 تأكيد ضد قاعدة بيانات حقيقية</span>
+<span class="d">web/</span>
+  vite.config.ts                  <span class="c"># PWA manifest + CSP + إعداد الاختبارات</span>
+  <span class="d">src/</span>
+    App.tsx  main.tsx
+    <span class="d">core/</span>language.ts due.ts dueSoon.ts session.ts clock.ts
+    <span class="d">i18n/</span>ar.ts en.ts index.ts
+    <span class="d">data/</span>api.ts outbox.ts
+    <span class="d">features/</span>Capture.tsx Notes.tsx Tasks.tsx Search.tsx
+             Digest.tsx NoteDetail.tsx Auth.tsx
+    <span class="d">components/</span>AccountMenu.tsx Loading.tsx
+    <span class="d">styles/</span>global.css           <span class="c"># logical properties بس، ولا خاصية physical</span>
+  <span class="d">tool/</span>check-rtl.mjs              <span class="c"># فاحص الـ RTL، بيفشل الـ build</span>
+  <span class="d">test/</span>due.test.ts i18n.test.ts language.test.ts
+      </div>
+
+      <h3>عمق: الـ Edge Functions المشتركة (<code class="inline">_shared/</code>)</h3>
+      <p>الملفات دي بيستوردها أكتر من function واحدة — عشان كده هي "مشتركة". لو غيّرت منطق فيها، بيتغيّر في كل حتة بتستخدمها مرة واحدة.</p>
+
+      <h4><code class="inline">_shared/http.ts</code> — الردود، الأخطاء، الـ CORS</h4>
+      <p>ثلاث وظايف أساسية: <code class="inline">corsHeaders()</code>/<code class="inline">preflight()</code> للتعامل مع طلبات <code class="inline">OPTIONS</code>، <code class="inline">json()</code> لتغليف أي رد بشكل موحّد (بيضيف اللغة والاتجاه تلقائيًا)، و<code class="inline">HttpError</code> + <code class="inline">errorResponse()</code> لتحويل أي استثناء لرد JSON بكود ثابت بدل رسالة نصية قد تسرّب تفاصيل داخلية.</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/http.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export function errorResponse(err: unknown, language?: string): Response {
+  if (err instanceof HttpError) {
+    return json({ error: { code: err.code } }, { status: err.status, language });
+  }
+  // متسربش أبدًا رسالة داخلية للعميل — الـ stack traces بتحتوي
+  // أسماء جداول، ومعرّفات، وأحيانًا بيانات صفوف كاملة.
+  console.error("unhandled_error", err instanceof Error ? err.message : String(err));
+  return json({ error: { code: "internal_error" } }, { status: 500, language });
+}</code></pre></div>
+
+      <h4><code class="inline">_shared/language.ts</code> — الحل الوحيد لتحديد اللغة</h4>
+      <p>الملف ده هو "المفصل" اللي بيخلّي النظام قابل لدعم لغة تانية بسهولة. فيه <code class="inline">SUPPORTED</code> (سجل اللغات المفعّلة)، <code class="inline">resolveLanguage()</code> (يقرر لغة الطلب مرة واحدة)، و<code class="inline">detectLanguage()</code> (كاشف لغة بسيط بيعتمد على نطاقات Unicode بدون أي نموذج ذكاء اصطناعي).</p>
+
+      <h4><code class="inline">_shared/supabase.ts</code> — نوعين من العملاء</h4>
+      <p><code class="inline">userClient(req)</code> بيتصرف <em>بالنيابة عن المستخدم</em> (بيمرّر الـ JWT بتاعه) فكل استعلام بيمر على RLS. <code class="inline">serviceClient()</code> بيتجاوز RLS بالكامل — يُستخدم فقط لكتابات الـ pipeline اللي المستخدم مايقدرش يزوّرها (زي نتيجة تصنيف الذكاء الاصطناعي).</p>
+
+      <h4><code class="inline">_shared/providers.ts</code> و<code class="inline">enrichment.ts</code> و<code class="inline">pipeline.ts</code> و<code class="inline">rateLimit.ts</code></h4>
+      <p>دول مغطّيين بالتفصيل في فصل <a href="#ch8">08 — خدمات الذكاء الاصطناعي</a> وفصل <a href="#ch9">09 — Rate Limiting</a>.</p>
+
+      <h3>عمق: أهم ملفات الـ Frontend</h3>
+
+      <h4><code class="inline">web/src/data/outbox.ts</code> — قلب الالتقاط الأوفلاين</h4>
+      <p>مسؤول عن تخزين الملاحظات في <span class="eng">IndexedDB</span> (مش <span class="eng">localStorage</span>) قبل أي محاولة اتصال بالشبكة. السبب موثّق في الكود نفسه: <span class="eng">localStorage</span> متزامن (بيوقف الـ main thread وقت الكتابة) وبيخزّن نصوص بس؛ <span class="eng">IndexedDB</span> غير متزامن وبيخزّن <code class="inline">Blob</code> (تسجيل صوتي) كما هو.</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/data/outbox.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export async function capture(input: {
+  source: NoteSource; language: string; text?: string; audio?: Blob;
+}): Promise&lt;OutboxNote&gt; {
+  const start = performance.now();
+  const database = await db();
+
+  const note: OutboxNote = {
+    // client_id بيتولّد هنا، أوفلاين — وده اللي بيخلّي الإعادة idempotent
+    // على مستوى السيرفر. لو السيرفر هو اللي بيولّده، أي إعادة محاولة
+    // لطلب لسه معلّق هتبقى ملاحظة مكررة.
+    clientId: crypto.randomUUID(),
+    source: input.source,
+    language: input.language,
+    capturedAt: new Date().toISOString(),
+    attempts: 0,
+    ...(input.text !== undefined ? { text: input.text } : {}),
+    ...(input.audio !== undefined ? { audio: input.audio } : {}),
+  };
+
+  await database.put("outbox", note);   // <- هنا الملاحظة بقت "دائمة" فعليًا
+  note.captureLatencyMs = Math.round(performance.now() - start);
+  void database.put("outbox", note);    // كتابة تانية للقياس، مش منتظَرة عمدًا
+
+  return note;
+}</code></pre></div>
+
+      <h4><code class="inline">web/src/data/api.ts</code> — طبقة الاتصال بالسيرفر</h4>
+      <p>بيلفّ كل استدعاء <code class="inline">supabase.functions.invoke()</code> في دالة <code class="inline">invoke&lt;T&gt;()</code> واحدة بتضيف اللغة تلقائيًا وتحوّل أي خطأ لكود موحّد. أهم دالة فيه هي <code class="inline">sync()</code>:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/data/api.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export async function sync(): Promise&lt;{ synced: number; failures: SyncFailure[] }&gt; {
+  if (!navigator.onLine) return { synced: 0, failures: [] };
+
+  const { data } = await supabase.auth.getSession();
+  if (!data.session) return { synced: 0, failures: [] };  // بدون جلسة، ماتحاولش
+
+  let synced = 0;
+  const failures: SyncFailure[] = [];
+  for (const note of await pending()) {   // بالترتيب، الأقدم أولًا — مش متوازي
+    try {
+      const serverId = await captureNote(note);
+      if (note.source === "voice" && note.audio) {
+        const { path, upload } = await requestAudioUrl(serverId, note.language, note.audio.type);
+        await supabase.storage.from("audio").uploadToSignedUrl(path, upload.token, note.audio);
+        await transcribe(serverId, note.language);
+      }
+      await enrich(serverId, note.language).catch(() =&gt; { /* فشل التصنيف مايفشلش المزامنة */ });
+      await markSynced(note.clientId, serverId);
+      synced += 1;
+    } catch (err) {
+      failures.push({ clientId: note.clientId, message: describeError(err) });
+      await markAttempted(note.clientId);
+    }
+  }
+  return { synced, failures };
+}</code></pre></div>
+      <p>الترتيب المتسلسل (مش المتوازي) قرار مقصود: دفعة كبيرة بعد انقطاع طويل هي بالظبط الشكل اللي ممكن يكسر حد الـ Rate Limit لو اتبعتت مرة واحدة.</p>
+
+      <h4><code class="inline">web/src/features/Capture.tsx</code> — أعقد ملف واجهة</h4>
+      <p>شاشة الالتقاط. أهم فكرة فيه: <strong>الحفظ مايستنّاش الشبكة أبدًا</strong> — بس اللي بينتظره هو كتابة الـ IndexedDB. فيه كمان ميزة مثيرة للاهتمام: <code class="inline">createLevelMeter()</code> بتراقب مستوى الصوت أثناء التسجيل عشان تكتشف لو الميكروفون ميت (تسجيلة كاملة صمت) وتنبّه المستخدم <em>وهو لسه بيسجّل</em>، مش بعد ما يفوت الأوان.</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/features/Capture.tsx</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">/**
+ * أقصى مستوى صوت (peak) تحته نعتبر إن التسجيلة "مفيهاش صوت".
+ * الرقم ده جاي من دليل حقيقي: تسجيلة 20 ثانية من جهاز صاحب المشروع
+ * وصلت للتخزين كـ 340 فريم متطابق من الصمت الرقمي البحت — والرفع،
+ * والتحويل لنص، وكل مرحلة في الـ pipeline قالت "نجحت" — وطلعت ملاحظة فاضية.
+ */
+const SILENCE_PEAK = 0.01;</code></pre></div>
+
+      <h3>باقي الملفات — نظرة سريعة</h3>
+      <div class="table-wrap"><table>
+        <tr><th>الملف</th><th>وظيفته</th></tr>
+        <tr><td><code class="inline">features/Notes.tsx</code></td><td>الخط الزمني للملاحظات — بيقرأ من <span class="eng">outbox</span> + السيرفر معًا، بيعرض بطاقة "قيد المعالجة" لملاحظة لسه ماتصنّفتش.</td></tr>
+        <tr><td><code class="inline">features/Tasks.tsx</code></td><td><strong>فلتر</strong> فوق الملاحظات اللي تصنيفها <code class="inline">task</code> — مش جدول منفصل. مجمّعة حسب الموعد (اليوم/الأسبوع/لاحقًا/متأخرة).</td></tr>
+        <tr><td><code class="inline">features/Search.tsx</code></td><td>واجهة البحث — الإدخال بينتظر 350ms قبل الإرسال (debounce) عشان مايبعتش طلب بحث دلالي مدفوع مع كل حرف.</td></tr>
+        <tr><td><code class="inline">features/Digest.tsx</code></td><td>عرض المراجعة الأسبوعية.</td></tr>
+        <tr><td><code class="inline">features/NoteDetail.tsx</code></td><td>عرض النص الكامل لملاحظة واحدة (مش موجود في الـ Timeline لتوفير حجم الرد).</td></tr>
+        <tr><td><code class="inline">features/Auth.tsx</code></td><td>تسجيل الدخول برمز من 6 أرقام (مش رابط سحري) — مشروح بالتفصيل في فصل 4.</td></tr>
+        <tr><td><code class="inline">components/AccountMenu.tsx</code></td><td>قائمة الحساب المنسدلة (تسجيل خروج).</td></tr>
+        <tr><td><code class="inline">components/Loading.tsx</code></td><td>مؤشر تحميل مشترك.</td></tr>
+        <tr><td><code class="inline">core/due.ts</code></td><td>دالة نقية (pure function) لتجميع المهام حسب موعدها — قابلة للاختبار بمعزل عن React.</td></tr>
+        <tr><td><code class="inline">core/dueSoon.ts</code></td><td>عدّاد المهام القريبة الموعد، للشارة على تبويب "المهام".</td></tr>
+        <tr><td><code class="inline">core/session.ts</code></td><td><code class="inline">useSession()</code> — hook لقراءة جلسة الدخول الحالية من Supabase.</td></tr>
+        <tr><td><code class="inline">core/clock.ts</code></td><td>مساعدات للوقت/التاريخ.</td></tr>
+        <tr><td><code class="inline">i18n/en.ts</code></td><td>كتالوج الإنجليزي — <em>مُشتق النوع</em> من <code class="inline">ar.ts</code>، مفصّل في فصل 5.</td></tr>
+        <tr><td><code class="inline">tool/check-rtl.mjs</code></td><td>فاحص CSS بيفشل الـ build لو لقى خاصية physical — مفصّل في فصل 6.</td></tr>
+        <tr><td><code class="inline">test/*.test.ts</code></td><td>اختبارات <span class="eng">vitest</span> لـ i18n والجمع العربي وحساب المواعيد — مفصّل في فصل 9.</td></tr>
+      </table></div>
+    </section>
+
+    <!-- ================= CH4 SUPABASE ================= -->
+    <section class="chapter" id="ch4">
+      <div class="chapter-eyebrow"><span>04 · Supabase</span><span class="line"></span></div>
+      <h2>Supabase</h2>
+      <p class="lede">Supabase هي المنصة اللي بتوفّر: قاعدة بيانات Postgres حقيقية + REST API مولّد تلقائيًا فوقها + نظام Auth + تخزين ملفات + مكان لتشغيل كود سيرفر (Edge Functions) — كل ده في مكان واحد.</p>
+
+      <h3>ليه Supabase بالذات؟</h3>
+      <div class="table-wrap"><table>
+        <tr><th>البديل</th><th>الفرق عن Supabase هنا</th></tr>
+        <tr><td>Firebase</td><td>قاعدة بيانات NoSQL — المشروع محتاج بحث نصي عربي متقدّم (<code class="inline">tsvector</code>) وبحث متجهي (<code class="inline">pgvector</code>)، وده أسهل بكتير على Postgres حقيقي.</td></tr>
+        <tr><td>Backend مكتوب بالكامل (Express/NestJS + Postgres يدويًا)</td><td>كان هيحتاج تبني Auth وStorage وREST layer بنفسك. Supabase بيديهم جاهزين، وسايب مساحة لـ Edge Functions للحالات المعقدة بس.</td></tr>
+      </table></div>
+      <p>الفكرة العملية: أي عملية CRUD بسيطة (زي أرشفة ملاحظة) بتعدّي على <strong>PostgREST</strong> مباشرة من الواجهة، تحت حماية RLS، من غير ما تكتب سطر backend واحد. الـ <strong>Edge Functions</strong> بتتكتب بس لما محتاج مفتاح مزوّد خارجي (Anthropic/ElevenLabs/Cohere) أو منطق متعدد الخطوات.</p>
+
+      <h3>الـ Authentication — رمز من 6 أرقام</h3>
+      <p>الدخول عن طريق OTP بالإيميل، بس <strong>رمز مكتوب مش رابط سحري (magic link)</strong>. السبب موثّق في الكود: الرابط السحري بيفتح المتصفح الافتراضي، وده <em>سياق مختلف</em> عن التطبيق المثبّت كـ PWA — الجلسة هتتسجّل في تخزين المتصفح، والتطبيق المثبّت هيفضل يعتبر إنه مش داخل. الرمز المكتوب بيدخل في نفس السياق اللي طلبه.</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/features/Auth.tsx</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">async function sendCode() {
+  const { error: err } = await supabase.auth.signInWithOtp({
+    email: address,
+    options: { shouldCreateUser: true },
+  });
+}
+
+async function verify() {
+  const { error: err } = await supabase.auth.verifyOtp({
+    email: email.trim(), token: code.trim(), type: "email",
+  });
+  if (!err) onSignedIn();
+}</code></pre></div>
+      <p>ولازم يبقى فيه قالب إيميل مخصّص عربي RTL يحتوي <code class="inline">{{ .Token }}</code> — القالب الافتراضي من Supabase بيحتوي رابط بس، فمن غير القالب المخصّص الرمز مش هيوصل أصلًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/config.toml</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">[auth.email.template.magic_link]
+subject = "رمز الدخول إلى ومضة"
+content_path = "./supabase/templates/magic_link.html"</code></pre></div>
+
+      <h3>الـ Database — الجداول والـ RLS</h3>
+      <p>القاعدة الذهبية اللي كل حاجة هنا مبنية عليها: <strong>ماتخزّنش نص العرض كمفتاح</strong>. التصنيف بيتخزّن كـ <code class="inline">'task'</code> إنجليزي ثابت، والكلمة "مهمة" موجودة في ملف الترجمة بس — مش في القاعدة.</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/migrations/20260801000200_enums_and_tables.sql</span><span>sql</span></div><pre><code class="lang-sql" data-lang="sql">create type public.note_status   as enum ('draft','queued','transcribing','enriching','ready','failed');
+create type public.note_category as enum ('task','event','idea','learning','reference','personal','other');
+
+create table public.notes (
+  id                uuid primary key default gen_random_uuid(),
+  user_id           uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  client_id         uuid not null,     -- مفتاح idempotency القادم من العميل
+  source            public.note_source not null,
+  status            public.note_status not null default 'draft',
+  raw_text          text,
+  client_created_at timestamptz not null default now(),  -- وقت الكتابة الفعلي عند المستخدم
+  created_at        timestamptz not null default now(),  -- وقت وصوله للسيرفر
+  constraint notes_client_id_uq unique (user_id, client_id)
+);</code></pre></div>
+
+      <p>وكل جدول محمي بسياسة RLS — الفكرة إن الواجهة بتشحن <strong>anon key</strong> علنية، وده آمن <em>بس</em> لأن كل جدول له سياسة صحيحة:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/migrations/20260801000400_rls.sql</span><span>sql</span></div><pre><code class="lang-sql" data-lang="sql">alter table public.notes enable row level security;
+
+-- (select auth.uid()) مش auth.uid() مباشرة: الصيغة الأولى بتتقيّم
+-- مرة واحدة للاستعلام كله، مش مرة لكل صف — الفرق بين index scan
+-- و sequential scan على جدول كبير.
+create policy notes_select on public.notes
+  for select to authenticated using ((select auth.uid()) = user_id);
+
+create policy notes_insert on public.notes
+  for insert to authenticated with check ((select auth.uid()) = user_id);</code></pre></div>
+
+      <div class="callout">
+        <span class="ic">🪣</span>
+        <div>
+          <strong>تخزين الصوت (Storage)</strong>
+          <p>الملفات الصوتية بتتخزن في bucket خاص اسمه <code class="inline">audio</code>، وملكية كل ملف بتتفرض من <em>شكل المسار نفسه</em>: <code class="inline">&lt;user_id&gt;/&lt;note_id&gt;.&lt;ext&gt;</code>، والسياسة بتتحقق من أول جزء في المسار يساوي <code class="inline">auth.uid()</code>. العميل مايقدرش يسمّي مسار مايملكوش.</p>
+        </div>
+      </div>
+
+      <h3>إزاي الكود بيتكلم مع القاعدة فعليًا</h3>
+      <p>عندنا طريقتين للاتصال:</p>
+      <div class="table-wrap"><table>
+        <tr><th>الطريقة</th><th>مين بيستخدمها</th><th>مثال حقيقي</th></tr>
+        <tr><td>استعلام مباشر عبر <code class="inline">supabase.from(...)</code> (PostgREST)</td><td>عمليات CRUD بسيطة</td><td><code class="inline">supabase.from("notes").update({archived_at: ...}).eq("id", noteId)</code> في <code class="inline">archiveNote()</code></td></tr>
+        <tr><td>استدعاء دالة SQL عبر <code class="inline">.rpc(...)</code></td><td>منطق معقّد لازم يحصل داخل القاعدة نفسها (atomically)</td><td><code class="inline">supabase.rpc("capture_note", {...})</code>، و<code class="inline">supabase.rpc("search_notes", {...})</code></td></tr>
+      </table></div>
+
+      <p>ليه <code class="inline">capture_note</code> دالة RPC مش <code class="inline">insert</code> عادي؟ لأن منطق "لو الملاحظة موجودة رجّع نفس الـ id" (idempotency) لازم يحصل جوه معاملة واحدة atomic في القاعدة، مش بجولتين من الكود:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/migrations/20260801000500_rpc.sql</span><span>sql</span></div><pre><code class="lang-sql" data-lang="sql">create or replace function public.capture_note(
+  p_client_id uuid, p_source public.note_source, p_language text default 'ar',
+  p_raw_text text default null, p_client_created timestamptz default now()
+) returns uuid language sql security invoker
+as $$
+  insert into public.notes (client_id, source, input_language, raw_text, client_created_at, status)
+  values (p_client_id, p_source, coalesce(p_language,'ar'), nullif(btrim(p_raw_text),''),
+          coalesce(p_client_created, now()),
+          case when p_source = 'text' then 'queued'::note_status else 'draft'::note_status end)
+  on conflict (user_id, client_id) do update set updated_at = now()  -- do update مش do nothing
+  returning id;                                                       -- عشان لازم يرجّع id حتى لو موجودة
+$$;</code></pre></div>
+    </section>
+
+    <!-- ================= CH5 i18n ================= -->
+    <section class="chapter" id="ch5">
+      <div class="chapter-eyebrow"><span>05 · Localization</span><span class="line"></span></div>
+      <h2>الترجمة (i18n)</h2>
+      <p class="lede">مفيش أي مكتبة i18n خارجية (زي <span class="eng">i18next</span>). المشروع محتاج بس حاجة واحدة معقّدة فعلًا: صيغ الجمع العربية الصحيحة — و<code class="inline">Intl.PluralRules</code> المدمجة في كل متصفح بتحلّها بالكامل.</p>
+
+      <h3>بنية الملفات</h3>
+      <div class="table-wrap"><table>
+        <tr><th>الملف</th><th>الدور</th></tr>
+        <tr><td><code class="inline">i18n/ar.ts</code></td><td><strong>القالب الأصلي</strong>. كل نص جديد يتكتب هنا الأول.</td></tr>
+        <tr><td><code class="inline">i18n/en.ts</code></td><td>نوعه مُشتق من <code class="inline">ar.ts</code> — فلو نسيت تترجم مفتاح، TypeScript بيرفض الـ build.</td></tr>
+        <tr><td><code class="inline">i18n/index.ts</code></td><td><code class="inline">createTranslator()</code> — بيولّد <code class="inline">t()</code> و<code class="inline">plural()</code> و<code class="inline">date()</code>/<code class="inline">n()</code> باستخدام <code class="inline">Intl</code>.</td></tr>
+      </table></div>
+
+      <h3>إزاي تضيف أو تعدّل نص</h3>
+      <ol class="step-list">
+        <li><h4>اكتب المفتاح في <code class="inline">ar.ts</code> أولًا</h4><div class="code-block"><div class="code-head"><span class="path">web/src/i18n/ar.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export const ar = {
+  captureSave: "احفظ",
+  captureIdleTitle: "التقاط سريع",
+  // ...
+};</code></pre></div></li>
+        <li><h4>حاول تشغّل <code class="inline">npm run typecheck</code></h4><p>لو نسيت تضيف نفس المفتاح في <code class="inline">en.ts</code>، الـ compiler هيوقّفك — مش تنبيه، خطأ فعلي يمنع الـ build.</p></li>
+        <li><h4>ضيف الترجمة الإنجليزية</h4><div class="code-block"><div class="code-head"><span class="path">web/src/i18n/en.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export const en: Messages = {
+  captureSave: "Save",
+  captureIdleTitle: "Quick Capture",
+  // ...
+};</code></pre></div></li>
+        <li><h4>استخدمه في الواجهة</h4><div class="code-block"><div class="code-head"><span class="path">أي مكوّن React</span><span>tsx</span></div><pre><code class="lang-ts" data-lang="ts">const t = useMemo(() =&gt; createTranslator(language), [language]);
+&lt;button&gt;{t.t("captureSave")}&lt;/button&gt;</code></pre></div></li>
+      </ol>
+
+      <h3>صيغ الجمع العربية — ٤ صيغ حقيقية</h3>
+      <p>العربي فيه 6 فئات في CLDR (English بس فيهم 2: <code class="inline">one</code>/<code class="inline">other</code>). كتابة <code class="inline">n === 1 ? "واحدة" : "ملاحظات"</code> بتطلع جملة خطأ نحويًا مع 2، 3-10، 11-99.</p>
+      <div class="table-wrap"><table>
+        <tr><th>العدد</th><th>الفئة (CLDR)</th><th>الناتج الفعلي المُتحقَّق منه</th></tr>
+        <tr><td>1</td><td><code class="inline">one</code></td><td>ملاحظة واحدة بانتظار المزامنة</td></tr>
+        <tr><td>2</td><td><code class="inline">two</code></td><td>ملاحظتان بانتظار المزامنة</td></tr>
+        <tr><td>3</td><td><code class="inline">few</code></td><td>3 ملاحظات بانتظار المزامنة</td></tr>
+        <tr><td>11</td><td><code class="inline">many</code></td><td>11 ملاحظة بانتظار المزامنة</td></tr>
+      </table></div>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/i18n/index.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">plural: (key, count) =&gt; {
+  const category = rules.select(count);          // one | two | few | many | other
+  const table = plurals[key] ?? {};
+  const template = table[category] ?? table.other ?? "";
+  return template.replace("{n}", numbers.format(count));  // أرقام عربية-هندية لو مناسب
+},</code></pre></div>
+
+      <h3>إزاي تبدّل بين اللغتين (أو تفعّل لغة ثالثة)</h3>
+      <p>الإنجليزي <strong>مكتوب ومتحقَّق منه بالكامل بس معطّل عمدًا</strong> — فكرة "المرحلة 2". سجل اللغات موجود مرتين، مرة على السيرفر ومرة على العميل، ولازم يتفقوا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/core/language.ts (مرآة لـ supabase/functions/_shared/language.ts)</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export const SUPPORTED: Record&lt;string, LanguageConfig&gt; = {
+  ar: { tag: "ar", direction: "rtl", enabled: true,  label: "العربية" },
+  en: { tag: "en", direction: "ltr", enabled: false, label: "English" },
+};
+// المرحلة 2 = غيّر enabled لـ true هنا... وفي النسخة المطابقة على السيرفر.</code></pre></div>
+      <p>تفعيل لغة تالتة حقيقية محتاج:</p>
+      <ul>
+        <li>تسجيلها في <code class="inline">SUPPORTED</code> في <strong>الملفين</strong> (عميل + سيرفر) مع <code class="inline">scriptRanges</code> لكاشف اللغة.</li>
+        <li>كتالوج ترجمة جديد زي <code class="inline">en.ts</code>.</li>
+        <li>إضافة حالة في <code class="inline">ts_config_for(lang)</code> على مستوى القاعدة عشان البحث النصي يشتغل صح باللغة الجديدة.</li>
+      </ul>
+      <p>تغيير اللغة في الواجهة نفسها بيحصل بدالة واحدة بتحدّث اتجاه الصفحة كلها:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/core/language.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export function applyDirection(tag: string): void {
+  const el = document.documentElement;
+  el.lang = tag;                 // ينطق صح بقارئ الشاشة، يختار الخط الصح
+  el.dir = directionOf(tag);     // يحرّك كل الخصائص المنطقية في الـ CSS
+}</code></pre></div>
+      <p>وبما إن كل الـ CSS مبني على خصائص <em>منطقية</em> (<code class="inline">margin-inline-start</code> مش <code class="inline">margin-left</code>)، السطر ده وحده بيقلب الواجهة كلها — بدون stylesheet ثانية للـ RTL. مفصّل أكتر في فصل 6.</p>
+    </section>
+
+    <!-- ================= CH6 VALIDATION ================= -->
+    <section class="chapter" id="ch6">
+      <div class="chapter-eyebrow"><span>06 · Validation & Errors</span><span class="line"></span></div>
+      <h2>Validation و Error Handling</h2>
+      <p class="lede">مفيش مكتبة validation زي Zod هنا — التحقق بيحصل في 4 طبقات مختلفة، كل واحدة في مكانها الصح.</p>
+
+      <h3>الطبقة 1: تحقق يدوي داخل كل Edge Function</h3>
+      <p>فحوصات مباشرة على شكل <code class="inline">if</code> في بداية كل handler:</p>
+      <div class="table-wrap"><table>
+        <tr><th>الفحص</th><th>الكود</th><th>مكانه</th></tr>
+        <tr><td>لازم <code class="inline">client_id</code></td><td><code class="inline">client_id_required</code></td><td><code class="inline">notes/index.ts</code></td></tr>
+        <tr><td>ملاحظة نصية لازم فيها نص</td><td><code class="inline">text_required</code></td><td><code class="inline">notes/index.ts</code></td></tr>
+        <tr><td>لازم <code class="inline">note_id</code></td><td><code class="inline">note_id_required</code></td><td><code class="inline">transcribe</code>، <code class="inline">enrich</code></td></tr>
+        <tr><td>الملاحظة لازم يكون عندها صوت قبل التحويل</td><td><code class="inline">note_has_no_audio</code></td><td><code class="inline">transcribe/index.ts</code></td></tr>
+        <tr><td>الملاحظة لازم يكون عندها نص قبل التصنيف</td><td><code class="inline">note_has_no_text</code></td><td><code class="inline">enrich/index.ts</code></td></tr>
+        <tr><td>استعلام بحث فاضي مرفوض</td><td><code class="inline">query_required</code></td><td><code class="inline">search/index.ts</code></td></tr>
+        <tr><td>البريد المؤكَّد لازم يطابق بريد الجلسة بالظبط</td><td><code class="inline">confirmation_mismatch</code></td><td><code class="inline">delete-account/index.ts</code></td></tr>
+      </table></div>
+
+      <h3>الطبقة 2: قيود القاعدة نفسها (CHECK constraints)</h3>
+      <p>حراسة أخيرة على مستوى Postgres — حتى لو في bug في الكود، القاعدة برضو مش هتقبل بيانات غلط:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/migrations/20260801000200_enums_and_tables.sql</span><span>sql</span></div><pre><code class="lang-sql" data-lang="sql">constraint notes_input_language_ck  check (input_language ~ '^[a-z]{2}(-[A-Z]{2})?$'),
+constraint notes_lang_conf_ck       check (language_confidence is null or language_confidence between 0 and 1),
+constraint notes_transcript_conf_ck check (transcript_confidence is null or transcript_confidence between 0 and 1),
+-- ملاحظة صوتية ممكن توصل من غير نص لسه؛ ملاحظة نصية ما ينفعش
+constraint notes_text_present_ck    check (source = 'voice' or nullif(btrim(raw_text), '') is not null)</code></pre></div>
+      <p>والحالة (<code class="inline">status</code>) نفسها محمية كـ <code class="inline">enum</code>، فمستحيل تدخل قيمة مش من الست حالات المعروفة (<code class="inline">draft</code>, <code class="inline">queued</code>, <code class="inline">transcribing</code>, <code class="inline">enriching</code>, <code class="inline">ready</code>, <code class="inline">failed</code>).</p>
+
+      <h3>الطبقة 3: Schema صارم لمخرجات الذكاء الاصطناعي</h3>
+      <p>Claude نفسه مُجبَر يرجّع JSON بشكل محدّد سلفًا — مش نص حر بيتفسّر لاحقًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/enrichment.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export const ENRICHMENT_SCHEMA = {
+  type: "object",
+  properties: {
+    category: { type: "string", enum: [...CATEGORIES] },
+    priority: {
+      anyOf: [{ type: "string", enum: [...PRIORITIES] }, { type: "null" }],
+    },
+    action_due_at: { anyOf: [{ type: "string", format: "date-time" }, { type: "null" }] },
+  },
+  required: ["title","summary","category","priority","suggested_action",
+             "action_due_at","tags","context","detected_language","confidence"],
+  additionalProperties: false,
+} as const;</code></pre></div>
+
+      <h3>الطبقة 4: فاحص CSS مخصّص — <code class="inline">check-rtl.mjs</code></h3>
+      <p>ده نوع validation مختلف تمامًا — بيمنع خاصية CSS "فيزيائية" (زي <code class="inline">margin-left</code>) من الدخول للمشروع، لأنها بتتصرف صح في LTR بس بتتكسر بصمت لما الاتجاه يبقى RTL:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/tool/check-rtl.mjs</span><span>js</span></div><pre><code class="lang-ts" data-lang="ts">const BANNED = [
+  [/margin-left\s*:/, "margin-inline-start"],
+  [/margin-right\s*:/, "margin-inline-end"],
+  [/text-align\s*:\s*(left|right)/, "text-align: start | end"],
+  [/\bmarginLeft\b/, "marginInlineStart"],  // حتى في inline styles جوه JSX
+];
+// بيفحص كل .css و.tsx و.ts جوه src/، ويفشل الـ build لو لقى تطابق</code></pre></div>
+      <p>الفاحص ده اتجرّب فعليًا ضد مخالفة متعمَّدة قبل ما يتوثّق ك"شغّال" — نفس فلسفة المشروع: <em>فحص عمره ما فشل مش فحص</em>.</p>
+
+      <h3>الأخطاء: كود ثابت، مش جملة</h3>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/http.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export class HttpError extends Error {
+  constructor(readonly status: number, readonly code: string, message?: string) {
+    super(message ?? code);
+  }
+}</code></pre></div>
+      <p>السبب: رسالة خطأ بالعربي مولّدة من السيرفر هتبقى "سطح ترجمة تاني" منفصل عن ملفات الترجمة، وهيبعد عنها بمرور الوقت. الحل: السيرفر يرجّع <em>كود</em> بس، والعميل هو اللي يترجمه:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/i18n/index.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export function errorLabel(t: Translator, code: string): string {
+  switch (code) {
+    case "unauthenticated": return t.t("errorUnauthenticated");
+    case "transcription_failed": return t.t("errorTranscriptionFailed");
+    case "enrichment_refused": return t.t("errorEnrichmentRefused");
+    default: return t.t("errorGeneric");
+  }
+}</code></pre></div>
+
+      <div class="table-wrap"><table>
+        <caption>جدول أكواد الأخطاء الكامل</caption>
+        <tr><th>الكود</th><th>Status</th></tr>
+        <tr><td><code class="inline">unauthenticated</code></td><td><span class="pill pill-status-4">401</span></td></tr>
+        <tr><td><code class="inline">note_not_found</code></td><td><span class="pill pill-status-4">404</span></td></tr>
+        <tr><td><code class="inline">note_has_no_text</code> / <code class="inline">note_has_no_audio</code></td><td><span class="pill pill-status-4">409</span></td></tr>
+        <tr><td><code class="inline">enrichment_refused</code></td><td><span class="pill pill-status-4">422</span></td></tr>
+        <tr><td><code class="inline">transcription_failed</code> / <code class="inline">embedding_failed</code></td><td><span class="pill pill-status-5">502</span></td></tr>
+        <tr><td><code class="inline">rate_limited</code></td><td><span class="pill pill-status-4">429</span></td></tr>
+        <tr><td><code class="inline">confirmation_mismatch</code></td><td><span class="pill pill-status-4">400</span></td></tr>
+        <tr><td><code class="inline">internal_error</code></td><td><span class="pill pill-status-5">500</span></td></tr>
+      </table></div>
+
+      <h3>إزاي بتتعرض للمستخدم فعليًا</h3>
+      <p>مش كل خطأ بيبقى "تحذير أحمر مقلق" — الفلسفة هنا إن الخطأ الوحيد اللي المفروض يقلق المستخدم هو ضياع فكرة فعليًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/App.tsx</span><span>tsx</span></div><pre><code class="lang-ts" data-lang="ts">{syncError && (
+  // نوعه تشخيصي، مش صياغة نهائية مصقولة: الملاحظة نفسها بخير
+  // (محفوظة محليًا وهتعيد المحاولة) — ده بس بيقول "آخر مرة، ده اللي حصل"
+  &lt;p className="error-text capture-error"&gt;
+    {t.t("captureSyncErrorPrefix")} {syncError}
+  &lt;/p&gt;
+)}</code></pre></div>
+      <p>وفي <code class="inline">Capture.tsx</code> فيه رسالة خاصة جدًا: <code class="inline">captureSilentSaved</code> — "حُفظت الملاحظة، لكن لم يُلتقط أي صوت" — بتتقال حتى لو الحفظ نجح 100%، لأن المشكلة الحقيقية (ميكروفون ميت) مختلفة عن فشل الحفظ، والمستخدم محتاج يعرف الفرق.</p>
+    </section>
+
+    <!-- ================= CH7 ARCHITECTURE ================= -->
+    <section class="chapter" id="ch7">
+      <div class="chapter-eyebrow"><span>07 · Architecture</span><span class="line"></span></div>
+      <h2>هيكل النظام (System Architecture)</h2>
+      <p class="lede">القرار المعماري الأهم في المشروع كله: <strong>الالتقاط لازم يكون محليًا أولًا (local-first)</strong>. كل حاجة تانية (تحويل الصوت، التصنيف، الفهرسة) ممكن تاخد وقتها.</p>
+
+      <div class="code-block">
+        <div class="code-head"><span class="path">System Architecture Diagram</span><span>mermaid</span></div>
+        <pre class="mermaid" style="background:var(--code-bg); color:var(--code-text); padding:1.2rem; direction:ltr;">
+graph TB
+  subgraph Client["React PWA (client)"]
+    A["Capture UI"] --> B["IndexedDB Outbox<br/>(durable, offline)"]
+    B -- "sync() on reconnect" --> C["/notes, /transcribe,<br/>/enrich, /search"]
+  end
+
+  subgraph Supabase["Supabase"]
+    D["PostgREST<br/>(CRUD under RLS)"]
+    E["Storage<br/>(private audio bucket)"]
+    F["Edge Functions<br/>(Deno)"]
+    G["Postgres<br/>pgvector · RLS · tsvector"]
+    H["pg_cron<br/>sweep every 5m, digest weekly"]
+  end
+
+  subgraph Vendors["Vendors — server-side only"]
+    I["ElevenLabs Scribe<br/>(ASR)"]
+    J["Anthropic Claude<br/>(enrich + digest)"]
+    K["Cohere embed-v3<br/>(vectors)"]
+  end
+
+  C --> F
+  A -- "direct signed upload" --> E
+  F --> G
+  F --> I
+  F --> J
+  F --> K
+  D --> G
+  H --> F
+        </pre>
+      </div>
+
+      <h3>مسؤولية كل طبقة</h3>
+      <div class="table-wrap"><table>
+        <tr><th>المكوّن</th><th>مسؤول عن</th><th>مش مسؤول عن</th></tr>
+        <tr><td>React PWA</td><td>الالتقاط، الديمومة الأوفلاين، العرض، الاتجاه</td><td>أي استدعاء ذكاء اصطناعي، أي مفتاح مزوّد</td></tr>
+        <tr><td>PostgREST</td><td>قراءة/كتابة بسيطة تحت RLS</td><td>أي حاجة محتاجة مفتاح مزوّد</td></tr>
+        <tr><td>Edge Functions</td><td>استدعاء المزوّدين، تنسيق متعدد الخطوات، تحديد اللغة</td><td>شغل طويل المدى (ده شغل الـ cron)</td></tr>
+        <tr><td>Postgres</td><td>فرض الملكية، دمج نتائج البحث، هوية الوسوم</td><td>قواعد عمل ممكن العميل يغيّرها</td></tr>
+        <tr><td>pg_cron</td><td>جدولة المراجعة الأسبوعية والتنظيف</td><td>شغل خاص بملاحظة واحدة</td></tr>
+      </table></div>
+
+      <h3>رحلة ملاحظة صوتية كاملة</h3>
+      <ol class="step-list">
+        <li><h4>العميل: تسجيل → IndexedDB</h4><p>ديمومة فورية، بدون شبكة، بدون تأخير محسوس.</p></li>
+        <li><h4>العميل: <code class="inline">POST /notes</code> → <code class="inline">note_id</code></h4><p>idempotent على <code class="inline">client_id</code>.</p></li>
+        <li><h4>العميل: <code class="inline">POST /notes/audio-url</code> → رابط موقّع</h4></li>
+        <li><h4>العميل: رفع مباشر لـ Storage</h4><p>البايتات مبتلمسش أي Edge Function أبدًا — رفع 25MB جوه function هيستهلك ذاكرتها ويحدّد أقصى مدة تسجيل.</p></li>
+        <li><h4>السيرفر: <code class="inline">POST /transcribe</code></h4><p>ElevenLabs Scribe → نص + درجة ثقة.</p></li>
+        <li><h4>السيرفر: <code class="inline">POST /enrich</code></h4><p>Claude → ملخّص/تصنيف/وسوم/أولوية → Cohere → متجه 1024 بُعد → SQL → أقرب ملاحظات مشابهة.</p></li>
+        <li><h4>العميل: يرى الحالة <code class="inline">ready</code></h4></li>
+      </ol>
+
+      <h3>القرارات الثلاثة اللي شكّلت كل حاجة تانية</h3>
+      <ul>
+        <li><strong>الالتقاط محلي أولًا</strong>: العميل بيكتب لـ IndexedDB قبل أي محاولة شبكة — عشان كده الـ latency هو latency التخزين مش الشبكة.</li>
+        <li><strong>اللغة بتتحدد مرة واحدة، عند الحافة (edge)</strong>، وبعد كده بتتنقل صراحة لكل مرحلة تالية — ده اللي بيمنع الفشل الكلاسيكي: صوت بيتحوّل بلغة ويتلخّص بلغة تانية.</li>
+        <li><strong>مفاتيح المزوّدين متسيبش السيرفر أبدًا</strong>: أي متغيّر بادئته <code class="inline">VITE_</code> علني (بيتصرف جوه JavaScript أي زائر يقدر يقراه)، فمفاتيح Anthropic/ElevenLabs/Cohere عايشة بس في Edge Function secrets.</li>
+      </ul>
+    </section>
+
+    <!-- ================= CH8 INTEGRATIONS ================= -->
+    <section class="chapter" id="ch8">
+      <div class="chapter-eyebrow"><span>08 · Integrations</span><span class="line"></span></div>
+      <h2>خدمات الذكاء الاصطناعي (Integrations)</h2>
+      <p class="lede">ثلاث خدمات خارجية، كل واحدة بمسؤولية محدّدة، وكلهم بيتنادوا من السيرفر فقط.</p>
+
+      <h3>Anthropic (Claude) — التصنيف والتلخيص والمراجعة الأسبوعية</h3>
+      <div class="kv-grid">
+        <div class="kv-card"><div class="k">الكود</div><div class="v" style="font-size:.85rem;"><code class="inline">_shared/pipeline.ts</code>، <code class="inline">_shared/enrichment.ts</code>، <code class="inline">digest/index.ts</code></div></div>
+        <div class="kv-card"><div class="k">المصادقة</div><div class="v" style="font-size:.85rem;"><code class="inline">ANTHROPIC_API_KEY</code> عبر <code class="inline">requireEnv()</code></div></div>
+      </div>
+      <p><strong>الاستدعاء للتصنيف الفوري</strong> (لملاحظة واحدة، أثناء الطلب):</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/pipeline.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const anthropic = new Anthropic({ apiKey: requireEnv("ANTHROPIC_API_KEY") });
+
+const response = await anthropic.beta.messages.create({
+  model: ENRICHMENT_MODEL,          // "claude-sonnet-5"
+  max_tokens: 8192,
+  thinking: { type: "adaptive" },
+  output_config: {
+    effort: "medium",
+    format: { type: "json_schema", schema: ENRICHMENT_SCHEMA },
+  },
+  system: [{
+    type: "text",
+    text: systemPrompt(language),
+    cache_control: { type: "ephemeral" },   // <- الأمر اللي بيفعّل الـ prompt caching
+  }],
+  messages: [{ role: "user", content: userTurn({ text: rawText, capturedAt, timezone }) }],
+});
+
+if (response.stop_reason === "refusal") throw new HttpError(422, "enrichment_refused");</code></pre></div>
+      <p><strong>الاستدعاء للمراجعة الأسبوعية</strong> مختلف تمامًا — بيستخدم <span class="eng">Message Batches API</span> مش استدعاء فوري، لأن مفيش حد مستنّي الرد لحظيًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/digest/index.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const batch = await anthropic.messages.batches.create({ requests });
+// ٥٠٪ أرخص من الاستدعاء العادي، وبيجمّع كل طلبات المستخدمين في تقديم واحد
+// بدل ما يبقى سباق تريجرات وقت واحد كل سبت الساعة 3 الفجر</code></pre></div>
+      <p><strong>معالجة الأخطاء الخاصة بيها</strong>: Claude بيرفض أحيانًا (<code class="inline">stop_reason === "refusal"</code>) → <code class="inline">422 enrichment_refused</code>، وده <em>نهائي</em> (مش بيتحاول تاني). ولاحظوا فعليًا إن Batches API بيرجّع الـJSON أحيانًا ملفوف جوه <code class="inline">```json</code> code fence حتى مع طلب صريح بـJSON بس — فيه معالجة خاصة لده:</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/digest/index.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const fenced = text.text.match(/```(?:json)?\s*([\s\S]*?)```/);
+const jsonText = fenced ? fenced[1] : text.text;
+try { content = JSON.parse(jsonText); }
+catch { content = { headline: text.text }; }  // سيب النص بدل ما تضيّع أسبوع كامل من المراجعة</code></pre></div>
+
+      <h3>ElevenLabs — تحويل الصوت لنص</h3>
+      <div class="kv-grid">
+        <div class="kv-card"><div class="k">الكود</div><div class="v" style="font-size:.85rem;"><code class="inline">_shared/providers.ts</code> — <code class="inline">ScribeASR</code></div></div>
+        <div class="kv-card"><div class="k">المصادقة</div><div class="v" style="font-size:.85rem;">هيدر <code class="inline">xi-api-key</code></div></div>
+      </div>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/providers.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const form = new FormData();
+form.append("file", audio, "note.m4a");
+form.append("model_id", "scribe_v1");
+form.append("language_code", SUPPORTED[language]?.asrCode ?? "ara");
+form.append("tag_audio_events", "false");   // بدون ده، [يسعل] بتتكتب كأنها كلام المستخدم
+
+const res = await fetch("https://api.elevenlabs.io/v1/speech-to-text", {
+  method: "POST",
+  headers: { "xi-api-key": requireEnv("ELEVENLABS_API_KEY") },
+  body: form,
+});
+if (!res.ok) throw new HttpError(502, "transcription_failed");</code></pre></div>
+      <p>درجة الثقة (<code class="inline">confidence</code>) بتتحسب كمتوسط احتمالية كل كلمة، ولو نزلت تحت 0.6 الملاحظة بترجع لحالة <code class="inline">draft</code> بدل ما تكمل تصنيف تلقائيًا — عشان مايبقاش عندنا ملخّص واثق لكلام غلط.</p>
+
+      <h3>Cohere — البحث الدلالي (Embeddings)</h3>
+      <div class="kv-grid">
+        <div class="kv-card"><div class="k">الكود</div><div class="v" style="font-size:.85rem;"><code class="inline">_shared/providers.ts</code> — <code class="inline">CohereEmbeddings</code></div></div>
+        <div class="kv-card"><div class="k">المصادقة</div><div class="v" style="font-size:.85rem;"><code class="inline">Authorization: Bearer COHERE_API_KEY</code></div></div>
+      </div>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/providers.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">const res = await fetch("https://api.cohere.com/v1/embed", {
+  method: "POST",
+  headers: { Authorization: `Bearer ${requireEnv("COHERE_API_KEY")}`, "Content-Type": "application/json" },
+  body: JSON.stringify({
+    model: "embed-multilingual-v3.0",
+    texts,
+    input_type: kind === "document" ? "search_document" : "search_query",  // مش قابلين للتبديل
+    embedding_types: ["float"],
+  }),
+});
+if (!res.ok) throw new HttpError(502, "embedding_failed");</code></pre></div>
+      <p>الموديل ده بالذات مُختار لأنه بيحطّ العربي والإنجليزي في <strong>نفس الفضاء المتجهي</strong> — بحث عربي هيلاقي ملاحظة إنجليزية بدون أي عملية ترجمة وسيطة، وده الفرضية اللي كل خطة "المرحلة 2" مبنية عليها (وموثّق إنها لسه مش مُختبَرة فعليًا).</p>
+    </section>
+
+    <!-- ================= CH9 MORE ================= -->
+    <section class="chapter" id="ch9">
+      <div class="chapter-eyebrow"><span>09 · More</span><span class="line"></span></div>
+      <h2>أشياء نسيتها (ومهمة فعلًا)</h2>
+      <p class="lede">مواضيع أساسية موجودة فعلًا في الكود ومحدّش سألت عنها في الطلب — لكن لازم تعرفها عشان تفهم المشروع صح.</p>
+
+      <h3>إدارة الحالة (State Management)</h3>
+      <p>مفيش Redux ولا Zustand ولا حتى Context API معقّد — <code class="inline">useState</code>/<code class="inline">useEffect</code> بس. السبب: التطبيق مش كبير كفاية يستاهل تعقيد مكتبة إدارة حالة. للتواصل بين مكوّنات بعيدة عن بعض (زي "المزامنة خلصت" لازم يوصل لأكتر من شاشة)، المشروع بيستخدم <strong>أحداث DOM مخصّصة</strong> بدل ذلك:</p>
+      <div class="code-block"><div class="code-head"><span class="path">web/src/data/api.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export const SYNCED_EVENT = "sb:synced";
+export const NOTE_CHANGED_EVENT = "sb:note-changed";
+// ...
+if (synced > 0) window.dispatchEvent(new Event(SYNCED_EVENT));</code></pre></div>
+
+      <h3>Caching — طبقتين مختلفتين تمامًا</h3>
+      <div class="table-wrap"><table>
+        <tr><th>النوع</th><th>الوصف</th></tr>
+        <tr><td><strong>Prompt Caching</strong> (الأهم)</td><td>الـ system prompt بتاع Claude ثابت الحروف تمامًا (frozen عند تحميل الملف) ومُعلَّم بـ <code class="inline">cache_control: {type: "ephemeral"}</code>. النتيجة: التوكنز المخزّنة بتتحاسب على ~10٪ من سعر الإدخال العادي — توفير حوالي 60٪ على كل ملاحظة. أي متغيّر (وقت، اسم مستخدم) لو دخل جوه الـ prompt هيكسر الـ cache صامتًا، فالكود بيسجّل <code class="inline">prompt_cache_miss</code> لو حصل ده تحديدًا.</td></tr>
+        <tr><td>Service Worker cache (PWA)</td><td>بيخزّن شكل التطبيق نفسه (JS/CSS/HTML) عشان يفتح أوفلاين. <strong>مايخزنش</strong> ردود الـ API عمدًا — الملاحظات عايشة في IndexedDB اللي أصلًا قابل للقراءة والكتابة أوفلاين، فكاش HTTP قديم هيغطّي على نسخة أحدث موجودة فعلًا عند المستخدم.</td></tr>
+      </table></div>
+
+      <h3>Rate Limiting</h3>
+      <p>حد 60 استدعاء لكل مستخدم لكل مرحلة (transcribe/enrich/embed) خلال 15 دقيقة، محسوب من جدول <code class="inline">ai_jobs</code> نفسه (اللي أصلًا بيسجّل كل محاولة):</p>
+      <div class="code-block"><div class="code-head"><span class="path">supabase/functions/_shared/rateLimit.ts</span><span>ts</span></div><pre><code class="lang-ts" data-lang="ts">export async function enforceRateLimit(admin, userId, stage, noteId?) {
+  const { data: hit, error } = await admin.rpc("rate_limit_hit", {
+    p_user_id: userId, p_stage: stage, p_limit: 60, p_window_minutes: 15,
+  });
+  if (error) { console.error(...); return; }  // فشل مفتوح: خطأ قياس مايوقفش طلب شرعي
+  if (hit) throw new HttpError(429, "rate_limited");
+}</code></pre></div>
+      <p>الفحص بيحصل <strong>بعد</strong> التحقق من ملكية الملاحظة و<strong>قبل</strong> أي استدعاء مدفوع — كل حاجة قبل النقطة دي مجانية، وكل حاجة بعدها بتكلّف فلوس.</p>
+
+      <h3>Testing — خمس طبقات</h3>
+      <div class="table-wrap"><table>
+        <tr><th>الطبقة</th><th>الأداة</th><th>بتمسك ايه</th></tr>
+        <tr><td>حقيقة الـ Schema</td><td><code class="inline">verify.sql</code></td><td>26 تأكيد ضد Postgres حقيقي — عزل المستخدمين، تطبيع عربي، idempotency</td></tr>
+        <tr><td>أنواع الدوال</td><td><code class="inline">deno check</code></td><td>سطح API غلط للمزوّدين (بيتحقق ضد الـ typings الحقيقية المثبَّتة)</td></tr>
+        <tr><td>وحدات الدوال</td><td><code class="inline">deno test</code></td><td>أخطاء منطق بحتة في <code class="inline">_shared/*.ts</code></td></tr>
+        <tr><td>وحدات العميل</td><td><code class="inline">vitest</code> (38 اختبار)</td><td>i18n، الجمع العربي، تحديد اللغة، تجميع المواعيد</td></tr>
+        <tr><td>حراسة العميل</td><td><code class="inline">check-rtl.mjs</code></td><td>خصائص CSS فيزيائية بتكسر RTL</td></tr>
+      </table></div>
+      <p>القاعدة اللي المشروع كله بيمشي عليها: <strong>فحص عمره ما فشل مش فحص</strong>. فاحص الـ RTL اتكسر عمدًا مرة واحدة قبل ما يتوثّق كـ"شغّال"، وده متوقّع من أي حارس (guard) جديد.</p>
+      <div class="code-block"><div class="code-head"><span class="path">الأمر الوحيد</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">cd web && npm run verify   # typecheck + RTL guard + tests + build</code></pre></div>
+
+      <h3>CI/CD والنشر (Deployment)</h3>
+      <p><code class="inline">.github/workflows/ci.yml</code> فيه 3 jobs مستقلة تشتغل على كل push/PR:</p>
+      <div class="table-wrap"><table>
+        <tr><th>Job</th><th>بيعمل ايه</th></tr>
+        <tr><td><code class="inline">web</code></td><td><code class="inline">npm audit</code> على الاعتماديات الإنتاجية، ثم <code class="inline">npm run verify</code></td></tr>
+        <tr><td><code class="inline">functions</code></td><td><code class="inline">deno check</code> على كل الـ functions، ثم <code class="inline">deno test</code></td></tr>
+        <tr><td><code class="inline">database</code></td><td>يشغّل Postgres بس (بدون باقي الخدمات لتوفير الوقت)، يطبّق كل الـ migrations، يشغّل <code class="inline">verify.sql</code></td></tr>
+      </table></div>
+      <p>النشر الفعلي: <strong>Cloudflare Pages</strong> بيبني وينشر <code class="inline">web/dist</code> تلقائيًا عند كل push على <code class="inline">main</code> (تكامل GitHub مباشر، بدون خطوة يدوية). النص الخلفي بينشر يدويًا:</p>
+      <div class="code-block"><div class="code-head"><span class="path">نشر الباك إند</span><span>bash</span></div><pre><code class="lang-bash" data-lang="bash">supabase link --project-ref &lt;project-ref&gt;
+supabase db push
+supabase functions deploy notes transcribe enrich search digest sweep delete-account export
+supabase secrets set ANTHROPIC_API_KEY=... ELEVENLABS_API_KEY=... COHERE_API_KEY=...</code></pre></div>
+
+      <h3>أمان إضافي جدير بالذكر</h3>
+      <ul>
+        <li><strong>Content-Security-Policy صارم</strong>: مفيش <code class="inline">unsafe-inline</code> ولا <code class="inline">unsafe-eval</code>، مبني في <code class="inline">vite.config.ts</code> ويُشحن كهيدر حقيقي + <code class="inline">&lt;meta&gt;</code> احتياطي.</li>
+        <li><strong>الجلسة في <span class="eng">localStorage</span></strong> (ضعف حقيقي مقارنة بتطبيق أصلي بيستخدم keychain النظام) — CSP هنا مش تحسين، هي خط الدفاع الأساسي ضد سرقة الجلسة عبر XSS.</li>
+        <li><strong>الحماية من Prompt Injection</strong>: طبقتين — البرومبت بيوضّح إن نص الملاحظة "بيانات مش تعليمات"، والمخرجات مقيّدة بـ schema صارم فمستحيل تخرج بشكل غير متوقّع حتى لو الحقن نجح جزئيًا.</li>
+        <li><strong>لا يوجد <code class="inline">dangerouslySetInnerHTML</code></strong> في أي مكوّن — React بيهرّب كل نص تلقائيًا، ونص الملاحظة (من مستخدم أو من نموذج ذكاء اصطناعي) غير موثوق بشكل متساوٍ.</li>
+      </ul>
+
+      <h3>الاحتفاظ بالبيانات وحقوق المستخدم (Retention & Privacy)</h3>
+      <div class="table-wrap"><table>
+        <tr><th>النوع</th><th>مدة الاحتفاظ</th></tr>
+        <tr><td>التسجيلات الصوتية</td><td>30 يوم افتراضيًا (<code class="inline">profiles.audio_retention_days</code>) — بعدها <code class="inline">sweep</code> بيمسحها من Storage فعليًا؛ النص المكتوب (transcript) هو اللي بيفضل موجود دائمًا.</td></tr>
+        <tr><td>سجل <code class="inline">ai_jobs</code> (تليمتري بس، مفيهوش نص الملاحظات)</td><td>90 يوم، مسح يومي عبر <code class="inline">pg_cron</code>.</td></tr>
+      </table></div>
+      <p><code class="inline">GET /export</code> بيرجّع كل حاجة يملكها المستخدم (بدون pagination، بما فيها الأرشيف)، و<code class="inline">POST /delete-account</code> بيحذف كل حاجة نهائيًا — بما في ذلك ملفات الصوت في Storage اللي القيود الخارجية (FK) في Postgres مش قادرة توصلها، فبتتحذف بشكل صريح قبل حذف الحساب نفسه.</p>
+    </section>
+
+    <footer class="end">
+      دورة تعليمية مبنية بالكامل من قراءة كود مشروع ومضة الفعلي — مفيش سطر كود هنا مُختلَق.
+      للتفاصيل الأعمق، ابدأ من <code class="inline">docs/09-status-handoff.md</code> جوه المشروع نفسه.
+    </footer>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  // ---------- Mobile sidebar toggle ----------
+  const sidebar = document.getElementById('sidebar');
+  const menuBtn = document.getElementById('menuBtn');
+  const scrim = document.getElementById('scrim');
+  function closeMenu(){ sidebar.classList.remove('open'); scrim.classList.remove('open'); }
+  menuBtn && menuBtn.addEventListener('click', function(){
+    sidebar.classList.toggle('open'); scrim.classList.toggle('open');
+  });
+  scrim && scrim.addEventListener('click', closeMenu);
+  document.querySelectorAll('#toc a').forEach(function(a){ a.addEventListener('click', closeMenu); });
+
+  // ---------- Scroll-spy active chapter ----------
+  const links = Array.prototype.slice.call(document.querySelectorAll('#toc a'));
+  const sections = links.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  const byId = {};
+  links.forEach(function(a){ byId[a.getAttribute('href').slice(1)] = a; });
+
+  const io = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting){
+        links.forEach(function(a){ a.classList.remove('active'); });
+        var link = byId[entry.target.id];
+        if(link) link.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-15% 0px -70% 0px', threshold: 0 });
+  sections.forEach(function(s){ io.observe(s); });
+
+  // ---------- Tiny syntax highlighter ----------
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+  var TS_KW = '\\b(import|export|from|const|let|var|function|async|await|return|if|else|for|while|throw|new|class|interface|type|extends|implements|try|catch|finally|switch|case|break|continue|default|typeof|instanceof|in|of|readonly|public|private|static|as|null|undefined|true|false|void|never|this|yield|enum)\\b';
+  var SQL_KW = '\\b(select|insert|into|values|from|where|and|or|not|null|is|update|set|delete|create|table|replace|function|returns|language|sql|plpgsql|as|declare|begin|end|for|in|loop|foreach|array|returning|conflict|do|nothing|order by|group by|limit|left join|join|distinct on|with|exists|references|primary key|unique|check|default|constraint|enable|row level security|policy|to|using|grant|revoke|alter|type|enum|trigger|before|after|execute|security|invoker|definer|stable|immutable|coalesce|case|when|then|else|end|desc|asc)\\b';
+  var BASH_KW = '\\b(cd|npm|npx|run|dev|build|export|supabase|deno|docker|git|curl|psql|python|install|start|stop|reset|link|push|secrets)\\b';
+
+  var SPECS = {
+    ts:  [ ['com', '\\/\\/[^\\n]*'], ['com','\\/\\*[\\s\\S]*?\\*\\/'], ['str','`(?:[^`\\\\]|\\\\.)*`'], ['str','"(?:[^"\\\\]|\\\\.)*"'], ['str',"'(?:[^'\\\\]|\\\\.)*'"], ['num','\\b\\d+(?:\\.\\d+)?\\b'], ['kw', TS_KW] ],
+    sql: [ ['com', '--[^\\n]*'], ['str',"'(?:[^'\\\\]|\\\\.)*'"], ['num','\\b\\d+(?:\\.\\d+)?\\b'], ['kw', SQL_KW] ],
+    bash:[ ['com', '#[^\\n]*'], ['str','"(?:[^"\\\\]|\\\\.)*"'], ['kw', BASH_KW] ]
+  };
+
+  function highlight(code, lang){
+    var specs = SPECS[lang] || SPECS.ts;
+    var pattern = specs.map(function(s){ return '(' + s[1] + ')'; }).join('|');
+    var flags = lang === 'sql' ? 'gi' : 'g';
+    var re = new RegExp(pattern, flags);
+    var s = esc(code);
+    return s.replace(re, function(){
+      var args = arguments;
+      for(var i=0;i<specs.length;i++){
+        if(args[i+1] !== undefined){
+          return '<span class="tok-' + specs[i][0] + '">' + args[i+1] + '</span>';
+        }
+      }
+      return args[0];
+    });
+  }
+
+  document.querySelectorAll('code[data-lang]').forEach(function(el){
+    var lang = el.getAttribute('data-lang');
+    var raw = el.textContent;
+    el.innerHTML = highlight(raw, lang);
+  });
+})();
+</script>
