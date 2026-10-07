@@ -1027,6 +1027,17 @@ body {
 
 .detail-summary { margin: 0; color: var(--muted); }
 
+/* The note's separate items. Full text colour, not muted like the summary:
+   these are the content, the summary is only the label on it. */
+.detail-points {
+  margin-block: 10px 0;
+  padding-inline-start: 1.25em;
+  display: grid;
+  gap: 6px;
+}
+.detail-points li { padding-inline-start: 2px; }
+.detail-points li::marker { color: var(--muted); }
+
 .detail-raw-label {
   margin-block: 20px 6px;
   font-size: 0.8125rem;

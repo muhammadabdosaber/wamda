@@ -85,7 +85,7 @@ docker exec -i supabase_db_Second_Brain \
   psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
 ```
 
-Expect `ALL SCHEMA CHECKS PASSED` — 31 assertions. If a function moved:
+Expect `ALL SCHEMA CHECKS PASSED` — 32 assertions. If a function moved:
 `deno check supabase/functions/*/index.ts`. If `_shared/*.ts` logic moved:
 `deno test --allow-env supabase/functions/_shared/*.test.ts` (14 tests today:
 9 in `http.test.ts`, 5 in `webpush.test.ts`).
@@ -154,7 +154,7 @@ supabase/
   functions/    notes · transcribe · enrich · search · digest · sweep ·
                 export · delete-account · push
     _shared/    pipeline.ts is shared by enrich/transcribe/sweep — one copy
-  tests/        verify.sql — 31 assertions against a live database
+  tests/        verify.sql — 32 assertions against a live database
 web/            React 19 + Vite PWA
   src/sw.ts     the service worker (push handler) — its own tsconfig, since
                 WebWorker and DOM lib types cannot share one project

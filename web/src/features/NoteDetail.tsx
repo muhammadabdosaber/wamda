@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import type { Translator } from "../i18n";
 import { categoryLabel } from "../i18n";
 import { directionOfContent } from "../core/language";
-import { noteDetail, type Enrichment, type NoteDetail as NoteBody } from "../data/api";
+import { noteDetail, noteKeyPoints, type Enrichment, type NoteDetail as NoteBody } from "../data/api";
 import { Loading } from "../components/Loading";
 
 /**
@@ -33,16 +33,23 @@ export function NoteDetail({
 }) {
   const [body, setBody] = useState<NoteBody | null>(null);
   const [failed, setFailed] = useState(false);
+  const [points, setPoints] = useState<string[]>([]);
+  const summary = enrichment?.summary;
 
   useEffect(() => {
     let live = true;
     noteDetail(noteId)
       .then((b) => live && setBody(b))
       .catch(() => live && setFailed(true));
+    // Optional: an empty list just means no list is drawn.
+    void noteKeyPoints(noteId).then((rows) => {
+      if (!live) return;
+      setPoints(rows.find((r) => r.summary === summary)?.key_points ?? []);
+    });
     return () => {
       live = false;
     };
-  }, [noteId]);
+  }, [noteId, summary]);
 
   // Esc closes, matching the backdrop click. A detail view the user cannot
   // dismiss with the keyboard is a trap on desktop.
@@ -81,6 +88,15 @@ export function NoteDetail({
             {enrichment?.title && <h3>{enrichment.title}</h3>}
             {enrichment && (
               <p className="detail-summary">{enrichment.summary}</p>
+            )}
+            {/* Separate items the note held, one per line -- what makes a
+                spoken note scannable instead of a re-told paragraph. */}
+            {points.length > 0 && (
+              <ul className="detail-points">
+                {points.map((p, i) => (
+                  <li key={i}>{p}</li>
+                ))}
+              </ul>
             )}
 
             <div className="chips">
