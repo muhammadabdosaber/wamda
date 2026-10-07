@@ -863,6 +863,30 @@ end
 $$;
 commit;
 
+-- note_enrichments.key_points: present, non-null, defaults to empty. A row
+-- written without it (every enrichment before this column existed, and any
+-- single-thought note) must read back as '{}', never null -- the client
+-- renders the list only when it has entries.
+do $$
+declare
+  v_default text;
+  v_nullable text;
+begin
+  select column_default, is_nullable into v_default, v_nullable
+    from information_schema.columns
+   where table_schema = 'public' and table_name = 'note_enrichments'
+     and column_name = 'key_points';
+  if not found then
+    raise exception 'note_enrichments.key_points column is missing';
+  end if;
+  if v_nullable <> 'NO' or v_default is null or v_default not like '''{}''%' then
+    raise exception 'note_enrichments.key_points must be NOT NULL DEFAULT ''{}'' (nullable %, default %)',
+      v_nullable, v_default;
+  end if;
+  raise notice 'PASS: note_enrichments.key_points is NOT NULL, defaults to empty';
+end
+$$;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',

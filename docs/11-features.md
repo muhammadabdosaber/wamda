@@ -44,6 +44,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 |---|---|---|---|
 | 2.1 | Language resolved once at the edge, carried downstream | ✅ | `_shared/language.ts` |
 | 2.2 | Enrichment: title, summary, category, priority, action, due date | ✅ run on Sonnet 5 (revised from Opus 5, SB-034) | `_shared/pipeline.ts` |
+| 2.2a | Key points — a multi-item note split into one line per item, shown in the detail sheet (SB-053) | 🟡 proven end to end on the **local** stack (2026-10-07): real `enrich` → column written → RLS read → rendered in the sheet, light + dark; one-thought note gets no list. **Not on hosted** | `_shared/enrichment.ts`, `NoteDetail.tsx` |
 | 2.3 | Relative Arabic date resolution ("الخميس" → timestamp, user TZ) | ✅ | verified |
 | 2.4 | Tags, slugified so spelling variants converge | ✅ | `slugify()` migration `…000100` |
 | 2.5 | Prompt caching (~2.2K cached tokens/call) | ✅ measured | `_shared/providers.ts` |

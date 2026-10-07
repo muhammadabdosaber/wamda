@@ -62,6 +62,7 @@ blocked on.
 | SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
 | SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
 | SB-051 | Notifications that arrive with the app closed | M8 | M | `in progress` — built; needs the owner to mint VAPID keys and prove it on a phone |
+| SB-053 | Key points: split a multi-item note into one line per item | M2 | S | `in progress` — proven end to end locally; needs hosted deploy + one real capture |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
 > `20260801000800_sweep_schedule.sql` reads the function URL and service role
@@ -1534,6 +1535,24 @@ Only Chromium has ever run this app.
 
 - **Accept:** capture, sign-in, and RTL rendering checked on both; findings
   recorded.
+
+### SB-053 · Key points: split a multi-item note into one line per item · `in progress` · S
+
+The owner could not tell the AI's summary from his own transcript: three
+separate things said in one breath came back as one re-told paragraph. Built
+2026-10-07 — see `docs/00-verification.md` "SB-053".
+
+**To close:**
+
+1. `supabase db push` (migration `20261007000100`) — **before** step 2.
+2. `supabase functions deploy enrich transcribe sweep export`.
+3. Record one voice note with two or three separate items; open it.
+
+**Acceptance:** that note's detail sheet shows the items as a list, filler
+removed, nothing added; and a one-thought note shows no list. Written into
+`docs/00-verification.md` either way.
+
+---
 
 ## Done
 

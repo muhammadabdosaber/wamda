@@ -9,7 +9,7 @@
  * key, so an old enrichment is preserved rather than overwritten -- you can
  * diff v1 against v2 output on real notes before cutting over.
  */
-export const PROMPT_VERSION = "2026-08-13.1";
+export const PROMPT_VERSION = "2026-10-07.1";
 
 export const ENRICHMENT_MODEL = "claude-sonnet-5";
 
@@ -36,6 +36,8 @@ export const ACTIONS = [
 export interface Enrichment {
   title: string;
   summary: string;
+  /** One entry per separate item in the note. Empty for a single thought. */
+  key_points: string[];
   category: (typeof CATEGORIES)[number];
   /** Null when the note carries no urgency signal of its own -- the default. */
   priority: (typeof PRIORITIES)[number] | null;
@@ -68,7 +70,15 @@ export const ENRICHMENT_SCHEMA = {
   type: "object",
   properties: {
     title: { type: "string", description: "Short title in the note's language, at most 8 words." },
-    summary: { type: "string", description: "1-3 sentence summary in the note's language." },
+    summary: {
+      type: "string",
+      description: "1-3 sentence summary in the note's language. When key_points is non-empty, ONE sentence saying what the note is about.",
+    },
+    key_points: {
+      type: "array",
+      items: { type: "string" },
+      description: "Each separate item the note contains, one per entry. Empty array when the note is a single thought.",
+    },
     category: { type: "string", enum: [...CATEGORIES] },
     priority: {
       anyOf: [{ type: "string", enum: [...PRIORITIES] }, { type: "null" }],
@@ -105,6 +115,7 @@ export const ENRICHMENT_SCHEMA = {
   required: [
     "title",
     "summary",
+    "key_points",
     "category",
     "priority",
     "suggested_action",
@@ -139,7 +150,7 @@ export const ENRICHMENT_SCHEMA = {
  * himself was the single most-disliked thing about the output.
  */
 const OUTPUT_RULES: Record<string, string> = Object.freeze({
-  ar: `Write ALL free text — title, summary, tags, context values — in Arabic,
+  ar: `Write ALL free text — title, summary, key points, tags, context values — in Arabic,
 matching the REGISTER AND DIALECT OF THE NOTE ITSELF. If the user speaks
 Egyptian Arabic ("عايز"، "دلوقتي"، "بكرة"، "إزاي"), write Egyptian Arabic back.
 If they wrote in Modern Standard Arabic, answer in Modern Standard Arabic.
@@ -147,7 +158,7 @@ Never "upgrade" a dialect into فصحى — the user wrote it the way they think
 and a summary they have to translate back in their head is a summary they
 will not read.`,
 
-  en: `Write ALL free text — title, summary, tags, context values — in English,
+  en: `Write ALL free text — title, summary, key points, tags, context values — in English,
 matching the register of the note itself. Do not make casual notes formal.`,
 });
 
@@ -180,6 +191,29 @@ own thought; hand it back to them the way they had it.
 
 The fields \`category\`, \`priority\`, and \`suggested_action\` are machine
 identifiers, not prose. Emit them exactly as the schema lists them, in English.
+
+## Key points
+
+Spoken notes often carry several separate things in one breath — things to
+do, steps, decisions, questions. The user cannot scan a paragraph; they CAN
+scan a list. So when the note contains more than one distinct item, put each
+one in \`key_points\`:
+
+- One point per item, in the order the user said them.
+- Each point stands on its own: someone reading only that line knows what it
+  means. Keep every concrete detail — names, systems, environments, times.
+- Drop the speech filler and the repetition ("طيب"، "امم"، "تمام؟"، "يعني"،
+  the same noun said twice). That cleanup is the value; a point that is just
+  the transcript cut into pieces adds nothing.
+- Same voice and dialect rule as everywhere else: the user's own note, never
+  a report about them.
+- Never add an item, step, or detail the user did not say.
+
+When \`key_points\` has entries, \`summary\` is ONE sentence saying what the
+note is about — it must not repeat the points.
+
+If the note is a single thought, \`key_points\` is an empty array. Do not split
+one sentence into fragments to fill the list.
 
 ## Categories
 
@@ -248,6 +282,21 @@ Note: "طيب دي صفحة التسجيل الجديدة واضح إن هي ا�
   summary: "صفحة التسجيل الجديدة فيها مشكلة، مش بتسجل ولا بتبعت البيانات"
   (null: a problem is described, but no urgency is stated anywhere. Note the
    summary stays in the user's own Egyptian register and their own voice.)
+  key_points: []  (one thought — nothing to split)
+
+Note: "طيب أنا عايز أراجع الـ SharePoint بكرة إن شاء الله، الـ SharePoint details
+اللي موجودة في الـ development عشان أعمل زيها في الـ UAT. وكمان أشوف ازاي
+بنربط الـ امم SharePoint groups، تمام؟ بالـ Dynamics CRM users. نعملهم كـ
+tasks الساعة 9 الصبح."
+→ category: task, priority: null, suggested_action: create_task,
+  summary: "مراجعة إعداد الـ SharePoint بكرة الصبح ونقله للـ UAT"
+  key_points: [
+    "أراجع الـ SharePoint details اللي على الـ development",
+    "أعمل نفس الإعداد على الـ UAT",
+    "أشوف إزاي الـ SharePoint groups بتترتبط بالـ Dynamics CRM users"
+  ]
+  (three separate things said in one breath, each now one line. "نعملهم كـ
+   tasks الساعة 9" is the deadline — it goes in action_due_at, not a point.)
 
 Note: "فكرة: نضيف وضع ليلي للتطبيق يمكن يريح العين"
 → category: idea, priority: null, suggested_action: review_later,

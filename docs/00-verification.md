@@ -2297,6 +2297,82 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-053 · Key points: a spoken note split into the items it held (2026-10-07)
+
+**Why.** The owner opened a voice note about SharePoint/UAT/Dynamics CRM and
+could not tell the AI's summary from the transcript under it — the 1–3
+sentence summary re-told three separate things as one paragraph.
+
+**What changed.** `key_points: string[]` added to the enrichment schema and
+prompt (`PROMPT_VERSION` `2026-10-07.1`), a `note_enrichments.key_points`
+column (migration `20261007000100`, `NOT NULL DEFAULT '{}'`), the detail
+sheet renders them as a list, `export` includes them. Separately, the
+pipeline now checks the `note_enrichments` upsert's error: before, a rejected
+write fell through to `status: 'ready'` with no enrichment row.
+
+**What ran — the prompt, against the real model.** Same request shape as
+`pipeline.ts` (`claude-sonnet-5`, adaptive thinking, effort medium, the
+`json_schema` format), real key, run from a scratch script — not through the
+Edge Runtime. Three notes:
+
+| Note | `key_points` | `summary` |
+|---|---|---|
+| The owner's SharePoint note (now also the prompt's own example, so this proves format only) | 3 points, matching the example | one sentence |
+| **Unseen**, multi-item: bank card, pharmacy, invoice to Karim, with "امم"/"آه"/"وكده يعني" filler | `أكلم البنك بخصوص الكارت اللي اتوقف` · `أعدي على الصيدلية أجيب دوا ماما` · `أبعت الفاتورة لكريم قبل الضهر` — filler gone, Egyptian register kept, nothing added | `مهام لازم أعملها بكرة الصبح قبل الضهر.` |
+| **Unseen**, single thought (sales dashboard filter) | `[]` | one sentence |
+
+Caching still hits: first call wrote 3,836 tokens, the next two read 3,836
+from cache. The prompt grew (was ~2.2K cached tokens), so a cache hit costs
+somewhat more than the $0.0094 measured in August — **not re-measured**.
+
+Incidental, not caused by this change: the SharePoint note came back
+`priority: high` — the owner did say "مهمة" in it.
+
+**What also ran:** `npm run verify` — typecheck (app + SW), RTL guard, 46
+tests, build — green.
+
+**Then, the same day, once Docker was up — the local stack end to end:**
+
+- **Schema.** The local DB was behind `main` — SB-051's two migrations
+  (`20260822000100`/`000200`) had never been applied locally, so `verify.sql`
+  stopped at `relation "public.push_subscriptions" does not exist` before
+  reaching anything new. `supabase migration up --local` applied those two
+  plus `20261007000100`. Then **`ALL SCHEMA CHECKS PASSED`, 32 `PASS` lines**
+  (31 + `note_enrichments.key_points is NOT NULL, defaults to empty`). The
+  migration had already been applied once by hand with `psql` before
+  `migration up` re-ran it: `add column if not exists` held.
+- **Pipeline.** Real `enrich` Edge Function on the local Edge Runtime
+  (`supabase stop && start` from this worktree, real keys), called as a fresh
+  local test user with a JWT, exactly like the client:
+
+  | Note | HTTP | `notes.status` | `note_enrichments` row |
+  |---|---|---|---|
+  | bank / pharmacy / Karim's invoice | 200 | `ready` | `key_points`: 3 entries, filler gone; `prompt_version` `2026-10-07.1` |
+  | sales-dashboard filter (one thought) | 200 | `ready` | `key_points`: `[]` |
+
+  The client's own read — PostgREST `note_enrichments?select=summary,key_points`
+  as that user, under RLS — returned `200` with the same rows.
+- **UI.** Signed in through the real OTP flow (code from local Mailpit) on
+  the `:5174` dev server, 375×812. The multi-item note's sheet shows title →
+  one-line summary → three bullets (markers on the right under RTL) → the raw
+  transcript, in both light and dark. The single-thought note's sheet has no
+  `.detail-points` element at all. Console: no errors.
+
+**What did NOT run:**
+
+- `deno check` / `deno test` — Deno is not installed on this machine's PATH.
+  (The Edge Runtime did load and execute the changed `pipeline.ts`/
+  `enrichment.ts`, so they parse and run; static type-checking is what is
+  missing.)
+- The "client deployed before the migration" path — `noteKeyPoints()`
+  returning `[]` on a missing column is reasoned, not observed.
+- Nothing is on hosted. Deploy order matters: **`supabase db push` first**,
+  then `supabase functions deploy enrich transcribe sweep export`. The client
+  half is safe in either order: `noteKeyPoints()` returns nothing on error,
+  so the sheet opens exactly as before until the column exists.
+- Existing notes are not re-enriched; they keep their summary and get no
+  points. Only notes captured after the deploy get them.
+
 ## SB-052 · The 2026-08-17 hosted regression is still live (checked 2026-08-20)
 
 **Re-checked, not assumed.** The entry above ("REGRESSION found 2026-08-17")

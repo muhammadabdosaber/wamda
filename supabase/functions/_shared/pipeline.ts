@@ -198,13 +198,14 @@ export async function runEnrichment(input: EnrichInput): Promise<EnrichOutput> {
       console.warn("prompt_cache_miss", { note_id: noteId, language });
     }
 
-    await admin.from("note_enrichments").upsert(
+    const { error: saveError } = await admin.from("note_enrichments").upsert(
       {
         note_id: noteId,
         user_id: userId,
         language,
         title: enrichment.title,
         summary: enrichment.summary,
+        key_points: enrichment.key_points ?? [],
         category: enrichment.category,
         priority: enrichment.priority,
         suggested_action: enrichment.suggested_action,
@@ -218,6 +219,14 @@ export async function runEnrichment(input: EnrichInput): Promise<EnrichOutput> {
       },
       { onConflict: "note_id,language,prompt_version" },
     );
+    // Without this check a rejected write (a column the database does not
+    // have yet, a constraint) fell through to `status: 'ready'` below: a note
+    // marked done with no enrichment, which the user sees as stuck forever.
+    // Throwing returns it to `queued`, where the sweep retries it.
+    if (saveError) {
+      console.error("enrichment_save_failed", { note_id: noteId, error: saveError.message });
+      throw new HttpError(500, "enrichment_save_failed");
+    }
 
     await admin.rpc("attach_tags", {
       p_user_id: userId,

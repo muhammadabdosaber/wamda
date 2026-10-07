@@ -34,6 +34,7 @@ interface ExportRow {
     language: string;
     title: string | null;
     summary: string;
+    key_points: string[];
     category: string;
     priority: string;
     suggested_action: string;
@@ -75,7 +76,7 @@ Deno.serve(async (req) => {
       .select(
         "id, client_id, source, status, input_language, detected_language, raw_text, " +
           "client_created_at, created_at, archived_at, completed_at, " +
-          "note_enrichments(language, title, summary, category, priority, suggested_action, action_due_at, context, model), " +
+          "note_enrichments(language, title, summary, key_points, category, priority, suggested_action, action_due_at, context, model), " +
           "note_tags(tags(slug, tag_labels(language, label)))",
       )
       .order("client_created_at", { ascending: true })

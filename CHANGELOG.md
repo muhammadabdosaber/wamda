@@ -10,6 +10,28 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — key points: a multi-item note split into one line per item (SB-053)
+
+A spoken note holding several things now comes back as a list, one item per
+line, with the speech filler dropped and the owner's own dialect kept; the
+summary shrinks to one sentence about what the note is. A single-thought note
+gets no list. New `note_enrichments.key_points` column, `PROMPT_VERSION`
+`2026-10-07.1`, rendered in the detail sheet, included in `export`.
+
+**What ran, all on the local stack:** `verify.sql` — `ALL SCHEMA CHECKS
+PASSED`, 32 assertions; the real `enrich` function writing `key_points` for a
+three-item note and `[]` for a one-thought note; the client's RLS read; the
+sheet itself, light and dark, at 375×812. `npm run verify` green. **What did
+not:** `deno check` (no Deno on this machine). **Not on hosted** — `db push`
+first, then deploy `enrich transcribe sweep export`.
+
+### Fixed — a rejected enrichment write no longer marks the note `ready`
+
+`pipeline.ts` ignored the `note_enrichments` upsert's error, so a failed
+write fell through to `status: 'ready'` with no enrichment row — a note that
+looks stuck forever. It now throws, returning the note to `queued` for the
+sweep. Found while adding SB-053, whose column makes deploy order matter.
+
 ### Corrected — SB-052 reported fixed, checked live, still broken; this week's digest missed
 
 Reported resolved. Checked before updating anything: **still `403` on every

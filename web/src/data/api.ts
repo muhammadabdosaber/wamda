@@ -283,6 +283,29 @@ export async function noteDetail(noteId: string): Promise<NoteDetail> {
 }
 
 /**
+ * The key points of every enrichment row this note has, keyed by the summary
+ * each row carries -- so the view shows the points that belong to the summary
+ * it is already showing, never ones from a different prompt version.
+ *
+ * Separate from {@link noteDetail} and never throws: the PWA deploys itself on
+ * merge, the `key_points` column only exists once its migration is pushed by
+ * hand. Until then this returns nothing and the view looks as it did before,
+ * instead of failing to open.
+ */
+export async function noteKeyPoints(noteId: string): Promise<Array<{ summary: string; key_points: string[] }>> {
+  try {
+    const { data, error } = await supabase
+      .from("note_enrichments")
+      .select("summary, key_points")
+      .eq("note_id", noteId);
+    if (error || !data) return [];
+    return data as Array<{ summary: string; key_points: string[] }>;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Undoes {@link dismissNoteAction}: clears `action_dismissed_at` so the note's
  * suggested-action chips are offered again. This is the reversal behind the
  * undo affordance in the resolved state (SB-033) -- without it, answering a
