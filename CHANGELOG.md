@@ -10,6 +10,12 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the notifications toggle said "on" for a subscription the server never had
+
+It read only the browser's subscription, which the first failed save had left
+behind. Now a browser subscription missing on the server is stored when the
+screen opens, and "on" means the server has it.
+
 ### Fixed — no phone could ever subscribe to notifications (SB-051)
 
 Found the first time the owner subscribed on his iPhone: the subscription was

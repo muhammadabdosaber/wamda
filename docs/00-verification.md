@@ -2333,6 +2333,14 @@ on a real note on hosted.
 Plus a UI bug: on a failed save the toggle re-read the **browser's**
 subscription and showed "on". It now shows "off" after a failed enable.
 
+**Correction, same evening: «التذكير شغّال» was shown with no row stored.**
+After #46 the owner reopened the app and saw the enabled message;
+`push_subscriptions` still had 0 rows. `pushState()` read only the
+browser's subscription — which the first, failed attempt had created and
+kept — so the toggle said "on" on every launch without any save. Fixed:
+`pushState()` now stores a browser subscription the server lacks and reports
+"on" only when that store succeeds.
+
 **Hosted grants are wider than the migration intends:** `authenticated` (and
 `anon`) hold table-level UPDATE on every `push_subscriptions` column on hosted,
 from Supabase's default privileges; locally only the four granted columns. RLS

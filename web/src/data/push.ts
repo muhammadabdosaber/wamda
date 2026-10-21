@@ -51,13 +51,47 @@ export function pushSupported(): boolean {
   );
 }
 
+/**
+ * "On" means the SERVER holds this device's subscription -- not merely the
+ * browser. Reading only the browser said "on" on the owner's iPhone for a
+ * subscription that had never been stored (the first save hit the `auth`
+ * column bug, the browser kept its half). So a browser subscription the
+ * server lacks is stored here, silently, and only a successful store counts.
+ */
 export async function pushState(): Promise<PushState> {
   if (!pushConfigured()) return "unconfigured";
   if (!pushSupported()) return "unsupported";
   if (Notification.permission === "denied") return "blocked";
   const registration = await navigator.serviceWorker.getRegistration();
   const subscription = await registration?.pushManager.getSubscription();
-  return subscription ? "on" : "off";
+  if (!subscription) return "off";
+  try {
+    return (await storeSubscription(subscription)) ? "on" : "off";
+  } catch {
+    return "off";
+  }
+}
+
+/**
+ * Upsert this device's subscription. False when nobody is signed in.
+ *
+ * No `user_id` in the payload: the column defaults to `auth.uid()`, and an
+ * upsert's ON CONFLICT DO UPDATE sets every column it was sent -- the grant
+ * allows UPDATE on four columns only, so sending `user_id` is a 403.
+ */
+async function storeSubscription(subscription: PushSubscription): Promise<boolean> {
+  const { data: auth } = await supabase.auth.getUser();
+  if (!auth?.user) return false;
+  const { error } = await supabase.from("push_subscriptions").upsert(
+    {
+      endpoint: subscription.endpoint,
+      ...keysOf(subscription),
+      user_agent: navigator.userAgent.slice(0, 300),
+    },
+    { onConflict: "user_id,endpoint" },
+  );
+  if (error) throw error;
+  return true;
 }
 
 /**
@@ -128,23 +162,7 @@ export async function enablePush(): Promise<PushState> {
     applicationServerKey: urlBase64ToUint8Array(vapidPublicKey!),
   });
 
-  const { data: auth } = await supabase.auth.getUser();
-  if (!auth?.user) return "off";
-
-  // No `user_id` in the payload: the column defaults to `auth.uid()`, and an
-  // upsert's ON CONFLICT DO UPDATE sets every column it was sent -- the grant
-  // allows UPDATE on four columns only, so sending `user_id` is a 403.
-  const { error } = await supabase.from("push_subscriptions").upsert(
-    {
-      endpoint: subscription.endpoint,
-      ...keysOf(subscription),
-      user_agent: navigator.userAgent.slice(0, 300),
-    },
-    { onConflict: "user_id,endpoint" },
-  );
-  if (error) throw error;
-
-  return "on";
+  return (await storeSubscription(subscription)) ? "on" : "off";
 }
 
 /**
