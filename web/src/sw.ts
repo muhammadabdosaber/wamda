@@ -2,7 +2,7 @@
 import { cleanupOutdatedCaches, createHandlerBoundToURL, precacheAndRoute } from "workbox-precaching";
 import { NavigationRoute, registerRoute } from "workbox-routing";
 
-import { fallbackNotification, isDuePayload, toNotification } from "./core/pushMessage";
+import { fallbackNotification, isPushPayload, toNotification } from "./core/pushMessage";
 
 /**
  * SB-051. The app's service worker.
@@ -60,7 +60,7 @@ self.addEventListener("push", (event) => {
       payload = null;
     }
 
-    if (!isDuePayload(payload)) {
+    if (!isPushPayload(payload)) {
       // Not ours, or a shape this version does not know. Still show
       // something: a silent push is a subscription revoked.
       const fallback = fallbackNotification();
@@ -74,10 +74,10 @@ self.addEventListener("push", (event) => {
     const notification = toNotification(payload);
     await self.registration.showNotification(notification.title, {
       body: notification.body,
-      // One tag for the whole feature: a second morning's reminder REPLACES
-      // the first rather than stacking. A tray with four identical reminders
-      // is the failure mode this product exists to avoid.
-      tag: "wamda-due-tasks",
+      // The summary keeps one tag, so a second morning's REPLACES the first
+      // rather than stacking; each task reminder has its own (see
+      // `toNotification`), so two tasks due at once are both shown.
+      tag: notification.tag,
       lang: notification.language,
       dir: notification.language === "ar" ? "rtl" : "ltr",
       icon: "/icon.svg",

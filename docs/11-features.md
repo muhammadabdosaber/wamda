@@ -144,6 +144,9 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner (2026-08-02); the schema assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.6b | Due-task reminder sender (`functions/push`) | ✅ ran on hosted against a real subscription: `{"candidates":1,"sent":1}`, push service `201`, twice (forced). The 08:00-local scheduled send itself has not fired yet | `functions/push` (SB-051) |
 | 6.6c | `pg_cron` schedule for push (`push-due-tasks`, `5 * * * *`) | 🟡 scheduled and `active` on hosted since 2026-10-21; the job's own first 08:00 delivery not yet observed | migration `20260822000200` |
+| 6.6e | Task title in the morning summary (SB-054) | ⬜ built; text proven in unit tests, sender run locally — not on hosted | `core/pushMessage.ts` · `functions/push` |
+| 6.6f | Reminder at a task's own due time, `push-task-due` every minute (SB-054) | ⬜ built; SQL rule proven in `verify.sql`, claim/release run on the local Edge Runtime — never delivered to a device, not on hosted | migration `20261021000100` · `functions/push` |
+| 6.6g | Notification tap opens Tasks and the task's note (SB-054) | ⬜ built, unit-tested (`launchTarget`) — never tapped on a device | `core/launch.ts` · `App.tsx` · `Tasks.tsx` |
 | 6.6d | `CRON_SECRET` gate for `sweep`/`digest`/`push` (`requireCronSecret`) | ✅ replaces a platform-managed key that could (and did, SB-052) rotate without notice; confirmed live 2026-08-22 with a real 200 and real execution | `_shared/http.ts` · SB-052 |
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |

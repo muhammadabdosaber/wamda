@@ -27,7 +27,7 @@ it daily on his own phone:
 | PWA | `https://wamda-a8k.pages.dev` — Cloudflare Pages, **auto-deploys on every merge to `main`** |
 | Backend | hosted Supabase project `hfjpotjbrrnghuqhxoux` (Postgres 17 + pgvector) |
 | Vendor keys | all three real and working on hosted: Anthropic, ElevenLabs, Cohere |
-| Scheduled work | five `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge, `push-due-tasks` (hourly; sends at 08:00 local) |
+| Scheduled work | five `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge, `push-due-tasks` (hourly; sends at 08:00 local). A sixth, `push-task-due` (every minute, a reminder at each task's own time), is written (SB-054), not yet on hosted |
 
 Two consequences you must hold onto:
 
@@ -71,9 +71,10 @@ which Supabase rotated underneath us (SB-052) — and returns `403` otherwise.
 The anon key ships in every browser bundle and must not be enough to spend
 vendor money. Their only legitimate caller is `pg_cron`, which reads the
 secret from Vault at call time (the `*_service_role_key` Vault names are
-historical; they hold `CRON_SECRET`). **Deploy all three with
-`--no-verify-jwt`** — the platform gateway rejects a non-JWT bearer before
-this code runs. Deploying them from a branch without this gate brings back the
+historical; they hold `CRON_SECRET`). All three carry
+`verify_jwt = false` in `supabase/config.toml` (since SB-054) — the platform
+gateway rejects a non-JWT bearer before this code runs; with an older CLI,
+pass `--no-verify-jwt` too. Deploying them from a branch without this gate brings back the
 403 within five minutes; it happened twice (2026-08-17, 2026-10-07).
 
 ## Verify before you commit
@@ -83,14 +84,14 @@ cd web && npm run verify
 ```
 
 typecheck (app **and** the service worker's own WebWorker project) + RTL
-guard + 46 tests + build. If the schema moved:
+guard + 56 tests + build. If the schema moved:
 
 ```bash
 docker exec -i supabase_db_Second_Brain \
   psql -U postgres -d postgres -v ON_ERROR_STOP=1 < supabase/tests/verify.sql
 ```
 
-Expect `ALL SCHEMA CHECKS PASSED` — 32 assertions. If a function moved:
+Expect `ALL SCHEMA CHECKS PASSED` — 34 assertions. If a function moved:
 `deno check supabase/functions/*/index.ts`. If `_shared/*.ts` logic moved:
 `deno test --allow-env supabase/functions/_shared/*.test.ts` (14 tests today:
 9 in `http.test.ts`, 5 in `webpush.test.ts`).
@@ -159,7 +160,7 @@ supabase/
   functions/    notes · transcribe · enrich · search · digest · sweep ·
                 export · delete-account · push
     _shared/    pipeline.ts is shared by enrich/transcribe/sweep — one copy
-  tests/        verify.sql — 32 assertions against a live database
+  tests/        verify.sql — 34 assertions against a live database
 web/            React 19 + Vite PWA
   src/sw.ts     the service worker (push handler) — its own tsconfig, since
                 WebWorker and DOM lib types cannot share one project

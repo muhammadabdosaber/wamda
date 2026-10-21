@@ -10,6 +10,27 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — the task's name in the notification, and a reminder at its own time (SB-054)
+
+The 08:00 summary now shows the most urgent task's title, with «ومهمة أخرى»
+etc. when there are more. New: a reminder at each task's own due time —
+`push-task-due` every minute, «حان موعد مهمة» + the title, once per task per
+due time, claimed before sending so overlapping runs cannot double-send.
+Date-only times (00:00 / 23:59) are left to the summary. A notification tap
+now opens Tasks and the task's note — the app had been ignoring the link and
+opening on Capture. `verify_jwt = false` for the cron functions now lives in
+`config.toml`.
+
+**Ran:** `verify.sql` 34/34; the sender on the local Edge Runtime, claim and
+release proven against a dead endpoint; 56 web tests. **Not yet:** a real
+due-time reminder on the phone. Not on hosted.
+
+### Fixed — `functions/push` depended on hosted-only grants
+
+`service_role` SELECT on `push_subscriptions` came from hosted defaults; a
+local stack has none, and the sender, ignoring the query error, saw "no
+devices". Grants are now explicit, and the read throws.
+
 ### Done — SB-051: a notification reaches the phone with the app closed
 
 First delivery 2026-10-21: on the owner's iPhone lock screen, app fully

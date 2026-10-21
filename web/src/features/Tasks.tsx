@@ -31,11 +31,30 @@ const BUCKET_HEADING: Record<Bucket, "tasksToday" | "tasksThisWeek" | "tasksLate
   later: "tasksLater",
 };
 
-export function Tasks({ t, language }: { t: Translator; language: string }) {
+export function Tasks({
+  t,
+  language,
+  openNoteId = null,
+}: {
+  t: Translator;
+  language: string;
+  /** From a notification tap: open this task's note once the list arrives. */
+  openNoteId?: string | null;
+}) {
   const [notes, setNotes] = useState<TimelineNote[] | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const [open, setOpen] = useState<TimelineNote | null>(null);
+  const [launchHandled, setLaunchHandled] = useState(false);
   const now = useNow();
+
+  // Once, on the first load: a later sync must not reopen a note the user
+  // already closed.
+  useEffect(() => {
+    if (launchHandled || !notes || !openNoteId) return;
+    setLaunchHandled(true);
+    const target = notes.find((n) => n.id === openNoteId);
+    if (target) setOpen(target);
+  }, [notes, openNoteId, launchHandled]);
 
   const load = useCallback(async () => {
     if (!isConfigured) {

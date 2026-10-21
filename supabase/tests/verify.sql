@@ -887,6 +887,104 @@ begin
 end
 $$;
 
+-- push_task_due_candidates(): a task whose OWN due time just arrived
+-- (2026-10-21). Alice is subscribed (above). Only the task due a few minutes
+-- ago, open, and not yet reminded may come back.
+-- Not asserted here: the 00:00 / 23:59 date-only skip -- it depends on the
+-- wall clock at the moment this runs.
+do $$
+declare
+  alice     uuid := '11111111-1111-1111-1111-111111111111';
+  tz        text;
+  due_now   timestamptz := date_trunc('minute', now()) - interval '2 minutes';
+  hit_note  uuid;
+  other     uuid;
+  n_rows    integer;
+begin
+  select timezone into tz from public.profiles where id = alice;
+  -- Keep the "just due" task off the two skipped minutes, whatever the clock.
+  if to_char(due_now at time zone tz, 'HH24:MI') in ('00:00', '23:59') then
+    due_now := due_now - interval '3 minutes';
+  end if;
+
+  -- The one that must come back.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'due now') returning id into hit_note;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, title, model, prompt_version)
+  values (hit_note, alice, 'ar', 's', 'task', due_now, 'due-now title', 'test-model', 'v-test');
+
+  -- Due 30 minutes ago: outside the window -- the morning summary's job.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'stale') returning id into other;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other, alice, 'ar', 's', 'task', now() - interval '30 minutes', 'test-model', 'v-test');
+
+  -- Due in 5 minutes: not yet.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'future') returning id into other;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other, alice, 'ar', 's', 'task', now() + interval '5 minutes', 'test-model', 'v-test');
+
+  -- Due now but completed: done is done.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text, completed_at)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'done', now()) returning id into other;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other, alice, 'ar', 's', 'task', due_now, 'test-model', 'v-test');
+
+  -- Due now but already reminded: once per due time.
+  insert into public.notes (user_id, client_id, source, status, input_language, raw_text)
+  values (alice, gen_random_uuid(), 'text', 'ready', 'ar', 'reminded') returning id into other;
+  insert into public.note_enrichments
+    (note_id, user_id, language, summary, category, action_due_at, model, prompt_version)
+  values (other, alice, 'ar', 's', 'task', due_now, 'test-model', 'v-test');
+  insert into public.push_task_reminders (note_id, due_at, user_id) values (other, due_now, alice);
+
+  select count(*) into n_rows from public.push_task_due_candidates();
+  if n_rows <> 1 then
+    raise exception 'push_task_due_candidates returned % rows, expected exactly 1 (stale, future, completed and already-reminded must be excluded)', n_rows;
+  end if;
+  if (select note_id from public.push_task_due_candidates()) <> hit_note then
+    raise exception 'push_task_due_candidates returned the wrong note';
+  end if;
+  if (select title from public.push_task_due_candidates()) <> 'due-now title' then
+    raise exception 'push_task_due_candidates did not carry the task title';
+  end if;
+
+  -- Once reminded, it must not come back.
+  insert into public.push_task_reminders (note_id, due_at, user_id) values (hit_note, due_now, alice);
+  if exists (select 1 from public.push_task_due_candidates()) then
+    raise exception 'push_task_due_candidates returned a task already reminded';
+  end if;
+
+  raise notice 'PASS: push_task_due_candidates returns only the open, just-due, not-yet-reminded task';
+end
+$$;
+
+-- Neither the function nor the claim table is reachable from the client.
+begin;
+set local role authenticated;
+set local request.jwt.claims = '{"sub":"11111111-1111-1111-1111-111111111111","role":"authenticated"}';
+do $$
+begin
+  begin
+    perform public.push_task_due_candidates();
+    raise exception 'GRANT BREACH: authenticated client executed push_task_due_candidates()';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform 1 from public.push_task_reminders;
+    raise exception 'GRANT BREACH: authenticated client read push_task_reminders';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'PASS: push_task_due_candidates and push_task_reminders are service-only';
+end
+$$;
+commit;
+
 -- Cleanup so the script is re-runnable.
 delete from auth.users where id in (
   '11111111-1111-1111-1111-111111111111',
