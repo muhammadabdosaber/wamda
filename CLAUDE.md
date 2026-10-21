@@ -169,8 +169,9 @@ web/            React 19 + Vite PWA
 ```
 
 Vendor models, so nobody has to grep for them: enrichment is
-`claude-sonnet-5` (`_shared/enrichment.ts`, revised down from Opus 5 in
-SB-034), the weekly digest is `claude-opus-5` over the Batch API
+`claude-sonnet-5-5` at effort `medium` (`_shared/enrichment.ts`; Opus 5 →
+Sonnet 5 in SB-034, → Sonnet 5.5 after a 24-note comparison on 2026-10-21 —
+`PRICING` in `pipeline.ts` must change with it), the weekly digest is `claude-opus-5` over the Batch API
 (`functions/digest`), transcription is ElevenLabs `scribe_v1`, embeddings are
 Cohere `embed-multilingual-v3.0` (1024-dim).
 

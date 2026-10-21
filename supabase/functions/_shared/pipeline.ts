@@ -39,12 +39,15 @@ import {
 // Stage 3-5: enrichment, embedding, relations
 // ---------------------------------------------------------------------------
 
-/** Claude Opus 5, USD per million tokens. */
+/** Claude Sonnet 5.5 (`ENRICHMENT_MODEL`), USD per million tokens. Change
+ *  together with the model: this still said Opus 5 for two months after
+ *  SB-034 moved enrichment to Sonnet, overstating every `ai_jobs.cost_usd`
+ *  2.5x. */
 const PRICING = {
-  input: 5.0,
-  output: 25.0,
-  cacheWrite: 6.25, // 1.25x input
-  cacheRead: 0.5, //  0.10x input
+  input: 2.0,
+  output: 10.0,
+  cacheWrite: 2.5, // 1.25x input
+  cacheRead: 0.2, //  0.10x input
 };
 
 /** Fields are nullable on the SDK's usage type, not merely optional. */
