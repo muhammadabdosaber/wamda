@@ -33,7 +33,7 @@ Sonnet 5)، البحث الدلالي (Cohere)، التسجيل الصوتي (El
 | Layer | State |
 |---|---|
 | Schema, RLS, RPCs | **Done, verified** — 31 assertions against live Postgres, green in CI |
-| Edge Functions (9) | **Done, type-checked, deployed to hosted** — except `push`, built 2026-08-22 and not yet deployed (SB-051) |
+| Edge Functions (9) | **Done, type-checked, deployed to hosted** — `push` included since 2026-10-21 (SB-051) |
 | React PWA client | **Done, verified in a browser** — 46 tests, RTL guard, build |
 | Auth (email OTP) | **Done, verified end to end**, hosted via custom SMTP |
 | AI enrichment | **Done, run for real** — Claude Sonnet 5 (revised from Opus 5, SB-034) |
@@ -90,14 +90,10 @@ worktree's own `supabase/functions/.env` being absent (gitignored by design --
 see "A new `git worktree` has no vendor keys" below), not the key having been
 lost.
 
-**SB-051 (web push) is built as of 2026-08-22, and deliberately not closed.**
-The encryption is asserted against RFC 8291's own worked example byte for
-byte, the schema half is proven on a real Postgres, and the client half
-builds — but no notification has reached a device, which is the acceptance
-line. It needs the owner: mint a VAPID pair, deploy `functions/push`, set two
-more Vault secrets (holding `CRON_SECRET`, like `sweep`/`digest`), and
-install the PWA on the iPhone. Steps are listed in `docs/13-tasks.md`
-"SB-051".
+**SB-051 (web push) is done, 2026-10-21.** A notification reached the
+owner's iPhone on the lock screen with the app closed, and tapping it
+opened Tasks. It runs on `push-due-tasks` (hourly, sends at 08:00 local).
+See `docs/00-verification.md` "Deploys of 2026-10-21".
 
 **What genuinely remains:**
 

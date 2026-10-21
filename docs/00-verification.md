@@ -2341,6 +2341,20 @@ kept — so the toggle said "on" on every launch without any save. Fixed:
 `pushState()` now stores a browser subscription the server lacks and reports
 "on" only when that store succeeds.
 
+**Delivered — SB-051 closed.** After a fresh reinstall of the PWA (the old
+service worker kept serving the pre-#46 bundle across ordinary relaunches),
+the subscription row appeared: 18:44:10 UTC, `web.push.apple.com`.
+`push_due_candidates()` returned one overdue task, Asia/Dubai. Forced send
+through the Vault path, exactly as `pg_cron` calls it:
+`{"candidates":1,"notified":1,"sent":1,"disabled":0}`, Apple `201`,
+`last_sent_at` set, `failure_count` 0. The owner reported it arrived and that
+tapping it opened Tasks. Second forced send at 18:46:45 UTC with the app fully
+closed: Apple `201`; shown on the lock screen — title «مهام مستحقة», body
+«مهمة واحدة متأخرة أو موعدها اليوم» (screenshot from the owner).
+
+**Not yet observed:** the 08:00-local scheduled send firing on its own, and
+switching the toggle off on a device.
+
 **Hosted grants are wider than the migration intends:** `authenticated` (and
 `anon`) hold table-level UPDATE on every `push_subscriptions` column on hosted,
 from Supabase's default privileges; locally only the four granted columns. RLS

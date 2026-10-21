@@ -138,8 +138,8 @@ the `ai_jobs` retention purge (daily). Each calls its deployed function URL
 through `pg_net.http_post`, with a shared secret read from **Vault** — never a
 literal in a migration, since a migration is a committed file.
 
-A fifth, `push-due-tasks` (`5 * * * *`, SB-051), is written and **not yet
-scheduled on hosted**: it needs `push_function_url` and
+A fifth, `push-due-tasks` (`5 * * * *`, SB-051), is **scheduled on hosted
+since 2026-10-21**. For a new environment: it needs `push_function_url` and
 `push_service_role_key` in Vault -- the second holds the same value as
 `CRON_SECRET`, despite its name. `20260822000200_push_schedule.sql` was
 already applied on hosted (2026-10-07) and no-op'd, so `db push` will not

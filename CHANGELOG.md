@@ -10,6 +10,13 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Done — SB-051: a notification reaches the phone with the app closed
+
+First delivery 2026-10-21: on the owner's iPhone lock screen, app fully
+closed, tapping it opened Tasks; Apple's push service answered `201`.
+`push-due-tasks` is scheduled on hosted (hourly, sends at 08:00 local). The
+scheduled 08:00 send has not been observed yet.
+
 ### Fixed — the notifications toggle said "on" for a subscription the server never had
 
 It read only the browser's subscription, which the first failed save had left
