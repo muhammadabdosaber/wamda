@@ -10,6 +10,15 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — no phone could ever subscribe to notifications (SB-051)
+
+Found the first time the owner subscribed on his iPhone: the subscription was
+never stored. The client sent `auth` where the column is `auth_secret`
+(`400`), and sent `user_id` in an upsert whose grant only covers four columns
+(`403`). Both fixed and proven against local PostgREST; a test now pins the
+column names. The toggle also no longer shows "on" after a failed save.
+Runbook: `VAPID_PUBLIC_KEY` is needed server-side too.
+
 ### Changed — enrichment on Claude Sonnet 5.5 (effort `medium`)
 
 Compared on 24 real notes against production Sonnet 5 and Haiku 5.5, same

@@ -2297,6 +2297,47 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## Deploys of 2026-10-21, and SB-051 meeting a real phone
+
+**SB-052 on `main` (PR #44), deployed.** `sweep` and `digest` deployed from
+`main` with `--no-verify-jwt`. First tick after each deploy timed out at
+pg_net's 5 s (a cold boot measured at ~2.5 s for a 403 alone), every tick after
+returned `200`.
+
+**Sonnet 5.5 (PR #45), deployed:** `enrich`, `transcribe`, `sweep`. Not yet run
+on a real note on hosted.
+
+**SB-051 — server side proven, phone side found broken:**
+
+| Step | Result |
+|---|---|
+| VAPID pair | generated; private half piped to `supabase secrets set` from a temp file, never printed, file deleted. Replaced a private key set earlier that day whose public half existed nowhere; 0 subscriptions existed, so nothing broke |
+| `VITE_VAPID_PUBLIC_KEY` | set by the owner in Cloudflare Pages, rebuilt; the live bundle carries the key (grep) |
+| Vault `push_*` secrets | set by the owner; `push_service_role_key` compared equal to `sweep`'s inside the DB, no value printed |
+| `push` deployed from `main`, `--no-verify-jwt` | wrong bearer → `403` |
+| `push-due-tasks` scheduled | `5 * * * *`, `active` |
+| Fired through the Vault path | first `500 missing_configuration` — `VAPID_PUBLIC_KEY` is also needed server-side, never in the runbook. Set it: `200 {"candidates":0,...}` |
+| Owner subscribed on the iPhone | **no row in `push_subscriptions`** |
+
+**Why no row — two client bugs in `data/push.ts`, both from the start:**
+
+1. The payload sent the browser's key name `auth`; the column is
+   `auth_secret`. Local PostgREST: `400 PGRST204 Could not find the 'auth'
+   column`.
+2. With that fixed, the upsert still sent `user_id`, and `ON CONFLICT DO UPDATE`
+   needs UPDATE on every sent column; the grant allows four. Local: `403
+   42501`. Fixed by omitting `user_id` (it defaults to `auth.uid()`). Local
+   after both fixes: insert `201`, re-subscribe `200` on the same row,
+   `user_id` correct. Test row removed.
+
+Plus a UI bug: on a failed save the toggle re-read the **browser's**
+subscription and showed "on". It now shows "off" after a failed enable.
+
+**Hosted grants are wider than the migration intends:** `authenticated` (and
+`anon`) hold table-level UPDATE on every `push_subscriptions` column on hosted,
+from Supabase's default privileges; locally only the four granted columns. RLS
+still scopes rows to the owner. Not fixed here — noted as a follow-up.
+
 ## Enrichment model comparison: Sonnet 5 vs Haiku 5.5 vs Sonnet 5.5 (2026-10-21)
 
 **Why.** The owner asked whether the latest Haiku would give the same result
