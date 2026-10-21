@@ -2297,6 +2297,50 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## Enrichment model comparison: Sonnet 5 vs Haiku 5.5 vs Sonnet 5.5 (2026-10-21)
+
+**Why.** The owner asked whether the latest Haiku would give the same result
+as the current model. Same method as SB-034: production prompt
+(`PROMPT_VERSION 2026-10-07.1`), schema, adaptive thinking, effort `medium`;
+real key; scratch script, not the Edge Runtime. **24 notes** — every
+non-archived hosted note with text (23) plus one the owner wrote for this test
+(three items, deadline today, a meeting tomorrow, a person named). 72 calls,
+0 errors, 0 refusals.
+
+| | Sonnet 5 (production) | Haiku 5.5 | Sonnet 5.5 |
+|---|---|---|---|
+| Cost per note (list price, measured tokens) | $0.0049 | **$0.0005** | $0.0048 |
+| Median latency | 4.6 s | 4.7 s | **3.1 s** |
+| Cache hits | 23/24 | 23/24 | 23/24 |
+| Agrees with production — category | — | 22/24 | **24/24** |
+| — priority | — | 23/24 | 22/24 |
+| — suggested_action | — | 20/24 | 19/24 |
+| — due date (to the minute) | — | 21/24 | 22/24 |
+| — has key points | — | 22/24 | 22/24 |
+
+**This is agreement with production, not accuracy against a gold set.**
+Disagreements were read one by one:
+
+- **Haiku, clearly wrong twice:** a recording test ("ألو، في كده بيسجل ولا في
+  مشكلة؟") → `task`; "gym at 5 PM, read at 6 PM" → `task` instead of `event`.
+- **Sonnet 5 missed key points** on two multi-item notes (0 points) where
+  Sonnet 5.5 gave 3.
+- **Sonnet 5.5** repeated the points inside the summary on the owner's test
+  note, against the prompt's rule; on noise notes it chose `archive` over
+  `none` — defensible.
+- **The owner's test note:** all three returned the identical three points,
+  `task`, `urgent`, due today 23:59 Asia/Dubai, `حسن` in people.
+
+**Decision (owner, 2026-10-21): Sonnet 5.5, effort `medium`.** The cost gap
+is cents at this volume (all 24 notes: $0.12 vs $0.01), so Haiku's two
+classification errors are not worth it. Sonnet 5.5 is the same price as
+Sonnet 5, faster, and agreed on category 24/24.
+
+**Found alongside:** `PRICING` in `pipeline.ts` had still been Opus 5 rates
+($5/$25) since SB-034 moved to Sonnet — every recorded `ai_jobs.cost_usd`
+since then is **2.5x the real cost**. Fixed to Sonnet 5.5 rates; past rows
+are not rewritten.
+
 ## SB-053 deploy, and the SB-052 regression it caused (2026-10-07 → 2026-10-21)
 
 **SB-053 went live on hosted 2026-10-07**, after the entry below was written

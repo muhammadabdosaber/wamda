@@ -11,7 +11,7 @@
  */
 export const PROMPT_VERSION = "2026-10-07.1";
 
-export const ENRICHMENT_MODEL = "claude-sonnet-5";
+export const ENRICHMENT_MODEL = "claude-sonnet-5-5";
 
 export const CATEGORIES = [
   "task",

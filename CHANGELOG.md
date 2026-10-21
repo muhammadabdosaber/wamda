@@ -10,6 +10,20 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Changed — enrichment on Claude Sonnet 5.5 (effort `medium`)
+
+Compared on 24 real notes against production Sonnet 5 and Haiku 5.5, same
+prompt. Sonnet 5.5: same price, median 3.1 s vs 4.6 s, category agreement
+24/24, better key points. Haiku 5.5 was 10x cheaper but misfiled a recording
+test as a task and a timed plan as a task, not an event; at this volume the
+saving is cents. Record: `docs/00-verification.md` "Enrichment model
+comparison".
+
+### Fixed — `ai_jobs.cost_usd` was 2.5x too high since SB-034
+
+`PRICING` in `pipeline.ts` still held Opus 5 rates after enrichment moved to
+Sonnet. Now Sonnet 5.5 rates. Past rows are left as recorded.
+
 ### Fixed — the SB-052 fix is finally on `main`; `push` gets the same gate
 
 `requireCronSecret` (`312e41d`) was deployed to hosted on 2026-08-22 but never
