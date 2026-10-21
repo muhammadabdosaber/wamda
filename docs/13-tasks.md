@@ -61,7 +61,7 @@ blocked on.
 | SB-006 | Cross-lingual retrieval test | M2/M7 | S | `todo` |
 | SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
 | SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
-| SB-051 | Notifications that arrive with the app closed | M8 | M | `in progress` — built; needs the owner to mint VAPID keys and prove it on a phone |
+| SB-051 | Notifications that arrive with the app closed | M8 | M | **done** |
 | SB-053 | Key points: split a multi-item note into one line per item | M2 | S | `in progress` — proven end to end locally; needs hosted deploy + one real capture |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
@@ -1617,6 +1617,7 @@ removed, nothing added; and a one-thought note shows no list. Written into
 | SB-040 | `add_circle`/`description`/`check_circle` redrawn as inline SVG (CDN icon font is CSP-blocked); rounded active pill | same |
 | SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
 | SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
+| SB-051 | Notification delivered to the real iPhone with the app closed (lock screen), tap opened Tasks; Apple `201`, twice | `00-verification.md` "Deploys of 2026-10-21, and SB-051 meeting a real phone" |
 | SB-050 | Badge showed 2 from the Capture tab against 6 real rows; completed/later/undated correctly excluded; `inset-inline-end` proven to mirror in the live document; one stale-badge bug found by ticking a box | `00-verification.md` "SB-050" |
 | SB-052 | Root cause proven via a length+hash diagnostic (219 vs 41 chars, no secret ever read); `requireServiceRole` → `requireCronSecret` against a project-owned secret; confirmed live, hosted cron returns 200 again | `00-verification.md` "SB-052" |
 
@@ -1654,7 +1655,14 @@ undated all correctly excluded. Evidence: `docs/00-verification.md` "SB-050".
 heading that said `مهمة واحدة` — two readers of the same rows, one uninformed.
 Fixed with `NOTE_CHANGED_EVENT`; re-proved live.
 
-### SB-051 · Notifications that arrive with the app closed · `in progress` · M
+### SB-051 · Notifications that arrive with the app closed · `done` · M
+
+> **Done 2026-10-21.** The acceptance line below was met on the owner's
+> iPhone: a notification arrived with the app fully closed, on the lock
+> screen, naming one overdue task, and tapping it opened Tasks. Getting
+> there took three client bugs and one missing secret — see
+> `docs/00-verification.md` "Deploys of 2026-10-21, and SB-051 meeting a
+> real phone".
 
 The half of the owner's request SB-050 deliberately did not cover. A badge only
 works while the app is open; this is the one that reaches a locked phone.

@@ -27,7 +27,7 @@ it daily on his own phone:
 | PWA | `https://wamda-a8k.pages.dev` — Cloudflare Pages, **auto-deploys on every merge to `main`** |
 | Backend | hosted Supabase project `hfjpotjbrrnghuqhxoux` (Postgres 17 + pgvector) |
 | Vendor keys | all three real and working on hosted: Anthropic, ElevenLabs, Cohere |
-| Scheduled work | four `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge. A fifth (`push-due-tasks`) is written but not yet scheduled |
+| Scheduled work | five `pg_cron` jobs — sweep `*/5`, digest enqueue/collect, `ai_jobs` purge, `push-due-tasks` (hourly; sends at 08:00 local) |
 
 Two consequences you must hold onto:
 
