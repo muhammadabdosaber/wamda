@@ -60,8 +60,11 @@ export function PushToggle({ t }: { t: Translator }) {
     } catch {
       // The subscription may have been created in the browser even though
       // storing it failed, so the honest report is "not on", not "on".
+      // Not `pushState()`: that reads the BROWSER's subscription, which does
+      // exist here, and so reported "on" for a subscription the server never
+      // got. A retry reuses the browser subscription, so "off" loses nothing.
       setFailed(true);
-      setState(await pushState().catch(() => "off" as PushState));
+      setState(on ? await pushState().catch(() => "on" as PushState) : "off");
     } finally {
       setBusy(false);
     }

@@ -78,6 +78,7 @@ node -e "crypto.subtle.generateKey({name:'ECDSA',namedCurve:'P-256'},true,['sign
 | `VITE_VAPID_PUBLIC_KEY` | `web/.env.local` **and** Cloudflare Pages env | The browser needs it to subscribe. This is the one `VITE_` variable that is *meant* to be public -- it authorizes nothing on its own |
 | `VAPID_PRIVATE_KEY` | `supabase secrets set` | Signs the request to the push service. Never a `VITE_` variable, never a migration literal |
 | `VAPID_SUBJECT` | `supabase secrets set` | `mailto:` contact, required by RFC 8292 -- push services reject a JWT without one |
+| `VAPID_PUBLIC_KEY` | `supabase secrets set` — **same value** as `VITE_VAPID_PUBLIC_KEY` | `functions/push` sends it in the VAPID header. Missing it returns `500 missing_configuration` (found 2026-10-21; this table used to list three rows) |
 
 Rotating the pair invalidates every existing subscription: devices must
 subscribe again. `push_subscriptions` rows keyed to the old key will start

@@ -80,8 +80,16 @@ export function urlBase64ToUint8Array(base64Url: string): Uint8Array<ArrayBuffer
   return out;
 }
 
-/** The two keys a subscription carries, as base64url -- the shape the database column expects. */
-function keysOf(subscription: PushSubscription): { p256dh: string; auth: string } {
+/**
+ * The two keys a subscription carries, as base64url, keyed by the DATABASE
+ * column names. The browser calls the second one `auth`; the column is
+ * `auth_secret`. Sending `auth` made PostgREST reject every upsert, so no
+ * subscription was ever stored -- found on the owner's iPhone, 2026-10-21.
+ * Exported so a test pins the column names.
+ */
+export function keysOf(
+  subscription: Pick<PushSubscription, "getKey">,
+): { p256dh: string; auth_secret: string } {
   const read = (name: "p256dh" | "auth") => {
     const key = subscription.getKey(name);
     if (!key) throw new Error(`subscription is missing its ${name} key`);
@@ -89,7 +97,7 @@ function keysOf(subscription: PushSubscription): { p256dh: string; auth: string 
     for (const byte of new Uint8Array(key)) binary += String.fromCharCode(byte);
     return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   };
-  return { p256dh: read("p256dh"), auth: read("auth") };
+  return { p256dh: read("p256dh"), auth_secret: read("auth") };
 }
 
 /**
@@ -123,9 +131,11 @@ export async function enablePush(): Promise<PushState> {
   const { data: auth } = await supabase.auth.getUser();
   if (!auth?.user) return "off";
 
+  // No `user_id` in the payload: the column defaults to `auth.uid()`, and an
+  // upsert's ON CONFLICT DO UPDATE sets every column it was sent -- the grant
+  // allows UPDATE on four columns only, so sending `user_id` is a 403.
   const { error } = await supabase.from("push_subscriptions").upsert(
     {
-      user_id: auth.user.id,
       endpoint: subscription.endpoint,
       ...keysOf(subscription),
       user_agent: navigator.userAgent.slice(0, 300),

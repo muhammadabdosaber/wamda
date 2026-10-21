@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { fallbackNotification, isDuePayload, toNotification } from "../src/core/pushMessage";
-import { urlBase64ToUint8Array } from "../src/data/push";
+import { keysOf, urlBase64ToUint8Array } from "../src/data/push";
 
 /**
  * SB-051. What can be asserted about push without a browser.
@@ -92,5 +92,19 @@ describe("urlBase64ToUint8Array", () => {
     // `atob` throws on them. This is the whole reason the helper exists.
     const bytes = urlBase64ToUint8Array("-_8");
     expect(Array.from(bytes)).toEqual([251, 255]);
+  });
+});
+
+describe("keysOf", () => {
+  it("names the keys by the push_subscriptions columns, not the browser's names", () => {
+    // The browser's key is `auth`; the column is `auth_secret`. Sending `auth`
+    // made every upsert fail, so no phone ever subscribed (2026-10-21).
+    const bytes = { p256dh: [4, 1, 2], auth: [251, 255] } as Record<string, number[]>;
+    const row = keysOf({ getKey: (name: string) => new Uint8Array(bytes[name]!).buffer } as never);
+
+    expect(Object.keys(row).sort()).toEqual(["auth_secret", "p256dh"]);
+    // base64url, unpadded -- the encoding functions/push decodes.
+    expect(row.auth_secret).toBe("-_8");
+    expect(row.p256dh).toBe("BAEC");
   });
 });
