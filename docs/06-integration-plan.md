@@ -11,13 +11,12 @@
 | 2 | Enrichment + embeddings with live API keys | **done** — real Sonnet 5 output, semantic search live (SB-005) |
 | 3 | Voice path on a real phone | **done on iOS** — real transcription end to end on hosted (SB-007); Android untested |
 | 4 | Hybrid search tuning on a real corpus | later — needs ~100 notes |
-| 5 | Weekly digest via cron + Batch | **done, run for real** (SB-017/018) — currently blocked by SB-052's hosted cron regression, not by anything in this phase |
+| 5 | Weekly digest via cron + Batch | **done, run for real** (SB-017/018); hosted cron was blocked by SB-052 2026-08-17 → 2026-08-22, now fixed and confirmed live |
 | 6 | Rate limits, CSP, export/delete, hosted deploy | **done** (SB-002/003/010/014/015/016) |
 | 7 | **English** | later — gated on SB-006 (cross-lingual test), not on a key |
 
 Phase 0 is complete on both sides, and so is everything through phase 6. The
-one live issue is operational, not a missing phase — see SB-052 in
-`docs/13-tasks.md` and `docs/00-verification.md`.
+the one operational issue that existed (SB-052, hosted cron rejected 2026-08-17 → 2026-08-22) is now fixed and confirmed live — see `docs/13-tasks.md` and `docs/00-verification.md`.
 
 ## Getting it running
 

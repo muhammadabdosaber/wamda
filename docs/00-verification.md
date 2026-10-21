@@ -2297,6 +2297,37 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-053 deploy, and the SB-052 regression it caused (2026-10-07 → 2026-10-21)
+
+**SB-053 went live on hosted 2026-10-07**, after the entry below was written
+("Nothing is on hosted" was true when written, not after). `supabase db push`
+applied three migrations — `20260822000100`/`000200` (SB-051's, never pushed
+before) and `20261007000100`; `migration list` showed local and remote in
+sync, `key_points` confirmed `NOT NULL` on hosted. `enrich`, `transcribe`,
+`sweep`, `export` deployed. PR #43 merged; the live bundle served
+`.detail-points` within ~1 minute.
+
+**First real note on the new prompt** (2026-10-12, voice): a single reminder
+about a SharePoint integration → `prompt_version 2026-10-07.1`,
+`key_points: []`. Correct for one thought. A real multi-item note from the
+phone has still not been captured, so SB-053 stays open.
+
+**The regression.** The SB-052 fix (`312e41d`, `requireCronSecret`) had been
+deployed to hosted on 2026-08-22 but **never merged to `main`**. Deploying
+`sweep` from `main` on 2026-10-07 put the old `requireServiceRole` gate back:
+first tick after, 14:15 UTC, `403 forbidden`, and every tick for two weeks.
+Restored 2026-10-21 14:36 UTC by the owner redeploying `sweep` from the fix
+branch with `--no-verify-jwt`; the 14:40 tick timed out at pg_net's 5 s (past
+the gate — a 403 returns instantly), the 14:45 tick returned `200
+{"unstuck":0,"retried":0,...}`. Nothing was stranded: open-note statuses
+`ready: 23`, `draft: 7`, `failed: 1`. `digest` was never redeployed and kept
+the fix throughout (`digest_batches` shows 2026-10-17 `collected`).
+
+**Fixed at the root 2026-10-21:** `312e41d` cherry-picked onto `main`, `push`
+switched to the same gate (it was written after the fix branch forked, so it
+had never had it), CLAUDE.md rule 6 rewritten. Deploy record follows below
+this entry once it runs.
+
 ## SB-053 · Key points: a spoken note split into the items it held (2026-10-07)
 
 **Why.** The owner opened a voice note about SharePoint/UAT/Dynamics CRM and
@@ -2703,6 +2734,98 @@ merge. No `db push`, no `functions deploy` was run, and none was needed.
 **What this deploy does *not* fix:** SB-052. The hosted cron is still
 rejected with `403`; it is a Vault-secret problem on the backend half, which
 this deploy did not touch.
+
+## SB-052 · Root cause found and fixed for real (2026-08-21 – 2026-08-22)
+
+**Two owner-led Vault updates on 2026-08-21 did not fix it.** The owner
+updated `sweep_service_role_key`/`digest_service_role_key` via the Vault UI
+with what was confirmed (length, format, source tab) to be a correct,
+current legacy service-role key. Every tick afterward, including several
+after a plain `functions deploy sweep digest` redeploy, still returned `403`.
+That contradiction is what forced real diagnosis instead of a third guess.
+
+**Root cause, proven without ever reading a secret value.** A temporary
+diagnostic on `requireServiceRole()` (reverted below) computed, only on
+mismatch, the byte length and a truncated SHA-256 hash of both the incoming
+bearer and `Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")`, returned in the
+error body — never the values themselves:
+
+```
+{"error":{"code":"forbidden","debug":"bearer_len=219,expected_len=41,
+  bearer_sha=6fffce870a45fb64,expected_sha=1fb9f99d54e2dd1f"}}
+```
+
+`bearer_len=219` is the Vault-stored legacy JWT — correct, as verified.
+`expected_len=41` is **not a JWT length at all**. Supabase's 2026-08-16
+new-API-key migration (visible independently: `SUPABASE_ANON_KEY`,
+`SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`, `SUPABASE_DB_URL` all show
+`updated_at: 2026-08-16T18:42:44.424Z` in `supabase secrets list` — one
+platform-side batch event, not a manual change) silently changed what
+`SUPABASE_SERVICE_ROLE_KEY` resolves to inside every deployed function:
+legacy JWT → the new `sb_secret_...` format. Vault was never told.
+
+Confirmed this was reading the real thing, two ways: (1) the `403` response
+carried `x-deno-execution-id` and `x-served-by: supabase-edge-runtime`,
+proving the request reached and executed our own code, not a platform-level
+rejection; (2) `expected_sha=1fb9f99d54e2dd1f` matched, character for
+character, the first 16 hex digits of the digest `supabase secrets list`
+itself already displays for `SUPABASE_SERVICE_ROLE_KEY` — independent
+confirmation, no value ever read.
+
+**Fix, structural rather than another Vault paste.** `requireServiceRole()`
+→ `requireCronSecret()` in `supabase/functions/_shared/http.ts`, comparing
+against a new `CRON_SECRET` this project generates and owns — not a
+Supabase-managed credential that can move again on the platform's own
+schedule. Generated with `crypto.randomBytes(32)`, set as an Edge Function
+secret, and written into both Vault secrets via `vault.update_secret()`
+through SQL Editor directly (see below for why). Diagnostic code fully
+reverted; `http.test.ts` updated to match (9 tests, all against
+`requireCronSecret` now).
+
+**A second failure, on the first `CRON_SECRET` deploy — different error,
+same instinct to check rather than assume:**
+
+```
+{"code":"UNAUTHORIZED_INVALID_JWT_FORMAT","message":"Invalid JWT"}   -- 401
+```
+
+Not our own error shape (`{"error":{"code":...}}`) — this is Supabase's
+platform gateway rejecting the request *before* it reaches our code.
+`verify_jwt` (on by default for a deployed function) requires the
+`Authorization` bearer to decode as a real JWT; the legacy service-role key
+happened to satisfy that structurally even while failing our own comparison,
+but a random `CRON_SECRET` string does not decode as a JWT at all. Fixed by
+redeploying with `--no-verify-jwt`:
+
+```bash
+supabase functions deploy sweep digest --project-ref hfjpotjbrrnghuqhxoux --no-verify-jwt
+```
+
+**Confirmed live, 2026-08-22 12:55:00 UTC** — the first tick after that
+deploy:
+
+```json
+{"unstuck":0,"retried":0,"embedded":0,"audio_purged":0,"debug":{"stage":"no_rows_found"}}
+```
+
+`status_code: 200`. Real execution — the function ran its full logic and
+found nothing to do, not an error path that happens to return 200.
+
+**One more real finding, unrelated to the root cause but real:** the Vault
+**UI** (BETA) did not persist at least one of the owner's update attempts —
+`vault.secrets.updated_at` for both rows stayed frozen through a separate
+"I changed it" report before the fix that actually stuck (`vault.
+update_secret()` via SQL Editor). Worth knowing before trusting that UI for
+an edit again.
+
+**Known miss, accepted rather than chased:** `digest-enqueue`'s Saturday
+2026-08-22 03:00 UTC tick fired roughly six hours before this fix landed and
+almost certainly got the same `403` — `net._http_response` had already
+pruned that row by the time this was checked, so it can't be confirmed
+directly, but nothing else changed between 08-17 and the fix that would
+explain a different outcome. No weekly digest was produced this week.
+`digest-enqueue`'s next tick, 2026-08-29, runs on the fixed path.
 
 ## SB-050 · A due date that reaches you before you open the Tasks tab
 

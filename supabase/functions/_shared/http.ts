@@ -107,16 +107,43 @@ export function requireEnv(name: string): string {
  *
  * The platform's own `verify_jwt` is not enough here: it accepts ANY JWT
  * signed with the project secret, and the anon key -- shipped in every
- * browser bundle by design -- is exactly such a JWT. So before this check,
+ * browser bundle by design -- is exactly such a JWT. So without this check,
  * anyone could trigger a real Anthropic Batch submission (`digest enqueue`)
  * or an uncapped vendor-retry pass (`sweep` with `forceEmbedBackfill`).
- * The pg_cron jobs already send the service-role key from Vault
- * (migrations 20260801000800 / 20260807000300), so the caller either holds
- * the one credential that never leaves the server, or it gets a 403.
+ *
+ * **Why a dedicated `CRON_SECRET` and not `SUPABASE_SERVICE_ROLE_KEY`
+ * (SB-052).** This used to compare against the service-role key, which the
+ * pg_cron jobs read from Vault. That coupled our authorization to a
+ * credential *the platform owns and rotates on its own schedule* -- and on
+ * 2026-08-16 Supabase's new-API-key migration silently replaced the value
+ * injected into every deployed function (a 219-char legacy JWT became a
+ * 41-char `sb_secret_...`). The Vault copy could not follow, because nothing
+ * told it to. Result: five days of `403` on every cron tick, one missed
+ * weekly digest, and the sweep safety net down the whole time -- while
+ * `cron.job_run_details` cheerfully reported `succeeded`, because pg_net had
+ * queued the request just fine.
+ *
+ * `CRON_SECRET` is ours. Supabase can rotate its keys whenever it likes and
+ * this gate is unaffected. The trade is that it must be set in two places
+ * (Edge Function secret + the Vault secret each schedule reads); a missing
+ * env var fails loud with `missing_configuration` rather than silently
+ * accepting anything.
+ *
+ * **Deployment requirement, found the hard way finishing SB-052:** `sweep`
+ * and `digest` must be deployed with `--no-verify-jwt`
+ * (`supabase functions deploy sweep digest --no-verify-jwt`). Supabase's
+ * platform gateway validates the `Authorization` bearer as a real signed JWT
+ * *before* a request ever reaches this code -- a JWT happened to pass that
+ * check by coincidence (it decoded, even though its value then failed the
+ * application check), but `CRON_SECRET` is a plain random string and gets
+ * rejected at the gateway with `401 UNAUTHORIZED_INVALID_JWT_FORMAT`,
+ * `requireCronSecret` never even running. A default `supabase functions
+ * deploy sweep digest` (no flag) silently reintroduces exactly this class of
+ * outage -- the whole reason `CRON_SECRET` exists.
  */
-export function requireServiceRole(req: Request): void {
+export function requireCronSecret(req: Request): void {
   const bearer = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
-  if (!bearer || bearer !== requireEnv("SUPABASE_SERVICE_ROLE_KEY")) {
+  if (!bearer || bearer !== requireEnv("CRON_SECRET")) {
     throw new HttpError(403, "forbidden");
   }
 }

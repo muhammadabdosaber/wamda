@@ -10,6 +10,18 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — the SB-052 fix is finally on `main`; `push` gets the same gate
+
+`requireCronSecret` (`312e41d`) was deployed to hosted on 2026-08-22 but never
+merged. On 2026-10-07 `sweep` was deployed from `main` with SB-053 and the old
+service-role gate came back: **two weeks of `403` on every sweep tick**
+(2026-10-07 14:15 → 2026-10-21 14:36 UTC), until the owner redeployed from the
+fix branch. No notes were stranded. Now cherry-picked onto `main`, with
+`functions/push` — written after the fix branch forked — switched to the same
+gate, and CLAUDE.md rule 6 rewritten to say `CRON_SECRET` and
+`--no-verify-jwt`. Record: `docs/00-verification.md` "SB-053 deploy, and the
+SB-052 regression it caused".
+
 ### Added — key points: a multi-item note split into one line per item (SB-053)
 
 A spoken note holding several things now comes back as a list, one item per
@@ -178,6 +190,31 @@ job, and the iOS constraint that makes "installed to the Home Screen" a
 precondition rather than a detail. It opens with two gates: fix SB-052 first,
 and spike the Deno web-push sender for 30 minutes before designing anything
 around it.
+
+### SB-052: hosted cron rejected with 403 for 5 days — root cause found, fixed structurally
+
+`sweep`/`digest` had been rejected on every hosted cron tick since 2026-08-17.
+Two owner-led Vault updates with a verified-correct key still failed —
+proof it wasn't a paste error, which is what forced real diagnosis. A
+temporary length+hash diagnostic (never a real secret value; reverted after
+use) found it: `SUPABASE_SERVICE_ROLE_KEY` inside the deployed function had
+silently become a 41-character new-format key when Supabase migrated its API
+keys on 2026-08-16, while Vault still held the old 219-character one. The
+code was comparing against a platform-managed credential Supabase can move
+without warning.
+
+Fixed structurally, not patched: `requireServiceRole()` → `requireCronSecret()`,
+comparing against a `CRON_SECRET` this project generates and owns. Found one
+more real bug finishing this — a `CRON_SECRET` deploy without
+`--no-verify-jwt` gets silently rejected by Supabase's platform gateway
+before the function code even runs, since the gateway expects the bearer to
+decode as a real JWT and a random secret doesn't. Documented directly on the
+function so a plain redeploy can't reintroduce it. **Confirmed live
+2026-08-22 12:55 UTC**: a real `200` with real execution, not an error path.
+
+This Saturday's digest tick (2026-08-22 03:00 UTC) fired before the fix
+landed and was very likely missed — no weekly digest this week. Next tick,
+2026-08-29, runs on the fixed path.
 
 
 ### Docs brought current, and a live hosted regression found in the process (SB-052)

@@ -135,15 +135,16 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 
 | # | Feature | State | Owner |
 |---|---|---|---|
-| 6.1 | Schema verification harness (31 assertions) | ✅ | `supabase/tests/verify.sql` |
+| 6.1 | Schema verification harness (32 assertions) | ✅ | `supabase/tests/verify.sql` |
 | 6.2 | `npm run verify` — typecheck (app + worker) + RTL + 46 tests + build | ✅ | `web/package.json` |
-| 6.3 | Sweep worker: unstick, retry, backfill embeddings | ✅ unstick proven on a live cron timer (SB-001); embedding backfill ran for real, 14/14 notes (SB-045). Currently unreachable on hosted — SB-052, cron rejected with 403 | `functions/sweep` · SB-001 |
+| 6.3 | Sweep worker: unstick, retry, backfill embeddings | ✅ unstick proven on a live cron timer, locally and on hosted; embedding backfill ran for real, 14/14 notes (SB-045). Hosted cron was rejected with 403 2026-08-17 → 2026-08-22 (SB-052), fixed and confirmed live; regressed again 2026-10-07 → 2026-10-21 when `sweep` was deployed from a `main` that never had the fix, back to `200` since 2026-10-21 14:45 UTC | `functions/sweep` · SB-001 |
 | 6.4 | Weekly digest, Batch API + structured outputs | ✅ ran for real (SB-018) — real Anthropic Batch submission, real digest, correctly rendered in the client | `functions/digest` |
 | 6.5 | `pg_cron` schedule for sweep | ✅ fired on its own `*/5` timer and recovered a stranded note (`enriching`→`queued`), no client open, 2026-08-06 (local). Now also live and `active: true` on the hosted project (SB-016) | SB-001 |
-| 6.5b | `pg_cron` schedule for digest | 🟡 proven live twice — locally, then on hosted (SB-016), producing a real `digest_batches` row (SB-018). Currently rejected with 403 on hosted since 2026-08-17 — SB-052, fix needed before Sat 2026-08-22's tick | SB-017 |
+| 6.5b | `pg_cron` schedule for digest | ✅ proven live locally, then on hosted (SB-016), producing a real `digest_batches` row (SB-018). Rejected with 403 on hosted 2026-08-17 → 2026-08-22 (SB-052) — the Sat 2026-08-22 tick was missed, but the mechanism is fixed and confirmed live; next tick 2026-08-29 | SB-017 |
 | 6.6 | CI pipeline | ✅ all three jobs green on a real runner (2026-08-02); the schema assertions ran against a real Postgres | `.github/workflows/ci.yml` |
 | 6.6b | Due-task reminder sender (`functions/push`) | ⬜ built, unrun — one summary per user per local day at 08:00 their time, deduped by `push_deliveries`; `push_due_candidates()` proven on a real Postgres (5 assertions), the sender itself has only ever run against a stub `fetch` | `functions/push` (SB-051) |
-| 6.6c | `pg_cron` schedule for push (`push-due-tasks`, `5 * * * *`) | ⬜ written, not scheduled — needs its own two Vault secrets; the existing Vault-based jobs are rejected with 403 today (SB-052) | migration `20260822000200` |
+| 6.6c | `pg_cron` schedule for push (`push-due-tasks`, `5 * * * *`) | ⬜ written, not scheduled — needs its own two Vault secrets (`push_service_role_key` holds `CRON_SECRET`); migration applied on hosted 2026-10-07 without scheduling, so its `do` block must be re-run by hand | migration `20260822000200` |
+| 6.6d | `CRON_SECRET` gate for `sweep`/`digest`/`push` (`requireCronSecret`) | ✅ replaces a platform-managed key that could (and did, SB-052) rotate without notice; confirmed live 2026-08-22 with a real 200 and real execution | `_shared/http.ts` · SB-052 |
 | 6.7 | `ai_jobs` retention / partitioning | ✅ 90-day purge, daily `pg_cron`, proven live in `verify.sql` (partitioning not needed at this scale) | SB-004 |
 | 6.8 | Structured logging / alerting | ❌ | SB-019 |
 | 6.9 | Product analytics for the success metrics | ❌ | SB-020 |
