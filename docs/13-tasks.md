@@ -62,6 +62,7 @@ blocked on.
 | SB-049 | Browse past weekly reviews, not just the latest | M5 | S | **done** |
 | SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
 | SB-051 | Notifications that arrive with the app closed | M8 | M | **done** |
+| SB-054 | Task title in the summary; a reminder at each task's own due time | M8 | M | `in progress` — built and run locally; needs deploy + one real due-time reminder |
 | SB-053 | Key points: split a multi-item note into one line per item | M2 | S | `in progress` — proven end to end locally; needs hosted deploy + one real capture |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
@@ -1571,6 +1572,27 @@ separate things said in one breath came back as one re-told paragraph. Built
 **Acceptance:** that note's detail sheet shows the items as a list, filler
 removed, nothing added; and a one-thought note shows no list. Written into
 `docs/00-verification.md` either way.
+
+---
+
+### SB-054 · Task title in the summary; a reminder at each task's own due time · `in progress` · M
+
+The owner's request, 2026-10-21, after SB-051 first delivered: name the task,
+and buzz at the task's time, not only at 08:00. Built and run locally — see
+`docs/00-verification.md` "SB-054".
+
+**To close:**
+
+1. `supabase functions deploy push` **first** (`verify_jwt` now comes from
+   `config.toml`), then `supabase db push` — the migration schedules
+   `push-task-due` immediately, and an old `push` would treat its call as a
+   summary request.
+2. Capture a note with a task due in ~5 minutes, a real hour (not 00:00 /
+   23:59); close the app.
+
+**Acceptance:** the phone shows «حان موعد مهمة» with that task's title within a
+minute of its time, exactly once; tapping opens Tasks with that note open.
+Written into `docs/00-verification.md` either way.
 
 ---
 

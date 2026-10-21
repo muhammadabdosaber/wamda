@@ -443,3 +443,17 @@ enabled = true
 # declarative_schema_path = "./database"
 # JSON string passed through to pg-delta SQL formatting.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":80,\"commaStyle\":\"trailing\"}"
+
+# sweep, digest and push are called by pg_cron with CRON_SECRET, which is not
+# a JWT, so the platform gateway must not demand one (CLAUDE.md rule 6). Here
+# rather than only as a deploy flag: a plain `supabase functions deploy`
+# without `--no-verify-jwt` brought back the 403 twice (2026-08-17, 2026-10-07).
+# The functions' own `requireCronSecret()` is the gate.
+[functions.sweep]
+verify_jwt = false
+
+[functions.digest]
+verify_jwt = false
+
+[functions.push]
+verify_jwt = false

@@ -54,6 +54,7 @@ export const en: Messages = {
 
   // SB-051.
   pushDueTitle: "Tasks due",
+  pushTaskDueTitle: "Task due now",
   pushEnable: "Remind me when the app is closed",
   pushDisable: "Turn reminders off",
   pushEnabled: "Reminders on — one notification in the morning when something is due.",
@@ -151,6 +152,14 @@ export const enPlurals: Record<PluralKey, Record<Intl.LDMLPluralRule, string>> =
     few: "{n} tasks",
     many: "{n} tasks",
     other: "{n} tasks",
+  },
+  pushMoreTasks: {
+    zero: "",
+    one: "and 1 more",
+    two: "and {n} more",
+    few: "and {n} more",
+    many: "and {n} more",
+    other: "and {n} more",
   },
   tasksDueSoonCount: {
     zero: "No tasks due",

@@ -80,6 +80,7 @@ export const ar = {
   // permission is permanent until the user digs into browser settings, so a
   // badly-timed ask costs the feature forever.
   pushDueTitle: "مهام مستحقة",
+  pushTaskDueTitle: "حان موعد مهمة",
   pushEnable: "ذكّرني والتطبيق مقفول",
   pushDisable: "إيقاف التذكير",
   pushEnabled: "التذكير شغّال — إشعار واحد صباحًا لو فيه مهام مستحقة.",
@@ -213,6 +214,14 @@ export const arPlurals = {
   },
   // SB-050. The tab badge's accessible name. A screen reader must not be left
   // with a bare digit next to an icon, which is what the badge is visually.
+  pushMoreTasks: {
+    zero: "",
+    one: "ومهمة أخرى",
+    two: "ومهمتان أخريان",
+    few: "و{n} مهام أخرى",
+    many: "و{n} مهمة أخرى",
+    other: "و{n} مهمة أخرى",
+  },
   tasksDueSoonCount: {
     zero: "لا مهام مستحقة",
     one: "مهمة واحدة متأخرة أو موعدها اليوم",

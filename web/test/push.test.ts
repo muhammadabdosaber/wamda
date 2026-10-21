@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { fallbackNotification, isDuePayload, toNotification } from "../src/core/pushMessage";
+import { fallbackNotification, isDuePayload, isPushPayload, toNotification } from "../src/core/pushMessage";
 import { keysOf, urlBase64ToUint8Array } from "../src/data/push";
+import { launchTarget } from "../src/core/launch";
 
 /**
  * SB-051. What can be asserted about push without a browser.
@@ -106,5 +107,61 @@ describe("keysOf", () => {
     // base64url, unpadded -- the encoding functions/push decodes.
     expect(row.auth_secret).toBe("-_8");
     expect(row.p256dh).toBe("BAEC");
+  });
+});
+
+describe("launchTarget", () => {
+  const id = "3f2a1c9e-8b7d-4e6f-a5b4-c3d2e1f0a9b8";
+  it("lands a notification tap on Tasks with its note", () => {
+    expect(launchTarget(`?tab=tasks&note=${id}`)).toEqual({ tab: "tasks", noteId: id });
+  });
+  it("ignores an unknown tab and a malformed note", () => {
+    expect(launchTarget("?tab=admin&note=1;drop")).toEqual({ tab: null, noteId: null });
+    expect(launchTarget("?tab=tasks&note=not-a-uuid")).toEqual({ tab: "tasks", noteId: null });
+  });
+  it("opens a note only on the Tasks screen", () => {
+    expect(launchTarget(`?tab=notes&note=${id}`)).toEqual({ tab: "notes", noteId: null });
+  });
+  it("is empty for a plain launch", () => {
+    expect(launchTarget("")).toEqual({ tab: null, noteId: null });
+  });
+});
+
+describe("toNotification — task titles (2026-10-21)", () => {
+  const title = "مراجعة الـ project plan وتحديث ميعاد الاجتماع";
+
+  it("names the task in the summary when there is one", () => {
+    const n = toNotification({ kind: "due-tasks", overdue: 1, dueToday: 0, noteId: null, title, language: "ar" });
+    expect(n.title).toBe("مهام مستحقة");
+    expect(n.body).toBe(title);
+  });
+
+  it("adds how many more, with the Arabic dual", () => {
+    const two = toNotification({ kind: "due-tasks", overdue: 2, dueToday: 0, noteId: null, title, language: "ar" });
+    expect(two.body).toBe(`${title}\nومهمة أخرى`);
+    const three = toNotification({ kind: "due-tasks", overdue: 2, dueToday: 1, noteId: null, title, language: "ar" });
+    expect(three.body).toBe(`${title}\nومهمتان أخريان`);
+  });
+
+  it("falls back to the count sentence with no title (older sender, untitled note)", () => {
+    const n = toNotification({ kind: "due-tasks", overdue: 1, dueToday: 0, noteId: null, title: null, language: "ar" });
+    expect(n.body).toBe("مهمة واحدة متأخرة أو موعدها اليوم");
+  });
+
+  it("renders a due-time reminder with its own tag per task", () => {
+    const a = toNotification({ kind: "task-due", noteId: "9f1d0f6a-0000-4000-8000-000000000001", title, language: "ar" });
+    const b = toNotification({ kind: "task-due", noteId: "9f1d0f6a-0000-4000-8000-000000000002", title: "x", language: "ar" });
+    expect(a.title).toBe("حان موعد مهمة");
+    expect(a.body).toBe(title);
+    expect(a.url).toBe("/?tab=tasks&note=9f1d0f6a-0000-4000-8000-000000000001");
+    expect(a.tag).not.toBe(b.tag);
+    expect(a.tag).not.toBe("wamda-due-tasks");
+  });
+
+  it("accepts both kinds and rejects anything else", () => {
+    expect(isPushPayload({ kind: "task-due", noteId: "n", title: null, language: "ar" })).toBe(true);
+    expect(isPushPayload({ kind: "due-tasks", overdue: 0, dueToday: 1, noteId: null, language: "ar" })).toBe(true);
+    expect(isPushPayload({ kind: "task-due", noteId: 5, title: null, language: "ar" })).toBe(false);
+    expect(isPushPayload({ kind: "other" })).toBe(false);
   });
 });

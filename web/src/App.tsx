@@ -12,9 +12,23 @@ import { Notes } from "./features/Notes";
 import { Tasks } from "./features/Tasks";
 import { Search } from "./features/Search";
 import { Digest } from "./features/Digest";
+import { launchTarget, type Tab } from "./core/launch";
 
 const STORAGE_KEY = "ui_locale";
-type Tab = "capture" | "notes" | "tasks" | "search" | "digest";
+
+// Read once, at load: a notification tap navigates here with `?tab=&note=`.
+const LAUNCH = launchTarget(window.location.search);
+// Then dropped from the address, so a reload or a later launch does not
+// reopen the same note. Only these two: any other parameter (an auth
+// callback, say) is not ours to remove.
+{
+  const url = new URL(window.location.href);
+  if (url.searchParams.has("tab") || url.searchParams.has("note")) {
+    url.searchParams.delete("tab");
+    url.searchParams.delete("note");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+  }
+}
 
 /**
  * Inline so no icon library is added just for five tab glyphs.
@@ -95,7 +109,8 @@ export function App() {
   );
   // Capture is the DEFAULT tab. The app opens ready to receive a thought;
   // anything between launch and capture is somewhere a thought is lost.
-  const [tab, setTab] = useState<Tab>("capture");
+  // The one exception is a notification tap, which says where to land.
+  const [tab, setTab] = useState<Tab>(LAUNCH.tab ?? "capture");
   const [authOpen, setAuthOpen] = useState(false);
   // Lives here, not in Capture: `onSaved` below switches the tab (and
   // unmounts Capture) the instant a note is durably saved, but sync() -- and
@@ -259,7 +274,7 @@ export function App() {
               />
             )}
             {tab === "notes" && <Notes t={t} language={language} />}
-            {tab === "tasks" && <Tasks t={t} language={language} />}
+            {tab === "tasks" && <Tasks t={t} language={language} openNoteId={LAUNCH.noteId} />}
             {tab === "search" && <Search t={t} language={language} />}
             {tab === "digest" && <Digest t={t} language={language} />}
           </>

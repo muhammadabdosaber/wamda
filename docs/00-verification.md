@@ -2297,6 +2297,49 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-054 · Task title in the summary, and a reminder at a task's own time (2026-10-21)
+
+**Asked by the owner:** the morning notification should name the task
+(«مهام مستحقة» / «مراجعة الـ project plan وتحديث ميعاد الاجتماع»), and a task
+the note says is due at 10:00 should buzz at 10:00.
+
+**Built:**
+
+| Piece | What |
+|---|---|
+| Summary body | the most urgent task's title (`sample_title`, already computed by `push_due_candidates()`, never sent before); a second line «ومهمة أخرى» / «ومهمتان أخريان» / «و{n} مهام أخرى» when there are more |
+| Due-time reminder | `push_task_due_candidates()`: open tasks due in the last 10 minutes, not yet reminded; `push_task_reminders` claim table; `push-task-due` job, every minute, body `{"mode":"due-now"}`; title «حان موعد مهمة», body = the task's title, its own tag per task |
+| Date-only skip | 00:00 and 23:59 local get no due-time reminder (what the model writes for "today" with no hour) — covered by the 08:00 summary |
+| Tap target | the app never read `?tab=&note=` — it always opened on Capture. Now a tap opens Tasks and that task's note (`core/launch.ts`) |
+| `config.toml` | `verify_jwt = false` for `sweep`/`digest`/`push`, so a plain deploy can no longer bring the 403 back |
+
+**Correction to the SB-051 entry below:** it records the owner's report that
+tapping the notification "opened Tasks". The code at that time could not do
+that — the app ignored the URL and always started on Capture. Most likely
+Tasks was simply the screen last open. Not re-tested before this change.
+
+**Found while testing locally:** `service_role` had no SELECT on
+`push_subscriptions` on a local stack; hosted grants it through Supabase's
+default privileges. `functions/push` read the subscriptions without checking
+the error, so locally it silently found "no devices". Now: explicit grants in
+the migration, and the read throws on error.
+
+**What ran:**
+
+- `verify.sql` — **ALL SCHEMA CHECKS PASSED, 34** (two new: the window /
+  completed / already-reminded rules, and that the function and claim table
+  are service-only). The 00:00/23:59 skip is NOT asserted (depends on the
+  wall clock when it runs).
+- `functions/push` on the local Edge Runtime, both modes, against a
+  deliberately dead endpoint: candidate found, claimed, encrypted, send failed
+  (`status 0`), **claim released** (0 rows), `failure_count` incremented,
+  candidate still available for the next minute. Wrong bearer → `403`.
+- `npm run verify` — 56 tests (title body, dual plural, per-task tag,
+  payload guards, `launchTarget`).
+
+**Not run:** a due-time reminder on the real phone; the tap opening the note on
+the phone; Deno locally (CI). Not on hosted.
+
 ## Deploys of 2026-10-21, and SB-051 meeting a real phone
 
 **SB-052 on `main` (PR #44), deployed.** `sweep` and `digest` deployed from
