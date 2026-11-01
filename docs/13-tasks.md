@@ -63,7 +63,7 @@ blocked on.
 | SB-050 | Due-date reach: a badge you see without opening Tasks | M8 | S | **done** |
 | SB-051 | Notifications that arrive with the app closed | M8 | M | **done** |
 | SB-054 | Task title in the summary; a reminder at each task's own due time | M8 | M | `in progress` — built and run locally; needs deploy + one real due-time reminder |
-| SB-055 | Repo ready to go public as `wamda`: secret scan, AGPL-3.0, CODEOWNERS, fork-safe CI, contribution docs | ops | S | **done** (code side) — owner flips visibility and GitHub settings |
+| SB-055 | Repo ready to go public as `wamda`: secret scan, AGPL-3.0, CODEOWNERS, fork-safe CI, contribution docs | ops | S | **done** — public since 2026-11-01; ruleset + security settings applied and read back |
 | SB-053 | Key points: split a multi-item note into one line per item | M2 | S | `in progress` — proven end to end locally; needs hosted deploy + one real capture |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
@@ -1640,7 +1640,7 @@ Written into `docs/00-verification.md` either way.
 | SB-040 | `add_circle`/`description`/`check_circle` redrawn as inline SVG (CDN icon font is CSP-blocked); rounded active pill | same |
 | SB-041 | One note per row at every width, 3-line clamp, scrolling filter bar over the real 7 categories; accept/dismiss kept | same |
 | SB-042 | Avatar menu; Escape closes and returns focus; anchors to the avatar's trailing edge in both RTL and LTR | same |
-| SB-055 | Full history + all 49 PR heads scanned for key patterns, nothing real found; AGPL-3.0, CODEOWNERS, `permissions: contents: read`, Idea template, owner review checklist; `npm run verify` 56/56 | `00-verification.md` "SB-055" |
+| SB-055 | Full history + all 49 PR heads scanned for key patterns, nothing real found; AGPL-3.0, CODEOWNERS, `permissions: contents: read`, Idea template, owner review checklist; `npm run verify` 56/56. Public 2026-11-01: anonymous API `200`; ruleset `26307453`, secret scanning, push protection, private reporting, Dependabot, fork approval all read back via `gh api` | `00-verification.md` "SB-055" |
 | SB-051 | Notification delivered to the real iPhone with the app closed (lock screen), tap opened Tasks; Apple `201`, twice | `00-verification.md` "Deploys of 2026-10-21, and SB-051 meeting a real phone" |
 | SB-050 | Badge showed 2 from the Capture tab against 6 real rows; completed/later/undated correctly excluded; `inset-inline-end` proven to mirror in the live document; one stale-badge bug found by ticking a box | `00-verification.md` "SB-050" |
 | SB-052 | Root cause proven via a length+hash diagnostic (219 vs 41 chars, no secret ever read); `requireServiceRole` → `requireCronSecret` against a project-owned secret; confirmed live, hosted cron returns 200 again | `00-verification.md` "SB-052" |

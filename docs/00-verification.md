@@ -2331,6 +2331,46 @@ edited YAML files parse.
 effect until the `main` ruleset requires code-owner review, which the free plan
 only allows once the repo is public. Nothing here touches hosted.
 
+### 2026-11-01 · Public, and the GitHub controls checked one by one
+
+**Owner steps, confirmed from here where an API could see them:**
+
+| Step | Evidence |
+|---|---|
+| Anthropic keys rotated: `wamda-prod` in hosted secrets, `wamda-local` in `supabase/functions/.env` | owner: both working, a real note captured and enriched on hosted. Not checked from here — key material is out of bounds |
+| `snagback-api-key` (the one in the stash) kept | owner's call: used by another project; it was only ever in a local stash, never pushed |
+| `stash@{0}` dropped | `git stash list` → 0 entries |
+| PR #50 merged | `MERGED` 10:15:22 UTC, `98c6210`; CI on `main` 4/4 green (incl. Cloudflare Pages) |
+| Old branches deleted | `gh api …/branches` → `main` only |
+| Visibility → public | first attempt did not take (API `private=true`, anonymous `404`); second did — anonymous API `200` |
+
+**Applied with `gh api`, then re-read independently:**
+
+| Setting | Read back |
+|---|---|
+| `delete_branch_on_merge` | `true` |
+| Discussions | `true` (owner) |
+| Secret scanning · push protection | `enabled` · `enabled` |
+| Private vulnerability reporting | `enabled: true` |
+| Dependabot alerts | `204` |
+| Fork PR workflow approval | `all_external_contributors` (was `first_time_contributors`) |
+| Default workflow token | `read` |
+| Ruleset `main` (id `26307453`, active) | rules `deletion`, `non_fast_forward`, `pull_request` (1 approval, code-owner review, stale reviews dismissed, threads resolved), `required_status_checks` (web · functions · database); bypass: repository admin |
+
+**Cloudflare Pages, from the owner's screenshots — nothing changed:** preview
+deployments are behind a Cloudflare Access policy (`*.wamda-a8k.pages.dev`,
+Allow Members); production `wamda-a8k.pages.dev` is outside it, as it must be.
+The project still shows the repo as `second-brain`; builds are unaffected
+(the `Cloudflare Pages` check passed on `98c6210`, after the rename).
+
+**Accepted, not fixed:** the ElevenLabs and Cohere keys and the new
+`wamda-local` key appeared in a screenshot shared in a Claude session. The
+owner chose not to rotate them — the screenshot went nowhere else.
+
+**Not run:** a real PR from a fork (approval gate, code-owner review, check
+requirement); push protection against a real key; the ruleset blocking a
+direct push to `main`.
+
 ## SB-054 · Task title in the summary, and a reminder at a task's own time (2026-10-21)
 
 **Asked by the owner:** the morning notification should name the task
