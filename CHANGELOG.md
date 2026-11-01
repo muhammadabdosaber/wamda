@@ -10,6 +10,19 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Added — ready to go public as `wamda` (SB-055)
+
+AGPL-3.0 license, `CODEOWNERS` over migrations/functions/CI/dependencies,
+read-only `GITHUB_TOKEN` for CI so fork PRs cannot write, an *Idea* issue
+template, private vulnerability reporting link, and a review checklist for
+outside PRs in `CONTRIBUTING.md`. Security docs and README stop listing
+SB-052 and SB-051 as open — both were closed with evidence in October.
+
+**Ran:** a pattern scan of all history and every PR head — nothing real on
+GitHub; one real-looking key in a local-only stash. `npm run verify` 56/56.
+**Not yet:** the visibility switch and GitHub settings — owner steps.
+Nothing on hosted changes.
+
 ### Added — the task's name in the notification, and a reminder at its own time (SB-054)
 
 The 08:00 summary now shows the most urgent task's title, with «ومهمة أخرى»

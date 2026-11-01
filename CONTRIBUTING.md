@@ -1,8 +1,17 @@
 # Contributing
 
-Single-developer project with agents doing a large share of the work. These
+Single-maintainer project with agents doing a large share of the work. These
 conventions exist so a fresh session — human or agent — can pick up without
 re-deriving anything.
+
+## Ideas first
+
+The most useful thing an outside contributor can bring is an **idea** — open an
+issue with the *Idea* template, in Arabic or English. Code is welcome too, but
+read *Contributing from outside* below before writing any: `main` is
+production, so the bar for merging is high and every PR is read line by line.
+
+Contributions are licensed under [AGPL-3.0](LICENSE), the same as the project.
 
 ## Setup
 
@@ -44,8 +53,8 @@ one should say whether that step has been run.
 
 | Changed | Run |
 |---|---|
-| anything in `web/` | `cd web && npm run verify` — typecheck · RTL guard · 38 tests · build |
-| a migration | `supabase db reset` then `verify.sql` — expect 26 assertions, `ALL SCHEMA CHECKS PASSED` |
+| anything in `web/` | `cd web && npm run verify` — typecheck · RTL guard · 56 tests · build |
+| a migration | `supabase db reset` then `verify.sql` — expect 34 assertions, `ALL SCHEMA CHECKS PASSED` |
 | an Edge Function | `deno check supabase/functions/*/index.ts` |
 | `_shared/*.ts` logic | `deno test --allow-env supabase/functions/_shared/*.test.ts` |
 | a new table | all of the above **plus** a new RLS assertion in `verify.sql` |
@@ -118,6 +127,42 @@ language as a parameter, PWA over native). The 2026-08-03 redesign has landed
 and shipped; the rule it was ported under was **theme only**, and
 `docs/design/README.md` is still the contract for any UI work.
 
-Anything that touches authorization — RLS, grants, the service-role gate on
-`sweep`/`digest` — gets owner confirmation before it ships. That gate has
-already broken its own legitimate caller once (SB-052).
+Anything that touches authorization — RLS, grants, the `CRON_SECRET` gate on
+`sweep`/`digest`/`push` — gets owner confirmation before it ships. That gate
+has already broken its own legitimate caller twice (SB-052).
+
+## Contributing from outside
+
+Fork, branch, open a PR against `main`. CI runs only after the owner approves
+it for a first-time contributor, and no workflow gives a fork PR any secret —
+so you cannot test against hosted, and nobody will ask you to.
+
+Out of scope, and closed without review:
+
+- adding folders, notebooks, or projects (ADR-0004 — flat notes are deliberate)
+- moving any vendor call into the client
+- a new dependency for something Postgres already does
+
+## Reviewing a PR from outside (owner checklist)
+
+Merging deploys the PWA to real notes within a minute. Before approving:
+
+| If the PR touches | Check |
+|---|---|
+| `supabase/migrations/` | every RLS policy, `GRANT`, and `security definer`. RLS is the **only** authorization layer — a wrong policy is a data breach |
+| `supabase/functions/` | `requireCronSecret()` still guards `sweep`/`digest`/`push`; no new path spends vendor money without the per-user rate limit |
+| `web/package.json` / lockfile | each added or bumped package — it runs on the origin with access to the session token |
+| `.github/workflows/` | no `pull_request_target`, no `secrets.*`, no widened `permissions:` |
+| `web/public/_headers` or CSP | nothing loosened (`unsafe-inline`, new script origins) |
+| anything | no Arabic literal outside `web/src/i18n/`, no physical CSS property |
+
+Then check it out locally and run it, not just read it:
+
+```bash
+gh pr checkout <number>
+cd web && npm run verify
+```
+
+A migration or Edge Function from a PR is not live until the owner pushes it
+(`supabase db push` / `supabase functions deploy`) — decide that separately
+from the merge.
