@@ -15,6 +15,15 @@
 > tick through 13:15 UTC). Filed as SB-052 with a hard deadline of
 > 2026-08-22 03:00 UTC, when the weekly digest next fires.
 >
+> **2026-11-01 update — F1 is `Fixed`.** The root cause was Supabase
+> rotating the service-role key underneath the Vault copy (SB-052). The gate
+> now compares against a project-owned `CRON_SECRET` (`requireCronSecret()`),
+> deployed 2026-08-22, regressed 2026-10-07 when `sweep` was redeployed from
+> a `main` that lacked the fix, and fixed at the root 2026-10-21 by landing
+> it on `main` (PR #44). Every hosted tick since has returned `200`. Evidence: `docs/00-verification.md` "SB-053 deploy,
+> and the SB-052 regression it caused" and "Deploys of 2026-10-21". The
+> entries below are kept as written; they were true when written.
+>
 > **Status legend:** `Not Started` · `In Progress` · `Fixed` · `Accepted Risk` · `Deferred (owner)`
 
 ---
@@ -116,6 +125,10 @@ no credential leak, and no unauthenticated data access.
   turns out to be whitespace, `requireServiceRole()` should be hardened to
   compare trimmed values — raised here rather than changed unilaterally,
   because it is the authorization path.
+- **2026-11-01 — `Fixed`.** Neither hypothesis: the platform rotated the key
+  (219 vs 41 chars, proven by length and hash, no secret read). Replaced by
+  `requireCronSecret()` against a project-owned `CRON_SECRET`; `push` uses the
+  same gate. Hosted cron `200` since 2026-10-21. See the update at the top.
 
 **F2 · `notes/audio-url` service-role write not filtered by `user_id` — LOW — `Fixed`**
 - **Location:** [supabase/functions/notes/index.ts:145](supabase/functions/notes/index.ts:145)
@@ -462,6 +475,9 @@ everything else proceeds directly.
 | Info | F10 | Billing data model + webhook idempotency design (recorded above) | future schema | `Not Started` |
 | Info | F13 | Free-tier pause / infra assumptions (recorded above) | ops | `Not Started` |
 | Info | F9 | Local dev keys ≠ hosted keys | — | no action needed |
+
+**2026-11-01:** F1 is now `Fixed` (SB-052) — the row above is kept as it
+stood on 2026-08-17. No High or Critical finding is open.
 
 **State as of 2026-08-17:** every item except F1 is `Fixed` (and confirmed
 live — see below), `Accepted Risk`, or `Deferred (owner)`. **F1 is `In

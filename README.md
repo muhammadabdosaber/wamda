@@ -1,4 +1,7 @@
-# Second Brain
+# ومضة · Wamda
+
+Live at **https://wamda-a8k.pages.dev** · [AGPL-3.0](LICENSE) ·
+ideas welcome — [open one](https://github.com/muhammadabdosaber/wamda/issues/new?template=idea.md)
 
 Arabic-first capture and recall. Speak or type a thought; AI files it so you
 don't have to.
@@ -35,7 +38,7 @@ supabase/
   migrations/   schema, RLS, RPCs
   functions/    notes · transcribe · enrich · search · digest · sweep ·
                 export · delete-account · push
-  tests/        verify.sql — 31 assertions against a live database
+  tests/        verify.sql — 34 assertions against a live database
 web/            React PWA client
 ```
 
@@ -62,7 +65,7 @@ Client:
 cd web
 npm install
 cp .env.example .env.local   # paste the anon key from `supabase status`
-npm run verify               # typecheck + RTL guard + 46 tests + build
+npm run verify               # typecheck + RTL guard + 56 tests + build
 npm run dev
 ```
 
@@ -77,18 +80,16 @@ manually.
 ElevenLabs transcription → Claude enrichment → Cohere embeddings →
 hybrid search, all against real Arabic notes through a real signed-in
 session. The weekly review has produced a real digest from a real Anthropic
-Batch call. 46 client tests, 31 schema assertions, 14 Deno tests, RTL guard,
+Batch call. 56 client tests, 34 schema assertions, 14 Deno tests, RTL guard,
 production build 134 KB gzipped — all green on CI runners.
 
 **Known gaps, stated plainly:**
 
 | | |
 |---|---|
-| **SB-052** — hosted `sweep`/`digest` cron rejected with `403` since 2026-08-17 | the retry safety net is down; needs the owner to re-set a Vault secret |
 | **SB-006** — cross-lingual retrieval never tested as its own experiment | the load-bearing assumption behind phase-2 English |
 | Android voice capture | untested in either direction (iOS is proven) |
 | Safari / Firefox | untested; only Chromium |
-| **SB-051** — notifications with the app closed | built and verified up to the wire; never delivered to a real device yet |
 
 `docs/00-verification.md` is the full ledger. Read it before trusting any
 claim here — including these.
@@ -151,3 +152,13 @@ The database stores `'task'`. The Arabic word "مهمة" exists only in
 `web/src/i18n/ar.ts`. That single rule is why adding English is a new
 catalogue rather than a data migration — and why a note filed in Arabic is
 still filed correctly when the UI switches language.
+
+## Contributing and license
+
+Ideas are the most useful contribution — use the *Idea* issue template, Arabic
+or English. For code, read [CONTRIBUTING.md](CONTRIBUTING.md) first: merging to
+`main` deploys to production. Security reports go privately, never as a public
+issue — see [SECURITY.md](SECURITY.md).
+
+Licensed under the [GNU AGPL-3.0](LICENSE). If you run a modified version as a
+service, its source must be offered to its users.

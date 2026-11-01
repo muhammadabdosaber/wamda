@@ -2297,6 +2297,40 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-055 · Getting the repo ready to go public (2026-10-13 → 2026-11-01)
+
+The repo was renamed `second-brain` → `wamda` and is still **private**. Going
+public exposes every commit and every PR head, not just `main`.
+
+**Secret scan — ran, by pattern, values never printed** (only lengths and
+the first 12 characters):
+
+| Scanned | Patterns | Result |
+|---|---|---|
+| every local ref (`git rev-list --all`) | `sk-ant-api03…`, JWT `eyJ….eyJ…`, `sb_secret_…`, private-key PEM, `ghp_…`, `VAPID_PRIVATE_KEY=…`, ElevenLabs/Cohere `=` assignments | one real-looking Anthropic key (108 chars) in `.env.example` inside **local `stash@{0}`** only — never pushed. Owner to rotate and drop |
+| all PR heads on GitHub (`refs/pull/*/head`, 49 PRs, 128+ commits) | same | one hit, `8cbb877`: `sb_secret_...` — 13 chars, a placeholder in prose |
+| `ELEVENLABS`/`xi-api-key` hits | — | the header *name* in `providers.ts` and the course page, no value |
+
+**Branches:** 30 remote branches. 27 fully merged into `main`;
+`task-due-date-alerts` (PR #35, merged by cherry-pick), `pin-anthropic-sdk`
+(PR #6, closed — its commit survives in `refs/pull/6`) and
+`project-follow-up-b384df` (no PR, 2026-08-02, superseded by the sweep on
+`main`) are not ancestors of `main`.
+
+**Changed in code:** `LICENSE` (AGPL-3.0, owner's choice), `.github/CODEOWNERS`,
+`permissions: contents: read` on CI, an *Idea* issue template and a private
+vulnerability link, an outside-contributor section and owner review checklist
+in `CONTRIBUTING.md`; `SECURITY.md`, `SECURITY_REVIEW.md` and `README.md` no
+longer list SB-052 / SB-051 as open (dated update, old text kept).
+
+**Ran:** `npm run verify` — typecheck, RTL guard, 56/56 tests, build. Both
+edited YAML files parse.
+
+**Not run:** CI on GitHub for this PR (runs on push); the new
+`permissions:` block against a real fork PR; CODEOWNERS enforcement — it has no
+effect until the `main` ruleset requires code-owner review, which the free plan
+only allows once the repo is public. Nothing here touches hosted.
+
 ## SB-054 · Task title in the summary, and a reminder at a task's own time (2026-10-21)
 
 **Asked by the owner:** the morning notification should name the task

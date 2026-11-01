@@ -10,6 +10,9 @@ Email **eng.mohammadabdo@gmail.com** with a description, reproduction steps, and
 what an attacker gets. Please do not open a public issue for anything that
 exposes user data.
 
+Or use GitHub's private reporting:
+[Report a vulnerability](https://github.com/muhammadabdosaber/wamda/security/advisories/new).
+
 Single-maintainer project — expect a reply in days, not hours.
 
 ## The security model in one paragraph
@@ -44,14 +47,15 @@ A full per-finding review is in [`SECURITY_REVIEW.md`](SECURITY_REVIEW.md)
 
 | # | Weakness | Impact | Task |
 |---|---|---|---|
-| 1 | **`sweep`/`digest` cron rejected with `403` since 2026-08-17** — the service-role gate added for F1 is refusing `pg_cron`'s own call | availability, not exposure: notes that fail have no retry safety net, and the weekly digest cannot run | SB-052 |
-| 2 | Session tokens in `localStorage` | one XSS is a full session compromise; **accepted risk** — mitigated by a strict CSP with no `unsafe-inline`, and the alternative (httpOnly cookies) is not available to a Supabase JS client | F3 |
-| 3 | No CSP violation collector (`report-to`) | violations are visible only in the reporting browser's DevTools; nobody is told | `docs/08-security.md` |
-| 4 | `/search` rate limit written but never exercised live | the 429 path is type-checked and unit-covered, not observed under real load | F7 |
-| 5 | No structured alerting on pipeline failures | a broken stage is found by someone querying `ai_jobs`, not by being told — which is exactly how #1 went unnoticed for four days | SB-019 follow-on |
+| 1 | Session tokens in `localStorage` | one XSS is a full session compromise; **accepted risk** — mitigated by a strict CSP with no `unsafe-inline`, and the alternative (httpOnly cookies) is not available to a Supabase JS client | F3 |
+| 2 | No CSP violation collector (`report-to`) | violations are visible only in the reporting browser's DevTools; nobody is told | `docs/08-security.md` |
+| 3 | `/search` rate limit written but never exercised live | the 429 path is type-checked and unit-covered, not observed under real load | F7 |
+| 4 | No structured alerting on pipeline failures | a broken stage is found by someone querying `ai_jobs`, not by being told — which is how the SB-052 `403` went unnoticed for four days, and its 2026-10-07 recurrence for two weeks | SB-019 follow-on |
 
 **Closed since the last revision of this file**, each with evidence in
-`docs/00-verification.md`: no CSP → strict CSP proven against a deliberate
+`docs/00-verification.md`: cron `403` on `sweep`/`digest` → a project-owned
+`CRON_SECRET` gate, hosted ticks `200` again since 2026-10-21 (SB-052);
+no CSP → strict CSP proven against a deliberate
 violation (SB-003); no rate limiting → 60 calls/15 min per user/stage, proven
 over 61 real HTTP calls (SB-002); `ALLOWED_ORIGIN: '*'` → foreign preflight
 rejected at `403` (SB-010); audio retention unenforced → real Storage bytes
