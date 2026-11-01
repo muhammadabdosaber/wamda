@@ -140,6 +140,11 @@ anon key pasted as 200 `•` characters from a masked UI (SB-046). Before
 debugging application logic against hosted, confirm what the deployed bundle
 actually contains.
 
+**The `main` ruleset matches CI checks by job name, character for character.**
+The `database` job is named `… + 31 schema assertions` (there are 34). Renaming
+any job in `ci.yml` without updating the ruleset (Settings → Rules → `main`)
+leaves it waiting for a check that never reports — every merge blocks.
+
 **Ports are remapped to 54421–54429** (`supabase/config.toml`) because 54322 was
 taken by another Supabase project.
 

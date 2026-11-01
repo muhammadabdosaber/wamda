@@ -10,6 +10,17 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Changed — the repository is public (SB-055)
+
+`muhammadabdosaber/wamda` is public since 2026-11-01. `main` is protected by a
+ruleset: PR required, code-owner review, the three CI checks green, no force
+push or deletion; the owner bypasses. Secret scanning with push protection,
+private vulnerability reporting, Dependabot alerts on; CI on a fork PR waits
+for the owner's approval; merged branches delete themselves. Anthropic keys
+rotated by the owner beforehand. **Ran:** each setting read back with
+`gh api`. **Not yet:** a real fork PR through the gate. Nothing on hosted
+changed.
+
 ### Added — ready to go public as `wamda` (SB-055)
 
 AGPL-3.0 license, `CODEOWNERS` over migrations/functions/CI/dependencies,
