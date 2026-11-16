@@ -2297,6 +2297,53 @@ via `Intl.DateTimeFormat`, never stored — the newest chip reads
 `digest-collect`, SB-017/SB-018) — this task only touched how the client
 reads already-written rows, not how they get written.
 
+## SB-056 · Every signed-in call rejected: user tokens moved to ES256 (2026-11-16)
+
+**Symptom (owner, 2026-11-16):** the app had shown «تعذّر الوصول للخادم» on
+every screen "since the start of the week", with an empty list.
+
+**What was ruled out, by running it:**
+
+| Check | Result |
+|---|---|
+| Deployed bundle | right project URL, a well-formed 208-char anon JWT (`role: anon`) — not SB-046 again |
+| `GET /auth/v1/health` | `200` |
+| `supabase projects list` | `ACTIVE_HEALTHY` |
+| Every user function with the anon key | the function's own `401 unauthenticated` / `405` — they boot and run |
+| CORS preflight on `notes` from the PWA origin | `204`, origin and headers allowed |
+
+**What was found:** `/auth/v1/.well-known/jwks.json` lists one key, `ES256`.
+User access tokens are now signed asymmetrically. The six user-facing
+functions were deployed with `verify_jwt: true`, the gateway's legacy check,
+which validates against the old HS256 secret. The anon key still passes it
+(it is an HS256 JWT), which is why every anon probe looked healthy. A real
+user token would fail at the gateway before reaching the function.
+
+**Not reproduced with a real user token.** The diagnosis rests on the JWKS
+plus the deployed config. The browser pane had no session, and signing in
+needs the owner's OTP. Confirmation is the owner's next app load (below).
+
+**Fix, on hosted 2026-11-16 ~05:40 UTC:** each of `notes`, `search`,
+`enrich`, `transcribe`, `export` and `delete-account` was downloaded with
+`supabase functions download` into **its own folder**, then redeployed
+unchanged with `--no-verify-jwt`. Its own folder because they were last
+deployed on different dates with different `_shared/` copies (a shared
+download dir overwrote `_shared/` between them). Redeploying from `main` was
+rejected: `main` carries SB-053/054 changes that are not meant to ship with
+an outage fix. New versions: notes 14, search 14, enrich 16, transcribe 16,
+export 13, delete-account 12, all `verify_jwt: false`.
+
+**Auth is still enforced, checked after the deploy:** no token, the anon key,
+and a forged `ES256` token each got the function's own
+`401 {"code":"unauthenticated"}` from all six (`export` via `GET`). The
+gate is `authenticate()` → `auth.getUser()`, which asks Auth itself and
+understands the new keys.
+
+**Repo:** `supabase/config.toml` now sets `verify_jwt = false` for the six,
+so a plain deploy from `main` does not bring the outage back.
+
+**Not yet seen:** the owner's app loading notes with a real session.
+
 ## SB-055 · Getting the repo ready to go public (2026-10-13 → 2026-11-01)
 
 The repo was renamed `second-brain` → `wamda` and is still **private**. Going

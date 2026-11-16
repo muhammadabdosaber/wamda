@@ -457,3 +457,28 @@ verify_jwt = false
 
 [functions.push]
 verify_jwt = false
+
+# The six user-facing functions also skip the gateway check, for a different
+# reason: Auth now signs user tokens with an asymmetric ES256 key (JWKS at
+# /auth/v1/.well-known/jwks.json), and the gateway's legacy `verify_jwt` only
+# accepts the old HS256 secret -- so it rejected every signed-in request and
+# the app showed "server unreachable" (2026-11). Nothing is opened by this:
+# each function calls `authenticate()` (`_shared/supabase.ts`), which asks
+# Auth itself via `auth.getUser()`, and every query runs under the caller's RLS.
+[functions.notes]
+verify_jwt = false
+
+[functions.search]
+verify_jwt = false
+
+[functions.enrich]
+verify_jwt = false
+
+[functions.transcribe]
+verify_jwt = false
+
+[functions.export]
+verify_jwt = false
+
+[functions.delete-account]
+verify_jwt = false

@@ -64,6 +64,7 @@ blocked on.
 | SB-051 | Notifications that arrive with the app closed | M8 | M | **done** |
 | SB-054 | Task title in the summary; a reminder at each task's own due time | M8 | M | `in progress` — built and run locally; needs deploy + one real due-time reminder |
 | SB-055 | Repo ready to go public as `wamda`: secret scan, AGPL-3.0, CODEOWNERS, fork-safe CI, contribution docs | ops | S | **done** — public since 2026-11-01; ruleset + security settings applied and read back |
+| SB-056 | Every signed-in call rejected — user tokens moved to ES256, gateway `verify_jwt` still HS256 | ops | S | **done** — six functions redeployed unchanged with `--no-verify-jwt`; owner's app load not yet observed |
 | SB-053 | Key points: split a multi-item note into one line per item | M2 | S | `in progress` — proven end to end locally; needs hosted deploy + one real capture |
 
 > **SB-001 is done** (mechanism on `main` via #5; proven 2026-08-06).
@@ -80,6 +81,24 @@ blocked on.
 > inert afterward (`cron.job`/`vault.secrets` empty) so a keyless local `*/5`
 > does not drive real notes to the failed-attempt cap. Turning it on for real is
 > still one secret-pair + migration re-run per environment (SB-016 for hosted).
+
+---
+
+### SB-056 · Every signed-in call rejected after user tokens moved to ES256 · `done` · S
+
+The app showed "server unreachable" on every screen from about the start of
+the week of 2026-11-16. Auth now signs user tokens with ES256; the gateway's
+legacy `verify_jwt` on the six user functions only accepts HS256, so it
+refused every signed-in request. The anon key is still HS256, which hid this
+from every anon probe. Fixed by redeploying the exact live code of each
+function with `--no-verify-jwt`, and by pinning `verify_jwt = false` for them
+in `config.toml`. Each function still authenticates via `auth.getUser()`, and
+a forged token was refused by all six after the deploy. Evidence:
+`docs/00-verification.md` "SB-056". **Open:** the owner's app loading
+with a real session has not been observed yet.
+
+Same lesson as SB-052: a gate that trusts a platform-managed credential
+breaks silently when the platform rotates it.
 
 ---
 

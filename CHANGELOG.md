@@ -10,6 +10,17 @@ added but never executed, say so — that distinction is the whole point of
 
 ## Unreleased
 
+### Fixed — every signed-in request rejected on hosted (SB-056)
+
+Auth started signing user tokens with ES256. The gateway's legacy
+`verify_jwt` on `notes`, `search`, `enrich`, `transcribe`, `export` and
+`delete-account` only accepts HS256, so the app showed "server unreachable"
+everywhere. **Ran, on hosted 2026-11-16:** each function's exact live code
+redeployed with `--no-verify-jwt`. No token, the anon key and a forged token
+are each still refused with the function's own `401`. `config.toml` pins
+`verify_jwt = false` for the six so a deploy from `main` keeps it. **Not yet
+seen:** the owner's app loading with a real session.
+
 ### Changed — the repository is public (SB-055)
 
 `muhammadabdosaber/wamda` is public since 2026-11-01. `main` is protected by a
