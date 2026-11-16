@@ -122,6 +122,7 @@ gap) · `⬜ built, unrun` (code complete, never executed) · `❌ not built`
 | 5.6 | Explicit table grants for `authenticated` | ✅ (was a real bug) | migration `…000400` |
 | 5.7 | Vendor keys server-side only | ✅ by construction | — |
 | 5.8 | Private audio bucket, signed URLs scoped to user | ✅ both hosted buckets are `public: false` with a MIME allowlist (queried live 2026-08-21); real recordings uploaded through a signed URL on iOS Safari and Chrome, and SB-009 deleted a real object per-user | `config.toml` · `functions/notes` |
+| 5.8a | User functions authenticate in code (`auth.getUser()`), not at the gateway | 🟡 on hosted since 2026-11-16 (SB-056): all six `verify_jwt: false`; no token, anon key and a forged token each refused with the function's own `401`. A real ES256 user session loading notes not yet observed | `config.toml` · `_shared/supabase.ts` |
 | 5.9 | Strict CSP | ✅ no `unsafe-inline`/`unsafe-eval`; real HTTP header + meta fallback; deliberate-violation test proved `enforce` | SB-003 |
 | 5.10 | Per-user rate limits on `/enrich`, `/transcribe` | ✅ `ai_jobs`-backed gate; proven in `verify.sql` and over 61 real HTTP calls (60 admitted, 61st `429`) | SB-002 |
 | 5.11 | `ALLOWED_ORIGIN` not `*` | ✅ preflight rejects a foreign Origin at `403`; proven with the project's first `deno test`, including a deliberate-regression check | SB-010 |
